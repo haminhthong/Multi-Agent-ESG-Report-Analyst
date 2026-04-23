@@ -12,17 +12,6 @@ This project implements DeepLabV3+ for semantic segmentation on Pascal VOC datas
 - Pixel-level image segmentation
 - Train custom model
 - Evaluate by mIoU metric
-
----
-
-## 📷 Demo Results
-
-| Input | Ground Truth | Prediction |
-|------|-------------|------------|
-| image | mask | result |
-
-(Add screenshots here)
-
 ---
 
 ## 🚀 Features
