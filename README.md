@@ -2,7 +2,6 @@
 
 Semantic image segmentation using DeepLabV3+ architecture with PyTorch.
 
----
 
 ## 📌 Introduction
 
