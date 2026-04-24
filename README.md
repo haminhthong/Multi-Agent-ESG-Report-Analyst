@@ -8,15 +8,6 @@ Semantic image segmentation using DeepLabV3+ architecture with PyTorch.
 - Evaluate by mIoU metric
 ---
 
-## 🚀 Features
-
-- Train DeepLabV3+
-- Evaluate mIoU
-- Predict custom image
-- Save checkpoints
-- Visualization results
-
----
 
 ## 🛠 Tech Stack
 
