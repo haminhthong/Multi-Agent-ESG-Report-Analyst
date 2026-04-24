@@ -3,11 +3,6 @@
 Semantic image segmentation using DeepLabV3+ architecture with PyTorch.
 
 
-## 📌 Introduction
-
-This project implements DeepLabV3+ for semantic segmentation on Pascal VOC dataset.
-
-
 - Pixel-level image segmentation
 - Train custom model
 - Evaluate by mIoU metric
