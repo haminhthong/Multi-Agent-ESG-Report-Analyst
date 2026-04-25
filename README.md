@@ -3,10 +3,6 @@
 Semantic image segmentation using DeepLabV3+ architecture with PyTorch.
 
 
-- Pixel-level image segmentation
-- Train custom model
-- Evaluate by mIoU metric
----
 
 
 ## 🛠 Tech Stack
