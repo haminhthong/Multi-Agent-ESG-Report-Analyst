@@ -1,19 +1,4 @@
-# DeepLabV3+ Semantic Segmentation
 
-Semantic image segmentation using DeepLabV3+ architecture with PyTorch.
-
-
-
-
-## 🛠 Tech Stack
-
-- Python
-- PyTorch
-- OpenCV
-- NumPy
-- Matplotlib
-
----
 
 ## 📁 Project Structure
 
