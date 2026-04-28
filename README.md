@@ -1,10 +1,4 @@
 
-
-## 📦 Dataset
-
-Pascal VOC 2012
-
-Download:
 https://host.robots.ox.ac.uk/pascal/VOC/
 
 ---
