@@ -1,9 +1,4 @@
 
----
-
-## ▶ Usage
-
-### Train model
 
 ```bash
 python train.py
