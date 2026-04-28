@@ -1,6 +1,4 @@
 
-- Use ResNet101 backbone
-- Add augmentation
 - Deploy web demo
 - Optimize inference speed
 
