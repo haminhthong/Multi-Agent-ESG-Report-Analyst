@@ -1,7 +1,5 @@
 
 
----
-
 ## 📊 Training Result
 
 | Metric | Score |
