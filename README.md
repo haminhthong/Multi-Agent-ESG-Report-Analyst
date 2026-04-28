@@ -1,7 +1,5 @@
 
 
-## 📁 Project Structure
-
 ```bash
 deeplabv3plus-segmentation/
 │── dataset/
