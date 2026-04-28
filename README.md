@@ -1,14 +1,5 @@
 
 
-## 📊 Training Result
-
-| Metric | Score |
-|------|------|
-| mIoU | 0.78 |
-| Accuracy | 92% |
-
----
-
 ## 📦 Dataset
 
 Pascal VOC 2012
