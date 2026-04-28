@@ -1,16 +1,5 @@
 
 
-```bash
-deeplabv3plus-segmentation/
-│── dataset/
-│── models/
-│── outputs/
-│── train.py
-│── predict.py
-│── requirements.txt
-│── README.md
-```
-
 ---
 
 ## ⚙ Installation
