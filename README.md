@@ -1,11 +1,5 @@
 
 
-### Predict image
-
-```bash
-python predict.py --image test.jpg
-```
-
 ---
 
 ## 📊 Training Result
