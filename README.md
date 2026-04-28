@@ -1,9 +1,5 @@
 
 
-```bash
-python train.py
-```
-
 ### Predict image
 
 ```bash
