@@ -1,15 +1,4 @@
 
-
----
-
-## ⚙ Installation
-
-```bash
-git clone https://github.com/yourname/project.git
-cd project
-pip install -r requirements.txt
-```
-
 ---
 
 ## ▶ Usage
