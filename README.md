@@ -1,10 +1,4 @@
 
-https://host.robots.ox.ac.uk/pascal/VOC/
-
----
-
-## 🔥 Future Improvements
-
 - Use ResNet101 backbone
 - Add augmentation
 - Deploy web demo
