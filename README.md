@@ -1,11 +1,5 @@
 
 
-Phù hợp nếu chỉ nộp đồ án và không muốn chia sẻ nhiều
-
-Nếu project AI / nghiên cứu học thuật:
-📚 Apache License 2.0
-Cho phép dùng nhưng bảo vệ sáng chế tốt hơn
-
 Chuyên nghiệp hơn MIT chút, nhưng dài hơn
 
 Với trường hợp của bạn (DeepLabV3+, AI segmentation, đồ án KLTN)
