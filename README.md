@@ -1,8 +1,4 @@
 
-chonj nào hợp với đồ án KLTN của tôi
-
-Với đồ án KLTN (Khóa luận tốt nghiệp) của bạn, nếu là project cá nhân đưa lên GitHub để nộp / showcase CV / tham khảo code, thì chọn như sau:
-
 ✅ Khuyên dùng nhất: MIT License
 Nên chọn nếu bạn muốn:
 
