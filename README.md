@@ -1,6 +1,4 @@
 
-✅ Khuyên dùng nhất: MIT License
-Nên chọn nếu bạn muốn:
 
 Người khác xem, học hỏi, dùng lại code dễ dàng
 
