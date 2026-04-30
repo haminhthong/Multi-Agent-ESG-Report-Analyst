@@ -1,6 +1,4 @@
 
-🔒 Chọn None
-Không cấp phép rõ ràng cho ai dùng lại code
 
 Phù hợp nếu chỉ nộp đồ án và không muốn chia sẻ nhiều
 
