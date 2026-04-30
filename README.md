@@ -1,7 +1,4 @@
 
-
-Người khác xem, học hỏi, dùng lại code dễ dàng
-
 Nhà tuyển dụng nhìn vào thấy project chuyên nghiệp
 
 Không ràng buộc phức tạp
