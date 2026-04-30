@@ -1,9 +1,5 @@
 
-Nhà tuyển dụng nhìn vào thấy project chuyên nghiệp
 
-Không ràng buộc phức tạp
-
-👉 Đây là license phổ biến nhất cho project sinh viên / portfolio / AI / Python.
 
 Nếu không muốn ai dùng tùy ý:
 🔒 Chọn None
