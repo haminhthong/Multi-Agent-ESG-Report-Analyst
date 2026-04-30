@@ -1,7 +1,4 @@
 
-
-
-Nếu không muốn ai dùng tùy ý:
 🔒 Chọn None
 Không cấp phép rõ ràng cho ai dùng lại code
 
