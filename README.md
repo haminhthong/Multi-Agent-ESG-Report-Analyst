@@ -1,11 +1,5 @@
 
 
-Chuyên nghiệp hơn MIT chút, nhưng dài hơn
-
-Với trường hợp của bạn (DeepLabV3+, AI segmentation, đồ án KLTN)
-👉 Khuyên chọn: MIT License
-
-Vì:
 
 Code Python AI phổ biến dùng MIT
 
