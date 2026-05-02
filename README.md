@@ -1,9 +1,5 @@
 
 
-
-
-như này là sao tui cần tự cập nhật code lên github
-
 Đúng rồi — màn hình này nghĩa là GitHub Desktop đã phát hiện file bạn chỉnh sửa trên máy, nhưng chưa đưa lên GitHub online. Bạn cần làm 2 bước thủ công:
 
 Hiện tại màn hình đang báo gì?
