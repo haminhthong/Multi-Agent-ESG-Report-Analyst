@@ -1,9 +1,4 @@
 
-
-Nếu sợ bị copy:
-Public code nhưng không up báo cáo Word/PDF chi tiết
-hoặc để Private.
-
 Tóm tắt cực nhanh:
 Mục tiêu	Chọn
 Show CV / GitHub đẹp	MIT
