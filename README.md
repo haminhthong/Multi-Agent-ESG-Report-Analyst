@@ -1,7 +1,5 @@
 
-Tóm tắt cực nhanh:
-Mục tiêu	Chọn
-Show CV / GitHub đẹp	MIT
+
 Chỉ nộp trường	None
 Nghiên cứu chuyên nghiệp	Apache 2.0
 👉 Với tình trạng của bạn hiện tại: MIT là đẹp nhất.
