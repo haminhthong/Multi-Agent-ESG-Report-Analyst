@@ -1,12 +1,5 @@
 
 
-
-Code Python AI phổ biến dùng MIT
-
-Dễ gây thiện cảm khi HR xem GitHub
-
-Không rắc rối pháp lý
-
 Cách chọn ngay màn hình này:
 License → MIT License
 
