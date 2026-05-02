@@ -1,9 +1,5 @@
 
 
-Cách chọn ngay màn hình này:
-License → MIT License
-
-Bonus cho bạn:
 Nếu project là đồ án nộp trường, mình còn khuyên:
 
 Repository Public:
