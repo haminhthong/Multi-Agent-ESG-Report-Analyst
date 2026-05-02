@@ -1,9 +1,5 @@
 
 
-Chỉ nộp trường	None
-Nghiên cứu chuyên nghiệp	Apache 2.0
-👉 Với tình trạng của bạn hiện tại: MIT là đẹp nhất.
-Muốn mình xem luôn Tên repo KLTN nên đặt sao cho chuyên nghiệp + README chuẩn đồ án AI không?
 
 
 như này là sao tui cần tự cập nhật code lên github
