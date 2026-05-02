@@ -1,9 +1,4 @@
 
-Có báo cáo PDF
-
-requirements.txt
-
-Hướng dẫn chạy
 
 Nếu sợ bị copy:
 Public code nhưng không up báo cáo Word/PDF chi tiết
