@@ -1,12 +1,4 @@
 
-
-Nếu project là đồ án nộp trường, mình còn khuyên:
-
-Repository Public:
-README đẹp
-
-Có ảnh kết quả
-
 Có báo cáo PDF
 
 requirements.txt
