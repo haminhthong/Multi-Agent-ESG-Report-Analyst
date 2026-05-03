@@ -1,10 +1,5 @@
 
 
-Đúng rồi — màn hình này nghĩa là GitHub Desktop đã phát hiện file bạn chỉnh sửa trên máy, nhưng chưa đưa lên GitHub online. Bạn cần làm 2 bước thủ công:
-
-Hiện tại màn hình đang báo gì?
-Changes (2) = có 2 file đã thay đổi:
-
 00_dataset_guide.md
 
 download_esg_bulk.py
