@@ -1,8 +1,4 @@
 
-Nút Commit 2 files to main = lưu thay đổi vào lịch sử Git trên máy.
-
-Sau khi commit xong mới có thể Push origin để đẩy lên GitHub web.
-
 Cách cập nhật code lên GitHub (đúng quy trình)
 Bước 1: Commit thay đổi
 Ở ô dưới cùng:
