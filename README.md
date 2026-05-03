@@ -1,8 +1,4 @@
 
-Description (không bắt buộc)
-Edited markdown docs and improved data collection script
-Sau đó bấm:
-
 ✅ Commit 2 files to main
 Bước 2: Push lên GitHub online
 Sau khi commit xong, góc trên sẽ hiện nút:
