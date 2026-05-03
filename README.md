@@ -1,7 +1,4 @@
 
-Cách cập nhật code lên GitHub (đúng quy trình)
-Bước 1: Commit thay đổi
-Ở ô dưới cùng:
 
 Summary (required)
 Nhập ví dụ:
