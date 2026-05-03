@@ -1,10 +1,6 @@
 
 ✅ Commit 2 files to main
-Bước 2: Push lên GitHub online
-Sau khi commit xong, góc trên sẽ hiện nút:
 
-✅ Push origin
-Bấm nút đó.
 
 => Xong, code đã lên GitHub.
 
