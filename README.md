@@ -1,9 +1,4 @@
-:
-Mỗi lần sửa xong:
 
-1. Save file
-2. GitHub Desktop mở lên
-3. Commit
 4. Push origin
 Muốn auto cập nhật không cần GitHub Desktop?
 Dùng terminal:
