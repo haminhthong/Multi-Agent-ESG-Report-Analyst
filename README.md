@@ -1,8 +1,4 @@
 
-Tôi thấy project bạn đang làm khá ngon:
-Python pipeline
-
-NLP ESG
 
 README
 
