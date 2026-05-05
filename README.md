@@ -1,7 +1,5 @@
 
-=> Xong, code đã lên GitHub.
 
-Tóm tắt dễ hiểu:
 VS Code = sửa file
 GitHub Desktop = gửi file lên GitHub
 Nếu không commit thì sao?
