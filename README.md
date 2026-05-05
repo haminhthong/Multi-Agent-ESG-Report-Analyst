@@ -1,10 +1,4 @@
 
-4. Push origin
-Muốn auto cập nhật không cần GitHub Desktop?
-Dùng terminal:
-
-git add .
-git commit -m "update"
 git push
 Kết luận cho ảnh của bạn:
 👉 Hiện tại chưa lên GitHub, mới chỉ phát hiện file thay đổi.
