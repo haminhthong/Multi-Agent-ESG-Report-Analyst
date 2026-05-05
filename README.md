@@ -1,8 +1,5 @@
 
 
-Nếu muốn, tôi có thể chỉ bạn luôn cách dùng GitHub như dân dev chuyên nghiệp (branch, commit message đẹp, README xịn, push bằng VS Code) trong 15 phút.
-
-
 Đã tải lên ảnh
 
 Bạn đang ở mục Stashed changes = nghĩa là thay đổi của bạn đã bị cất tạm (stash) chứ chưa mất.
