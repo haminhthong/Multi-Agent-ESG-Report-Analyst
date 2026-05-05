@@ -1,7 +1,4 @@
 
-LICENSE
-
-👉 Nếu up chuẩn nữa thì GitHub bạn nhìn rất chuyên nghiệp.
 
 Khuyên thêm cho bạn:
 Mỗi lần sửa xong:
