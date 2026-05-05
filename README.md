@@ -1,8 +1,4 @@
 
-git push
-Kết luận cho ảnh của bạn:
-👉 Hiện tại chưa lên GitHub, mới chỉ phát hiện file thay đổi.
-👉 Bấm:
 
 Commit 2 files to main
 rồi
