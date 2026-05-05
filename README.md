@@ -1,9 +1,5 @@
 
 
-Commit 2 files to main
-rồi
-Push origin
-
 Nếu muốn, tôi có thể chỉ bạn luôn cách dùng GitHub như dân dev chuyên nghiệp (branch, commit message đẹp, README xịn, push bằng VS Code) trong 15 phút.
 
 
