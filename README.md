@@ -1,6 +1,4 @@
-
-
-Khuyên thêm cho bạn:
+:
 Mỗi lần sửa xong:
 
 1. Save file
