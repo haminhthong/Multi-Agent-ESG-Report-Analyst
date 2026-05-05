@@ -1,7 +1,4 @@
 
-
-README
-
 LICENSE
 
 👉 Nếu up chuẩn nữa thì GitHub bạn nhìn rất chuyên nghiệp.
