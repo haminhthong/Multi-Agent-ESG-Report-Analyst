@@ -1,7 +1,4 @@
 
-✅ Commit 2 files to main
-
-
 => Xong, code đã lên GitHub.
 
 Tóm tắt dễ hiểu:
