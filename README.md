@@ -1,8 +1,4 @@
 
-Nếu không commit thì sao?
-File chỉ nằm trên máy bạn, GitHub web không cập nhật.
-
-Ý nghĩa như Facebook:
 GitHub	Facebook
 Commit	Lưu bài viết
 Push	Đăng bài lên mạng
