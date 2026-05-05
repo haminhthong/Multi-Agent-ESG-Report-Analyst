@@ -1,7 +1,4 @@
 
-GitHub	Facebook
-Commit	Lưu bài viết
-Push	Đăng bài lên mạng
 Tôi thấy project bạn đang làm khá ngon:
 Python pipeline
 
