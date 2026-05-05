@@ -1,5 +1,4 @@
 
-GitHub Desktop = gửi file lên GitHub
 Nếu không commit thì sao?
 File chỉ nằm trên máy bạn, GitHub web không cập nhật.
 
