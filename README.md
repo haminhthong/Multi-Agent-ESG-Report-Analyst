@@ -1,10 +1,5 @@
 
 
-bạn bấm Stash changes
-
-hoặc GitHub Desktop stash tự động khi pull/fetch có xung đột
-
-đổi branch rồi nó cất code tạm
 
 Tin vui:
 👉 Code của bạn vẫn còn nguyên, chỉ đang cất trong kho.
