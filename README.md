@@ -1,9 +1,4 @@
 
-
-
-Tin vui:
-👉 Code của bạn vẫn còn nguyên, chỉ đang cất trong kho.
-
 Muốn cập nhật code lên GitHub thì làm thế này:
 Bước 1: Lấy code ra lại
 Bấm nút:
