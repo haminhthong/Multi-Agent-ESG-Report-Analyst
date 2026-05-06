@@ -1,7 +1,4 @@
 
-
-Đã tải lên ảnh
-
 Bạn đang ở mục Stashed changes = nghĩa là thay đổi của bạn đã bị cất tạm (stash) chứ chưa mất.
 
 Vì sao xảy ra vậy?
