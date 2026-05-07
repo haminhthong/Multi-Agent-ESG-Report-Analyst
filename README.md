@@ -1,7 +1,4 @@
 
-Nếu bấm cái này có thể mất chỉnh sửa.
-
-Tóm tắt tình trạng hiện tại:
 Trạng thái	Ý nghĩa
 Stashed changes	Code đang cất tạm
 Restore	Lấy code ra
