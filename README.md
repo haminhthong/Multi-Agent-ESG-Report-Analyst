@@ -1,15 +1,4 @@
 
-
-Update docs and ESG script
-Rồi bấm:
-
-✅ Commit to main
-Bước 3: Push lên GitHub
-Sau commit xong sẽ hiện:
-
-✅ Push origin
-Bấm để up lên GitHub.
-
 Đừng bấm Discard
 Vì:
 
