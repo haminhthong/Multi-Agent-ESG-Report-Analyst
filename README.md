@@ -1,8 +1,4 @@
 
-Đừng bấm Discard
-Vì:
-
-❌ Discard = xóa stash luôn
 Nếu bấm cái này có thể mất chỉnh sửa.
 
 Tóm tắt tình trạng hiện tại:
