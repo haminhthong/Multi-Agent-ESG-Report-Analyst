@@ -1,11 +1,5 @@
 
 
-Bước 1: Lấy code ra lại
-Bấm nút:
-
-✅ Restore
-(ngay giữa màn hình)
-
 Sau đó file sẽ quay về tab Changes.
 
 Bước 2: Commit
