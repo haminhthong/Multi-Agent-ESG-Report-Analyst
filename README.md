@@ -1,10 +1,5 @@
 
 
-Sau đó file sẽ quay về tab Changes.
-
-Bước 2: Commit
-Nhập Summary:
-
 Update docs and ESG script
 Rồi bấm:
 
