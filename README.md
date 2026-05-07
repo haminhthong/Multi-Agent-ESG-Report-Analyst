@@ -1,7 +1,5 @@
 
-Trạng thái	Ý nghĩa
-Stashed changes	Code đang cất tạm
-Restore	Lấy code ra
+
 Commit	Lưu version
 Push	Đưa lên GitHub
 Tôi khuyên bạn làm ngay:
