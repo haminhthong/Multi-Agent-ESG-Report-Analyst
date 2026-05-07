@@ -1,8 +1,3 @@
-aaaaaaaaaaaaaaaaaaaaaaaaa
-
-
-Bonus:
-Nếu bạn hay gặp stash loạn xạ, tôi có thể chỉ bạn quy trình GitHub Desktop chuẩn cho sinh viên làm KLTN để không bao giờ rối nữa.
 
 
 
