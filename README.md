@@ -1,7 +1,5 @@
 
-Tôi khuyên bạn làm ngay:
-👉 Bấm Restore trước
-rồi gửi tôi ảnh tiếp theo, tôi chỉ tiếp bước để chắc chắn code lên GitHub thành công.
+
 
 Bonus:
 Nếu bạn hay gặp stash loạn xạ, tôi có thể chỉ bạn quy trình GitHub Desktop chuẩn cho sinh viên làm KLTN để không bao giờ rối nữa.
