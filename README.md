@@ -1,7 +1,4 @@
 
-
-Commit	Lưu version
-Push	Đưa lên GitHub
 Tôi khuyên bạn làm ngay:
 👉 Bấm Restore trước
 rồi gửi tôi ảnh tiếp theo, tôi chỉ tiếp bước để chắc chắn code lên GitHub thành công.
