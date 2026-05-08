@@ -1,9 +1,4 @@
 
-🔎 1. Mảng IT nào AI KHÓ thay thế (ít bị ảnh hưởng nhất)
-🧠 1.1 System / Software Architecture
-Thiết kế hệ thống lớn (microservices, scalability, security)
-
-AI có thể hỗ trợ, nhưng:
 → Không hiểu đầy đủ business + trade-off như con người
 
 👉 Ví dụ:
