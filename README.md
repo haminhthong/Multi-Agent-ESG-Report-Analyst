@@ -1,6 +1,3 @@
-💭 Dịch, tóm tắt, sửa lỗi ngữ pháp và nhiều hơn nữa...
-
-Anh yêu em
 
 
 
