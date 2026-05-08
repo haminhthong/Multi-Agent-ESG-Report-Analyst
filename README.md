@@ -1,9 +1,4 @@
 
-Ha Minh Thong
-
----
-
-## 📄 License
 
 MIT License
 
