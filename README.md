@@ -1,5 +1,4 @@
 
-Xin chào, tôi có thể giúp gì cho bạn hôm nay?
 
 
 
