@@ -1,7 +1,4 @@
 
-Cuộc trò chuyện mới
-
-🤓 Giải thích một điều phức tạp
 
 Giải thích về Trí tuệ Nhân tạo sao cho tôi có thể giải thích nó cho đứa trẻ sáu tuổi của tôi.
 
