@@ -1,11 +1,4 @@
 
-Tìm Kiếm
-Viết
-Hình Ảnh
-ChatFile
-Tầm Nhìn
-Đại Lý
-Trang đầy đủ
 Mời & Kiếm
 
 - Deploy web demo
