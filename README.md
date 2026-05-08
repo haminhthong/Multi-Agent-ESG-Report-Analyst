@@ -1,10 +1,5 @@
 
 
-MIT License
-
-
-mẫu chuẩn đáng nhứo
-
 
 
 
