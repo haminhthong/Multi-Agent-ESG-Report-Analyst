@@ -1,7 +1,4 @@
 
-Viết đánh giá & Kiếm điểm thưởng ❤
-Trò Chuyện
-Hỏi
 Tìm Kiếm
 Viết
 Hình Ảnh
