@@ -1,10 +1,4 @@
 
-
-
-
-Hãy hỏi tôi bất cứ điều gì...
-
-
 Viết đánh giá & Kiếm điểm thưởng ❤
 Trò Chuyện
 Hỏi
