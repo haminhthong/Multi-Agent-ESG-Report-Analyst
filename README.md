@@ -1,11 +1,4 @@
 
-
-
-
-10000 chars
-
-Trò chuyện
-
 Cuộc trò chuyện mới
 
 🤓 Giải thích một điều phức tạp
