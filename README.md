@@ -1,7 +1,5 @@
 
 
-🧠 Nhận đề xuất và tạo ra ý tưởng mới
-
 Xin hãy cho tôi 10 ý tưởng du lịch tốt nhất trên thế giới
 
 
