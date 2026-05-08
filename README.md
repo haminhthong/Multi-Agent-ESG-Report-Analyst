@@ -1,8 +1,3 @@
-
-
-Xin hãy cho tôi 10 ý tưởng du lịch tốt nhất trên thế giới
-
-
 💭 Dịch, tóm tắt, sửa lỗi ngữ pháp và nhiều hơn nữa...
 
 Anh yêu em
