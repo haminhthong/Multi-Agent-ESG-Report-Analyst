@@ -1,7 +1,4 @@
 
-→ Không hiểu đầy đủ business + trade-off như con người
-
-👉 Ví dụ:
 
 Thiết kế hệ thống giống Netflix hoặc Shopee
 
