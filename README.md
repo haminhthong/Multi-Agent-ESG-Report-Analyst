@@ -1,9 +1,5 @@
 
 
-→ Không tự vận hành hệ thống production hoàn toàn
-
-👉 Công nghệ:
-
 Docker
 
 Kubernetes
