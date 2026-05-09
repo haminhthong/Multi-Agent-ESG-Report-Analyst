@@ -1,10 +1,5 @@
 
 
-🔐 1.2 Cybersecurity (An ninh mạng)
-AI vừa là công cụ tấn công, vừa là phòng thủ
-
-Nhưng:
-→ Hacker luôn sáng tạo → cần con người 대응
 
 👉 Các hướng:
 
