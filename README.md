@@ -1,9 +1,6 @@
 
 
 
-AI không thể thay thế:
-→ giao tiếp, đàm phán, hiểu ngữ cảnh
-
 ⚠️ 2. Mảng bị AI ảnh hưởng MẠNH
 👨‍💻 2.1 Lập trình cơ bản (Junior Dev)
 CRUD, code đơn giản
