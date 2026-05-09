@@ -1,7 +1,4 @@
 
-
-Docker
-
 Kubernetes
 
 Amazon Web Services
