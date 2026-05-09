@@ -1,6 +1,5 @@
 
 
-CRUD, code đơn giản
 
 AI (như GitHub Copilot) làm rất nhanh
 
