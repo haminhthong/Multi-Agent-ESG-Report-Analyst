@@ -1,9 +1,5 @@
 
 
-➡️ Mảng này: AI càng phát triển → Cloud càng phát triển theo
-
-🤝 1.4 Business Analyst / Product Owner
-Làm việc với khách hàng, hiểu yêu cầu
 
 AI không thể thay thế:
 → giao tiếp, đàm phán, hiểu ngữ cảnh
