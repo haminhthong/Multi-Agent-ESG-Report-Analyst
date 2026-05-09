@@ -1,8 +1,5 @@
 
 
-
-⚠️ 2. Mảng bị AI ảnh hưởng MẠNH
-👨‍💻 2.1 Lập trình cơ bản (Junior Dev)
 CRUD, code đơn giản
 
 AI (như GitHub Copilot) làm rất nhanh
