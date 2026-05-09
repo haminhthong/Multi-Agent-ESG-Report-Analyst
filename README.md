@@ -1,12 +1,5 @@
 
 
-
-👉 Các hướng:
-
-Pentest
-
-Security Engineer
-
 SOC Analyst
 
 ➡️ Càng ngày càng hot, không bị thay thế mà còn cần nhiều hơn
