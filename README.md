@@ -1,7 +1,4 @@
 
-Kubernetes
-
-Amazon Web Services
 
 ➡️ Mảng này: AI càng phát triển → Cloud càng phát triển theo
 
