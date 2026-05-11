@@ -1,10 +1,5 @@
 
 
-
-AI (như GitHub Copilot) làm rất nhanh
-
-➡️ Không phải mất việc, nhưng:
-
 yêu cầu cao hơn
 
 phải hiểu sâu hơn, không chỉ “code tay”
