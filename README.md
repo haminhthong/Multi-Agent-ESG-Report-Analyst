@@ -1,7 +1,5 @@
 
 
-yêu cầu cao hơn
-
 phải hiểu sâu hơn, không chỉ “code tay”
 
 🧪 2.2 Testing manual cơ bản
