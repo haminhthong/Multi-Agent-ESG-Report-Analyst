@@ -1,8 +1,5 @@
 
 
-Machine Learning
-
-Deep Learning
 
 👉 Hot nhất hiện tại:
 
