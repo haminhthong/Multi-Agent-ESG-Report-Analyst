@@ -1,6 +1,4 @@
 
-
-🚀 3. Mảng sẽ PHÁT TRIỂN MẠNH trong tương lai
 🔥 3.1 AI / Machine Learning / Deep Learning
 Cốt lõi của xu hướng
 
