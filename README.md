@@ -1,7 +1,5 @@
 
 
-phải hiểu sâu hơn, không chỉ
-
 🧪 2.2 Testing manual cơ bản
 Test case đơn giản → AI automate được
 
