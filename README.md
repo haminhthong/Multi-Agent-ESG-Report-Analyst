@@ -1,10 +1,5 @@
 
 
-
-👉 Hot nhất hiện tại:
-
-LLM (ChatGPT-like)
-
 Computer Vision
 
 AI Agents
