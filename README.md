@@ -1,7 +1,4 @@
 
-
-Computer Vision
-
 AI Agents
 
 📊 3.2 Data Engineering / Data Science
