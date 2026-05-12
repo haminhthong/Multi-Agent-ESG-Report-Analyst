@@ -1,7 +1,4 @@
 
-🔥 3.1 AI / Machine Learning / Deep Learning
-Cốt lõi của xu hướng
-
 Liên quan đến:
 
 Machine Learning
