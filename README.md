@@ -1,5 +1,4 @@
 
-Liên quan đến:
 
 Machine Learning
 
