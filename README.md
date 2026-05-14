@@ -1,16 +1,4 @@
 
-
-☁️ Cloud Engineer
-👍 Ưu:
-Lương cao
-
-Rất thiếu người
-
-Không bị AI thay thế
-
-👎 Nhược:
-Khó (network, system)
-
 nhiều thứ phải nhớ
 
 👉 Tool:
