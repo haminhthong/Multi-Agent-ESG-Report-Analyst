@@ -1,15 +1,4 @@
 
-Pandas, NumPy
-
-Visualization
-
-👉 Tool:
-
-Pandas
-
-NumPy
-
-Matplotlib
 
 🧠 Project:
 Phân tích dữ liệu bán hàng
