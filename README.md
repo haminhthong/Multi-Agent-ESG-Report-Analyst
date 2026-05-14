@@ -1,11 +1,4 @@
 
-👉 hoặc so sánh Data vs Cloud vs AI xem nên chọn cái nào làm chính 👍
-
-
-vẽ roadmap chi tiết cho bạn (theo kiểu học từng tháng)
- hoặc so sánh Data vs Cloud vs AI xem nên chọn cái nào làm chính
-
-OK, mình làm luôn cho bạn 2 phần:
 1️⃣ Roadmap học theo tháng (rất chi tiết, đi được luôn)
 2️⃣ So sánh Data vs Cloud vs AI → chọn hướng chính
 
