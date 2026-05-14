@@ -1,18 +1,5 @@
 
 
-Nhu cầu cao
-
-Lương ổn định
-
-👎 Nhược:
-Ít “cool” hơn AI
-
-cần kiên nhẫn
-
-👉 Phù hợp nếu:
-
-thích dữ liệu, logic, SQL
-
 ☁️ Cloud Engineer
 👍 Ưu:
 Lương cao
