@@ -1,14 +1,4 @@
 
-Google Cloud
-
-👉 Service:
-
-S3, EC2, BigQuery
-
-🧠 Project:
-Deploy pipeline lên cloud
-
-📅 THÁNG 9–10: Machine Learning
 🎯 Học:
 ML cơ bản
 
