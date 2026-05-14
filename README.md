@@ -1,13 +1,4 @@
 
-
-👉 Nền tảng:
-
-Google Cloud
-
-Microsoft Azure
-
-➡️ Đây là “xương sống” của hệ thống hiện đại
-
 🤖 3.4 AI + X (kết hợp)
 AI + Data
 
