@@ -1,16 +1,4 @@
 
-
-Lương rất cao
-
-👎 Nhược:
-Khó nhất
-
-cần toán + thuật toán
-
-🧠 3. NÊN CHỌN HƯỚNG NÀO?
-👉 Mình nói thẳng theo thực tế:
-
-🥇 BEST CHOICE:
 👉 Data + Cloud → rồi lên AI
 
 Vì:
