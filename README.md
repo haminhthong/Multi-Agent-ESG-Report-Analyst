@@ -1,19 +1,4 @@
 
-TensorFlow
-
-PyTorch
-
-📅 THÁNG 12: Deploy + Portfolio
-🎯 Học:
-Deploy model
-
-API
-
-👉 Tool:
-
-FastAPI
-
-Docker
 
 🧠 Project cuối:
 Full pipeline:
