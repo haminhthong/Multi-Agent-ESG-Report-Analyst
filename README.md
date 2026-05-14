@@ -1,13 +1,4 @@
 
-
-
-Giai đoạn 1:
-Python
-
-SQL
-
-Data cơ bản
-
 Giai đoạn 2:
 Data Engineering (ETL, pipeline)
 
