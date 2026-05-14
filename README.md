@@ -1,16 +1,4 @@
 
-🎯 Học:
-ML cơ bản
-
-Supervised learning
-
-👉 Tool:
-
-Scikit-learn
-
-🧠 Project:
-Predict giá nhà
-
 Predict churn khách hàng
 
 📅 THÁNG 11: Deep Learning / AI
