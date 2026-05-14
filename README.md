@@ -1,14 +1,4 @@
 
-Giai đoạn 2:
-Data Engineering (ETL, pipeline)
-
-Cloud (AWS/GCP)
-
-Giai đoạn 3:
-AI / ML
-
-Deploy model lên cloud
-
 ✅ Kết luận ngắn gọn
 ❌ Không có mảng nào AI không ảnh hưởng
 
