@@ -1,13 +1,4 @@
 
-✅ Kết luận ngắn gọn
-❌ Không có mảng nào AI không ảnh hưởng
-
-✅ Nhưng:
-
-Ít bị thay thế: Architecture, Security, Cloud
-
-Bị ảnh hưởng mạnh: Junior Dev, Manual test
-
 Phát triển mạnh: AI + Data + Cloud
 
 Nếu bạn muốn, mình có thể:
