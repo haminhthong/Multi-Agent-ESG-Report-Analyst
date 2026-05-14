@@ -1,11 +1,4 @@
 
-📅 THÁNG 5–6: Data Engineering (RẤT QUAN TRỌNG)
-👉 Đây là mảng bạn nên focus mạnh
-
-🎯 Học:
-ETL pipeline
-
-Data Warehouse
 
 Big Data
 
