@@ -1,8 +1,4 @@
 
-Phát triển mạnh: AI + Data + Cloud
-
-Nếu bạn muốn, mình có thể:
-👉 vẽ roadmap chi tiết cho bạn (theo kiểu học từng tháng)
 👉 hoặc so sánh Data vs Cloud vs AI xem nên chọn cái nào làm chính 👍
 
 
