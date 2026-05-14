@@ -1,14 +1,4 @@
 
-Predict churn khách hàng
-
-📅 THÁNG 11: Deep Learning / AI
-🎯 Học:
-Neural Network
-
-Computer Vision / NLP
-
-👉 Tool:
-
 TensorFlow
 
 PyTorch
