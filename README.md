@@ -1,11 +1,4 @@
 
-🤖 3.4 AI + X (kết hợp)
-AI + Data
-
-AI + Cloud
-
-AI + Security
-
 ➡️ Ai làm được liên ngành → lương rất cao
 
 🎯 4. Lời khuyên riêng cho bạn (Data + Cloud + AI)
