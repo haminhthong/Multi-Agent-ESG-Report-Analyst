@@ -1,10 +1,4 @@
 
-
-🧠 Project:
-Phân tích dữ liệu bán hàng
-
-Dashboard đơn giản
-
 📅 THÁNG 5–6: Data Engineering (RẤT QUAN TRỌNG)
 👉 Đây là mảng bạn nên focus mạnh
 
