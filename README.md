@@ -1,15 +1,5 @@
 
 
-🧠 Project cuối:
-Full pipeline:
-
-Data → ML → Deploy API → Cloud
-
-⚖️ 2. SO SÁNH: DATA vs CLOUD vs AI
-📊 Data (Data Engineer / Analyst)
-👍 Ưu:
-Dễ vào ngành nhất
-
 Nhu cầu cao
 
 Lương ổn định
