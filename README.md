@@ -1,12 +1,4 @@
 
-Xử lý file CSV, JSON
-
-Viết script đơn giản
-
-📅 THÁNG 3–4: Data cơ bản
-🎯 Học:
-Data Analysis
-
 Pandas, NumPy
 
 Visualization
