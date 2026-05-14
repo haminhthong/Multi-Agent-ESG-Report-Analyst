@@ -1,15 +1,4 @@
 
-nhiều thứ phải nhớ
-
-👉 Tool:
-
-Kubernetes
-
-Docker
-
-🤖 AI / ML Engineer
-👍 Ưu:
-Hot nhất
 
 Lương rất cao
 
