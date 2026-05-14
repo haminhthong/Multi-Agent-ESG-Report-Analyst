@@ -1,8 +1,4 @@
 
-1️⃣ Roadmap học theo tháng (rất chi tiết, đi được luôn)
-2️⃣ So sánh Data vs Cloud vs AI → chọn hướng chính
-
-🗺️ 1. ROADMAP 12 THÁNG (Data + Cloud + AI)
 👉 Mục tiêu: sau 1 năm có thể apply Data Engineer / AI Engineer (junior)
 
 📅 THÁNG 1–2: Nền tảng bắt buộc
