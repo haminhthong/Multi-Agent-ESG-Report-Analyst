@@ -1,11 +1,4 @@
 
-👉 Mục tiêu: sau 1 năm có thể apply Data Engineer / AI Engineer (junior)
-
-📅 THÁNG 1–2: Nền tảng bắt buộc
-🎯 Học:
-Python cơ bản + nâng cao
-
-SQL (rất quan trọng)
 
 Git
 
