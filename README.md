@@ -1,17 +1,4 @@
 
-
-➡️ Đây là skill công ty cần nhất
-
-📅 THÁNG 7–8: Cloud (bắt đầu kiếm tiền được)
-🎯 Học:
-Cloud cơ bản + deploy
-
-Storage, compute
-
-👉 Nền tảng:
-
-Amazon Web Services
-
 Google Cloud
 
 👉 Service:
