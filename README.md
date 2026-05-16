@@ -1,18 +1,4 @@
 
-🚀 Mô tả:
-Phân tích data
-
-vẽ chart
-
-👉 Tool:
-
-Matplotlib
-
-🥉 Project 3: Machine Learning
-🚀 Mô tả:
-Predict:
-
-giá nhà
 
 khách hàng rời bỏ
 
