@@ -1,19 +1,4 @@
 
-
-Phân tích dataset (sales / covid)
-
-⚙️ TUẦN 5–6: Data Engineering (QUAN TRỌNG NHẤT)
-📅 Tuần 5
-Ngày 29:
-ETL là gì
-
-Ngày 30:
-crawl data (API)
-
-Ngày 31:
-xử lý data pipeline
-
-Ngày 32:
 lưu vào DB
 
 Ngày 33:
