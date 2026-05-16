@@ -1,16 +1,4 @@
 
-👉 Data + Cloud → rồi lên AI
-
-Vì:
-
-Dễ xin việc trước
-
-Có nền tảng chắc
-
-Sau này lên AI dễ
-
-🚀 4. Lộ trình tối ưu cho bạn
-👉 Gợi ý:
 
 🎯 Main: Data Engineer
 
