@@ -1,14 +1,4 @@
 
-
-📅 Ngày 2:
-if/else
-
-toán tử
-
-📅 Ngày 3:
-vòng lặp (for, while)
-
-📅 Ngày 4:
 list, tuple
 
 📅 Ngày 5:
