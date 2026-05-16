@@ -1,13 +1,4 @@
 
-
-NumPy
-
-Ngày 22:
-Pandas basic
-
-Ngày 23:
-filter, groupby
-
 Ngày 24:
 xử lý missing data
 
