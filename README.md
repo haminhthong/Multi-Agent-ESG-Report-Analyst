@@ -1,25 +1,4 @@
 
-
-Deploy API
-
-👉 Tool:
-
-FastAPI
-
-Docker
-
-📌 3. CV CHUẨN (NHÀ TUYỂN DỤNG THÍCH)
-👉 CV bạn nên có:
-
-2–3 project thật
-
-GitHub rõ ràng
-
-Có deploy (rất mạnh)
-
-🎯 KẾT LUẬN
-👉 Nếu bạn làm đúng roadmap này:
-
 Sau ~3 tháng: intern Data
 
 Sau ~6 tháng: junior Data Engineer
