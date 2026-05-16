@@ -1,14 +1,4 @@
 
-
-Lưu DB
-
-Schedule bằng Apache Airflow
-
-👉 + điểm nếu:
-
-deploy lên Amazon Web Services
-
-🥈 Project 2: Dashboard Data
 🚀 Mô tả:
 Phân tích data
 
