@@ -1,17 +1,5 @@
 
 
-Viết chương trình quản lý sinh viên (CRUD)
-
-📅 Tuần 2 (nâng cao)
-Ngày 8:
-đọc/ghi file (txt, csv)
-
-Ngày 9:
-xử lý lỗi (try/except)
-
-Ngày 10:
-OOP cơ bản
-
 Ngày 11:
 module + package
 
