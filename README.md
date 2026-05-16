@@ -1,14 +1,4 @@
 
-list, tuple
-
-📅 Ngày 5:
-dict (rất quan trọng)
-
-📅 Ngày 6:
-function
-
-📅 Ngày 7:
-👉 Mini project:
 
 Viết chương trình quản lý sinh viên (CRUD)
 
