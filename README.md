@@ -1,15 +1,4 @@
 
-👉 2️⃣ Danh sách project xịn để build CV (đi xin việc được luôn)
-
-Mình thiết kế theo hướng bạn chọn: Data → Cloud → AI (đi đúng xu hướng, dễ xin job nhất).
-
-🗓️ 1. LỘ TRÌNH HỌC TỪNG NGÀY (8 TUẦN ĐẦU)
-👉 Mỗi ngày: 2–4 tiếng là ổn
-
-🚀 TUẦN 1–2: Python nền tảng
-🎯 Mục tiêu:
-Viết được code
-
 Hiểu logic
 
 👉 Tool chính: Python
