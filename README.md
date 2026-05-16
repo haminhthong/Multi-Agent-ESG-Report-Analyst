@@ -1,21 +1,4 @@
 
-👉 Tool:
-
-Apache Airflow
-
-Ngày 36:
-Airflow basic
-
-Ngày 37:
-DAG
-
-Ngày 38:
-scheduling
-
-Ngày 39:
-pipeline automation
-
-Ngày 40:
 debug pipeline
 
 Ngày 41:
