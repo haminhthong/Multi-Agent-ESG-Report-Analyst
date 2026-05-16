@@ -1,12 +1,5 @@
 
 
-
-✅ Kết luận
-❌ Đừng nhảy vào AI ngay (dễ nản)
-
-✅ Đi theo:
-👉 Data → Cloud → AI
-
 Nếu bạn muốn, mình có thể:
 👉 thiết kế lộ trình học từng ngày (siêu chi tiết)
 👉 hoặc list luôn project để bạn build CV xịn đi xin việc
