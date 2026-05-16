@@ -1,10 +1,5 @@
 
 
-🎯 Main: Data Engineer
-
-➕ Skill phụ: Cloud
-
-➕ Sau 1 năm: học thêm AI
 
 ✅ Kết luận
 ❌ Đừng nhảy vào AI ngay (dễ nản)
