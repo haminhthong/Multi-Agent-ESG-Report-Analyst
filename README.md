@@ -1,16 +1,4 @@
 
-Amazon Web Services
-
-Ngày 43:
-tạo account AWS
-
-Ngày 44:
-EC2
-
-Ngày 45:
-S3
-
-Ngày 46:
 upload data
 
 Ngày 47:
