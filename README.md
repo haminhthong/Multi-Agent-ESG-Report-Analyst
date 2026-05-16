@@ -1,9 +1,4 @@
 
-thiết kế lộ trình học từng ngày (siêu chi tiết)
-👉 hoặc list luôn project để bạn build CV xịn đi xin việc
-
-Ok, mình làm cho bạn combo full luôn:
-👉 1️⃣ Lộ trình học từng ngày (siêu chi tiết – 8 tuần đầu)
 👉 2️⃣ Danh sách project xịn để build CV (đi xin việc được luôn)
 
 Mình thiết kế theo hướng bạn chọn: Data → Cloud → AI (đi đúng xu hướng, dễ xin job nhất).
