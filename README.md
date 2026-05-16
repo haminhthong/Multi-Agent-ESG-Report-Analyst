@@ -1,16 +1,4 @@
 
-
-
-Ngày 53:
-chạy pipeline trong Docker
-
-Ngày 54:
-deploy API
-
-👉 Tool:
-
-FastAPI
-
 Ngày 55:
 test API
 
