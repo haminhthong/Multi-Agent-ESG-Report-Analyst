@@ -1,15 +1,4 @@
 
-
-📅 Tuần 3
-Ngày 15:
-SELECT, WHERE
-
-Ngày 16:
-GROUP BY, HAVING
-
-Ngày 17:
-JOIN (cực quan trọng)
-
 Ngày 18:
 subquery
 
