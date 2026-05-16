@@ -1,13 +1,4 @@
 
-upload data
-
-Ngày 47:
-connect DB
-
-Ngày 48:
-deploy script
-
-Ngày 49:
 👉 Project:
 
 upload data lên cloud
