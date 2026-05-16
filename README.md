@@ -1,22 +1,4 @@
 
-Ngày 18:
-subquery
-
-Ngày 19:
-tạo DB, table
-
-Ngày 20:
-insert, update, delete
-
-Ngày 21:
-👉 Project:
-
-Database quản lý bán hàng
-
-📅 Tuần 4 (Data analysis)
-👉 Tool:
-
-Pandas
 
 NumPy
 
