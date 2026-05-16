@@ -1,12 +1,4 @@
 
-Hiểu logic
-
-👉 Tool chính: Python
-
-📅 Ngày 1:
-Cài Python
-
-Print, biến, kiểu dữ liệu
 
 📅 Ngày 2:
 if/else
