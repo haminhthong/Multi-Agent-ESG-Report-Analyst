@@ -1,17 +1,4 @@
 
-Sau ~3 tháng: intern Data
-
-Sau ~6 tháng: junior Data Engineer
-
-Sau ~1 năm: có thể chuyển AI
-
-Nếu bạn muốn, mình có thể:
-👉 viết luôn CV mẫu cho bạn (copy dùng được)
-👉 hoặc review roadmap của bạn theo trình độ hiện tại
-
-
-
-
 10000 chars
 Trò chuyện
 
