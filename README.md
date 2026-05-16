@@ -1,21 +1,5 @@
 
-👉 Project:
 
-upload data lên cloud
-
-📅 Tuần 8
-👉 Tool:
-
-Docker
-
-Ngày 50:
-Docker basic
-
-Ngày 51:
-container
-
-Ngày 52:
-Dockerfile
 
 Ngày 53:
 chạy pipeline trong Docker
