@@ -1,18 +1,4 @@
 
-debug pipeline
-
-Ngày 41:
-tối ưu
-
-Ngày 42:
-👉 Project:
-
-ETL pipeline tự động mỗi ngày
-
-☁️ TUẦN 7–8: Cloud + Deploy
-📅 Tuần 7
-👉 Platform:
-
 Amazon Web Services
 
 Ngày 43:
