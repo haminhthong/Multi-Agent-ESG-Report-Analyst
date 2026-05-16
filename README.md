@@ -1,22 +1,4 @@
 
-Ngày 24:
-xử lý missing data
-
-Ngày 25:
-merge dataset
-
-Ngày 26:
-thống kê cơ bản
-
-Ngày 27:
-visualize
-
-👉 Tool:
-
-Matplotlib
-
-Ngày 28:
-👉 Project:
 
 Phân tích dataset (sales / covid)
 
