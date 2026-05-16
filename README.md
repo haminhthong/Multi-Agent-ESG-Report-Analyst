@@ -1,19 +1,5 @@
 
 
-khách hàng rời bỏ
-
-👉 Tool:
-
-Scikit-learn
-
-🏆 Project 4 (XỊN NHẤT): Full System
-🚀 Pipeline:
-Crawl data
-
-ETL
-
-Train model
-
 Deploy API
 
 👉 Tool:
