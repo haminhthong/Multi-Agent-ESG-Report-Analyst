@@ -1,22 +1,5 @@
 
 
-Ngày 11:
-module + package
-
-Ngày 12:
-làm việc với JSON
-
-Ngày 13:
-luyện bài (code practice)
-
-Ngày 14:
-👉 Project:
-
-đọc file CSV → thống kê dữ liệu
-
-🧠 TUẦN 3–4: SQL + Data
-👉 Tool: MySQL
-
 📅 Tuần 3
 Ngày 15:
 SELECT, WHERE
