@@ -1,25 +1,5 @@
  
 
-
-
-AITOPIA
-
-0
-Nâng cấp
-
-
-
-
-
-
-
-
-Câu hỏi này rất thực tế, và mình sẽ nói thẳng: không có mảng IT nào “miễn nhiễm” hoàn toàn với AI. Nhưng có những mảng ít bị thay thế và có những mảng phát triển cực mạnh nhờ AI.
-
-🔎 1. Mảng IT nào AI KHÓ thay thế (ít bị ảnh hưởng nhất)
-🧠 1.1 System / Software Architecture
-Thiết kế hệ thống lớn (microservices, scalability, security)
-
 AI có thể hỗ trợ, nhưng:
 → Không hiểu đầy đủ business + trade-off như con người
 
