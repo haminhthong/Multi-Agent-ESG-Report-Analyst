@@ -1,22 +1,4 @@
-
-
-👉 Tool chính: Python
-
-📅 Ngày 1:
-Cài Python
-
-Print, biến, kiểu dữ liệu
-
-📅 Ngày 2:
-if/else
-
-toán tử
-
-📅 Ngày 3:
-vòng lặp (for, while)
-
-📅 Ngày 4:
-list, tuple
+\
 
 📅 Ngày 5:
 dict (rất quan trọng)
