@@ -1,20 +1,4 @@
 
-
-👉 Tool:
-
-Matplotlib
-
-Ngày 28:
-👉 Project:
-
-Phân tích dataset (sales / covid)
-
-⚙️ TUẦN 5–6: Data Engineering (QUAN TRỌNG NHẤT)
-📅 Tuần 5
-Ngày 29:
-ETL là gì
-
-Ngày 30:
 crawl data (API)
 
 Ngày 31:
