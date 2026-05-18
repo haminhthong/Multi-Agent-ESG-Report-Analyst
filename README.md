@@ -1,24 +1,4 @@
 
-
-⚖️ 2. SO SÁNH: DATA vs CLOUD vs AI
-📊 Data (Data Engineer / Analyst)
-👍 Ưu:
-Dễ vào ngành nhất
-
-Nhu cầu cao
-
-Lương ổn định
-
-👎 Nhược:
-Ít “cool” hơn AI
-
-cần kiên nhẫn
-
-👉 Phù hợp nếu:
-
-thích dữ liệu, logic, SQL
-
-☁️ Cloud Engineer
 👍 Ưu:
 Lương cao
 
