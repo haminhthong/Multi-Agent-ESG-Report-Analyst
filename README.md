@@ -1,47 +1,4 @@
 
-GROUP BY, HAVING
-
-Ngày 17:
-JOIN (cực quan trọng)
-
-Ngày 18:
-subquery
-
-Ngày 19:
-tạo DB, table
-
-Ngày 20:
-insert, update, delete
-
-Ngày 21:
-👉 Project:
-
-Database quản lý bán hàng
-
-📅 Tuần 4 (Data analysis)
-👉 Tool:
-
-Pandas
-
-NumPy
-
-Ngày 22:
-Pandas basic
-
-Ngày 23:
-filter, groupby
-
-Ngày 24:
-xử lý missing data
-
-Ngày 25:
-merge dataset
-
-Ngày 26:
-thống kê cơ bản
-
-Ngày 27:
-visualize
 
 👉 Tool:
 
