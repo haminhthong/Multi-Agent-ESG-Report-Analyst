@@ -1,19 +1,4 @@
 
-S3, EC2, BigQuery
-
-🧠 Project:
-Deploy pipeline lên cloud
-
-📅 THÁNG 9–10: Machine Learning
-🎯 Học:
-ML cơ bản
-
-Supervised learning
-
-👉 Tool:
-
-Scikit-learn
-
 🧠 Project:
 Predict giá nhà
 
