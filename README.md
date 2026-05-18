@@ -1,28 +1,3 @@
-\
-
-📅 Ngày 5:
-dict (rất quan trọng)
-
-📅 Ngày 6:
-function
-
-📅 Ngày 7:
-👉 Mini project:
-
-Viết chương trình quản lý sinh viên (CRUD)
-
-📅 Tuần 2 (nâng cao)
-Ngày 8:
-đọc/ghi file (txt, csv)
-
-Ngày 9:
-xử lý lỗi (try/except)
-
-Ngày 10:
-OOP cơ bản
-
-Ngày 11:
-module + package
 
 Ngày 12:
 làm việc với JSON
