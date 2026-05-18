@@ -4,24 +4,7 @@ Viết script đơn giản
 
 📅 THÁNG 3–4: Data cơ bản
 🎯 Học:
-Data Analysis
-
-Pandas, NumPy
-
-Visualization
-
-👉 Tool:
-
-Pandas
-
-NumPy
-
-Matplotlib
-
-🧠 Project:
-Phân tích dữ liệu bán hàng
-
-Dashboard đơn giản
+Data 
 
 📅 THÁNG 5–6: Data Engineering (RẤT QUAN TRỌNG)
 👉 Đây là mảng bạn nên focus mạnh
