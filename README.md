@@ -1,19 +1,4 @@
 
-🎯 Học:
-Deploy model
-
-API
-
-👉 Tool:
-
-FastAPI
-
-Docker
-
-🧠 Project cuối:
-Full pipeline:
-
-Data → ML → Deploy API → Cloud
 
 ⚖️ 2. SO SÁNH: DATA vs CLOUD vs AI
 📊 Data (Data Engineer / Analyst)
