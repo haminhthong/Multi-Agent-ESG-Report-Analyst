@@ -1,22 +1,4 @@
-
-
-Viết script đơn giản
-
-📅 THÁNG 3–4: Data cơ bản
-🎯 Học:
-Data 
-
-📅 THÁNG 5–6: Data Engineering (RẤT QUAN TRỌNG)
-👉 Đây là mảng bạn nên focus mạnh
-
-🎯 Học:
-ETL pipeline
-
-Data Warehouse
-
-Big Data
-
-👉 Công nghệ:
+:
 
 Apache Spark
 
