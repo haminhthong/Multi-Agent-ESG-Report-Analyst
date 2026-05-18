@@ -1,31 +1,4 @@
 
-
-👎 Nhược:
-Khó nhất
-
-cần toán + thuật toán
-
-🧠 3. NÊN CHỌN HƯỚNG NÀO?
-👉 Mình nói thẳng theo thực tế:
-
-🥇 BEST CHOICE:
-👉 Data + Cloud → rồi lên AI
-
-Vì:
-
-Dễ xin việc trước
-
-Có nền tảng chắc
-
-Sau này lên AI dễ
-
-🚀 4. Lộ trình tối ưu cho bạn
-👉 Gợi ý:
-
-🎯 Main: Data Engineer
-
-➕ Skill phụ: Cloud
-
 ➕ Sau 1 năm: học thêm AI
 
 ✅ Kết luận
