@@ -1,19 +1,4 @@
 
-
-📅 THÁNG 7–8: Cloud (bắt đầu kiếm tiền được)
-🎯 Học:
-Cloud cơ bản + deploy
-
-Storage, compute
-
-👉 Nền tảng:
-
-Amazon Web Services
-
-Google Cloud
-
-👉 Service:
-
 S3, EC2, BigQuery
 
 🧠 Project:
