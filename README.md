@@ -1,38 +1,6 @@
  
 
-AI có thể hỗ trợ, nhưng:
-→ Không hiểu đầy đủ business + trade-off như con người
-
-👉 Ví dụ:
-
-Thiết kế hệ thống giống Netflix hoặc Shopee
-
-➡️ Đây là mảng càng senior càng an toàn
-
-🔐 1.2 Cybersecurity (An ninh mạng)
-AI vừa là công cụ tấn công, vừa là phòng thủ
-
-Nhưng:
-→ Hacker luôn sáng tạo → cần con người 대응
-
-👉 Các hướng:
-
-Pentest
-
-Security Engineer
-
-SOC Analyst
-
-➡️ Càng ngày càng hot, không bị thay thế mà còn cần nhiều hơn
-
-☁️ 1.3 DevOps / Cloud Engineering
-Quản lý hạ tầng, CI/CD, deploy hệ thống
-
-AI hỗ trợ viết script, nhưng:
-→ Không tự vận hành hệ thống production hoàn toàn
-
-👉 Công nghệ:
-
+AI 
 Docker
 
 Kubernetes
