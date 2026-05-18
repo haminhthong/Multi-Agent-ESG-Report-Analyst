@@ -1,27 +1,4 @@
 
-👍 Ưu:
-Lương cao
-
-Rất thiếu người
-
-Không bị AI thay thế
-
-👎 Nhược:
-Khó (network, system)
-
-nhiều thứ phải nhớ
-
-👉 Tool:
-
-Kubernetes
-
-Docker
-
-🤖 AI / ML Engineer
-👍 Ưu:
-Hot nhất
-
-Lương rất cao
 
 👎 Nhược:
 Khó nhất
