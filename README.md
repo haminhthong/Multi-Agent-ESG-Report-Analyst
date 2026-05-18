@@ -1,23 +1,4 @@
 
-🎯 Học:
-Python cơ bản + nâng cao
-
-SQL (rất quan trọng)
-
-Git
-
-👉 Công cụ:
-
-Python
-
-MySQL
-
-Git
-
-🧠 Làm được:
-Query dữ liệu
-
-Xử lý file CSV, JSON
 
 Viết script đơn giản
 
