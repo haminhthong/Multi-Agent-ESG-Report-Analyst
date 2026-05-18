@@ -1,23 +1,4 @@
-
-crawl data (API)
-
-Ngày 31:
-xử lý data pipeline
-
-Ngày 32:
-lưu vào DB
-
-Ngày 33:
-logging
-
-Ngày 34:
-automation script
-
-Ngày 35:
-👉 Project:
-
-Crawl data → lưu DB
-
+\
 📅 Tuần 6
 👉 Tool:
 
