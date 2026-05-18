@@ -1,17 +1,4 @@
-:
 
-Apache Spark
-
-Apache Airflow
-
-Hadoop
-
-🧠 Project:
-Xây pipeline:
-
-Crawl data → xử lý → lưu DB
-
-➡️ Đây là skill công ty cần nhất
 
 📅 THÁNG 7–8: Cloud (bắt đầu kiếm tiền được)
 🎯 Học:
