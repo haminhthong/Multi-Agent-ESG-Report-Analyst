@@ -1,20 +1,4 @@
 
-➕ Sau 1 năm: học thêm AI
-
-✅ Kết luận
-❌ Đừng nhảy vào AI ngay (dễ nản)
-
-✅ Đi theo:
-👉 Data → Cloud → AI
-
-Nếu bạn muốn, mình có thể:
-👉 thiết kế lộ trình học từng ngày (siêu chi tiết)
-👉 hoặc list luôn project để bạn build CV xịn đi xin việc
-
-
-thiết kế lộ trình học từng ngày (siêu chi tiết)
-👉 hoặc list luôn project để bạn build CV xịn đi xin việc
-
 Ok, mình làm cho bạn combo full luôn:
 👉 1️⃣ Lộ trình học từng ngày (siêu chi tiết – 8 tuần đầu)
 👉 2️⃣ Danh sách project xịn để build CV (đi xin việc được luôn)
