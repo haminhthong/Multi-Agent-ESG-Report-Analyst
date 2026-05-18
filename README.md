@@ -1,21 +1,4 @@
- 
 
-➡️ Đây là “xương sống” của hệ thống hiện đại
-
-🤖 3.4 AI + X (kết hợp)
-AI + Data
-
-AI + Cloud
-
-AI + Security
-
-➡️ Ai làm được liên ngành → lương rất cao
-
-🎯 4. Lời khuyên riêng cho bạn (Data + Cloud + AI)
-Bạn đang chọn đúng hướng, nhưng nên đi theo lộ trình này:
-
-Giai đoạn 1:
-Python
 
 SQL
 
