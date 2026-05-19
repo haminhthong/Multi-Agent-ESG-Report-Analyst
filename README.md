@@ -1,20 +1,4 @@
 
-
-Ngày 55:
-test API
-
-Ngày 56:
-👉 FINAL MINI PROJECT:
-
-pipeline + API + cloud
-
-💼 2. PROJECT XỊN ĐỂ BUILD CV
-👉 Đây là phần QUAN TRỌNG nhất để xin việc
-
-🥇 Project 1: Data Pipeline (bắt buộc)
-🚀 Mô tả:
-Crawl data (API hoặc web)
-
 Xử lý bằng Pandas
 
 Lưu DB
