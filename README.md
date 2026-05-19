@@ -1,15 +1,4 @@
 
-Ngày 44:
-EC2
-
-Ngày 45:
-S3
-
-Ngày 46:
-upload data
-
-Ngày 47:
-connect DB
 
 Ngày 48:
 deploy script
