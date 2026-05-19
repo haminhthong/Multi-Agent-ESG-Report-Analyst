@@ -1,37 +1,5 @@
 
 
-Ngày 48:
-deploy script
-
-Ngày 49:
-👉 Project:
-
-upload data lên cloud
-
-📅 Tuần 8
-👉 Tool:
-
-Docker
-
-Ngày 50:
-Docker basic
-
-Ngày 51:
-container
-
-Ngày 52:
-Dockerfile
-
-Ngày 53:
-chạy pipeline trong Docker
-
-Ngày 54:
-deploy API
-
-👉 Tool:
-
-FastAPI
-
 Ngày 55:
 test API
 
