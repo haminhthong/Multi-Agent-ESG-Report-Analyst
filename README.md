@@ -1,16 +1,4 @@
 
-
-ETL pipeline tự động mỗi ngày
-
-☁️ TUẦN 7–8: Cloud + Deploy
-📅 Tuần 7
-👉 Platform:
-
-Amazon Web Services
-
-Ngày 43:
-tạo account AWS
-
 Ngày 44:
 EC2
 
