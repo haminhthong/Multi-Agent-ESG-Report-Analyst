@@ -1,22 +1,4 @@
 
-Xử lý bằng Pandas
-
-Lưu DB
-
-Schedule bằng Apache Airflow
-
-👉 + điểm nếu:
-
-deploy lên Amazon Web Services
-
-🥈 Project 2: Dashboard Data
-🚀 Mô tả:
-Phân tích data
-
-vẽ chart
-
-👉 Tool:
-
 Matplotlib
 
 🥉 Project 3: Machine Learning
