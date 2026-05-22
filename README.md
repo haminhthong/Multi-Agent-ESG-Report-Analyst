@@ -1,8 +1,4 @@
-đề tài phân đoạn ảnh deep lab với bộ dữ liệu https://www.kaggle.com/datasets/gopalbhattrai/pascal-voc-2012-dataset
 
-Với đề tài “Phân đoạn ảnh bằng mô hình DeepLab sử dụng dataset Pascal VOC 2012”, mình sẽ viết giúp bạn nội dung phần phát biểu bài toán + mô tả dataset để bạn điền vào Chương 1 trong báo cáo theo đúng mẫu file bạn đã gửi. Nội dung được viết lại để dùng trực tiếp trong report.
-
-1. Phát biểu bài toán
 1.1 Mô tả bài toán
 
 Phân đoạn ảnh (Semantic Image Segmentation) là một bài toán quan trọng trong lĩnh vực thị giác máy tính (Computer Vision). Mục tiêu của bài toán là phân loại từng pixel trong ảnh vào một lớp đối tượng cụ thể, từ đó tạo ra bản đồ phân đoạn (segmentation map) thể hiện vị trí và hình dạng của các đối tượng trong ảnh.
