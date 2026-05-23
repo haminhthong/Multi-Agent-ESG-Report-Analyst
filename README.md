@@ -1,6 +1,4 @@
-ab là một kiến trúc học sâu được thiết kế cho bài toán semantic segmentation, sử dụng atrous convolution (dilated convolution) để mở rộng vùng quan sát của mạng mà không làm tăng số lượng tham số. Ngoài ra, DeepLab còn sử dụng kỹ thuật Atrous Spatial Pyramid Pooling (ASPP) để trích xuất đặc trưng ở nhiều tỷ lệ khác nhau, giúp mô hình nhận diện các đối tượng có kích thước khác nhau trong ảnh.
 
-Bài toán được thực hiện trên bộ dữ liệu Pascal VOC 2012, một dataset phổ biến trong nghiên cứu thị giác máy tính.
 
 Input của bài toán
 Ảnh RGB chứa nhiều đối tượng khác nhau trong môi trường thực tế.
