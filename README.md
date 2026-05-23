@@ -1,17 +1,4 @@
-
-Ảnh đầu vào	Kết quả phân đoạn
-ảnh có người, xe, chó	mỗi pixel được gán nhãn: person, car, dog
-1.2 Giới thiệu Dataset
-
-Trong đề tài này, nhóm sử dụng bộ dữ liệu Pascal VOC 2012 để huấn luyện và đánh giá mô hình.
-
-Pascal VOC 2012 là một bộ dữ liệu tiêu chuẩn được sử dụng rộng rãi trong các bài toán nhận dạng đối tượng, phát hiện đối tượng và phân đoạn ảnh. Dataset này cung cấp các ảnh tự nhiên cùng với nhãn được gán ở mức pixel cho từng đối tượng trong ảnh.
-
-Thông tin cơ bản của dataset
-Tổng số ảnh: khoảng 11.530 ảnh
-Số lớp đối tượng: 20 lớp + 1 lớp nền (background)
-Tổng số đối tượng được gán nhãn: hơn 27.000 đối tượng
-Các lớp đối tượng
+\
 đề tài phân đoạn ảnh deep lab với bộ dữ liệu https://www.kaggle.com/datasets/gopalbhattrai/pascal-voc-2012-dataset
 
 Với đề tài “Phân đoạn ảnh bằng mô hình DeepLab sử dụng dataset Pascal VOC 2012”, mình sẽ viết giúp bạn nội dung phần phát biểu bài toán + mô tả dataset để bạn điền vào Chương 1 trong báo cáo theo đúng mẫu file bạn đã gửi. Nội dung được viết lại để dùng trực tiếp trong report.
