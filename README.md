@@ -1,19 +1,4 @@
 
-Tổng số đối tượng được gán nhãn: hơn 27.000 đối tượng
-Các lớp đối tượng
-
-Dataset bao gồm 20 lớp đối tượng phổ biến trong đời sống như:
-
-person
-car
-bicycle
-dog
-cat
-horse
-bus
-train
-bottle
-chair
 dining table
 sofa
 tv/monitor
