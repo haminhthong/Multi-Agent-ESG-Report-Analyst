@@ -1,15 +1,4 @@
 
-import numpy as np
-import matplotlib.pyplot as plt
-
-from torch.utils.data import Dataset, DataLoader
-from torchvision import transforms
-from torchvision.models.segmentation import deeplabv3_resnet50
-
-from tqdm import tqdm
-3️⃣ Đường dẫn dataset
-
-Sau khi tải dataset Kaggle và giải nén:
 
 VOC2012/
  ├── JPEGImages
