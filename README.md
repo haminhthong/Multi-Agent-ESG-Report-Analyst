@@ -1,14 +1,4 @@
 
-Dự đoán ảnh Prediction vs Ground Truth
-
-Bạn chỉ cần chạy trong Google Colab hoặc Python.
-
-1️⃣ Cài thư viện
-!pip install torch torchvision matplotlib opencv-python tqdm
-2️⃣ Import thư viện
-import os
-import cv2
-import torch
 import numpy as np
 import matplotlib.pyplot as plt
 
