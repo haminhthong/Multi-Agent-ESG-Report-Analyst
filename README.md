@@ -1,12 +1,4 @@
 
-
-✅ Nếu bạn muốn, mình có thể viết tiếp luôn cho bạn Chương 2 (Giải pháp đề xuất DeepLab + pipeline huấn luyện) để bạn copy thẳng vào báo cáo 10–15 trang luôn.
-
-hs.docx
-Tài liệu
-làm chương 1 2
-Đã ngừng suy nghĩ
-
 Mình đã tạo sẵn 3 hình + 1 bảng kết quả để bạn đưa vào report.
 
 1️⃣ Sơ đồ Pipeline hệ thống (Chương 2)
