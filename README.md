@@ -1,16 +1,4 @@
 
-4️⃣ Bảng kết quả đánh giá mô hình
-
-Tải file bảng:
-
-segmentation_results.xlsx
-Results
-
-Bạn có thể trình bày trong report như bảng sau:
-
-Metric	Value
-Pixel Accuracy	0.87
-Mean IoU	0.71
 Precision	0.83
 Recall	0.80
 
