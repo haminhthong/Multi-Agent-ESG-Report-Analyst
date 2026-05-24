@@ -1,17 +1,4 @@
-
-
-Tải hình:
-Download Loss chart
-
-Chú thích gợi ý:
-
-Hình 3.x. Sự thay đổi của hàm mất mát trong quá trình huấn luyện
-
-Phân tích bạn có thể ghi trong report:
-
-Giá trị loss giảm dần theo số epoch.
-Điều này cho thấy mô hình học được đặc trưng của dữ liệu.
-Sau khoảng epoch 40, loss bắt đầu ổn định → mô hình dần hội tụ.
+h dần hội tụ.
 3️⃣ Hình Prediction vs Ground Truth
 
 Tải hình:
