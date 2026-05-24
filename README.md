@@ -1,17 +1,4 @@
-h dần hội tụ.
-3️⃣ Hình Prediction vs Ground Truth
 
-Tải hình:
-Download prediction vs ground truth
-
-Chú thích gợi ý:
-
-Hình 3.x. So sánh giữa ground truth và kết quả dự đoán của mô hình
-
-Phân tích có thể ghi:
-
-Kết quả dự đoán có mức độ tương đồng cao với ground truth.
-Một số vùng nhỏ vẫn còn sai lệch do đặc trưng đối tượng phức tạp.
 4️⃣ Bảng kết quả đánh giá mô hình
 
 Tải file bảng:
