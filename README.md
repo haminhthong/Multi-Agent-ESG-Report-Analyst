@@ -1,16 +1,4 @@
 
- │     └── Segmentation
- │           ├── train.txt
- │           ├── val.txt
- │           └── trainval.txt
-
-Trong đó:
-
-JPEGImages: chứa ảnh gốc
-SegmentationClass: chứa ảnh mask phân đoạn (mỗi màu tương ứng với một lớp)
-ImageSets: danh sách các ảnh thuộc từng tập dữ liệu
-1.3 Giới hạn bài toán
-
 Trong phạm vi của đồ án này, nhóm chỉ tập trung vào bài toán semantic segmentation sử dụng mô hình DeepLab trên dataset Pascal VOC 2012. Một số giới hạn của đề tài bao gồm:
 
 Chỉ sử dụng một kiến trúc mô hình chính là DeepLab.
