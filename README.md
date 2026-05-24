@@ -1,16 +1,4 @@
 
-
-    def __len__(self):
-        return len(self.images)
-
-    def __getitem__(self, idx):
-
-        img_name = self.images[idx]
-
-        img_path = os.path.join(self.image_dir, img_name)
-        mask_path = os.path.join(mask_dir, img_name.replace(".jpg",".png"))
-
-        image = cv2.imread(img_path)
         image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
 
         mask = cv2.imread(mask_path,0)
