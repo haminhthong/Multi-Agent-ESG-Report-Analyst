@@ -1,24 +1,4 @@
 
-plt.title("Prediction")
-plt.imshow(pred)
-
-plt.show()
-
-Bạn dùng hình này cho phần kết quả trong report.
-
-12️⃣ Lưu model
-torch.save(model.state_dict(),"deeplab_voc.pth")
-📊 Pipeline hệ thống (để viết trong Chương 2)
-
-Quy trình hoạt động của hệ thống:
-
-Dataset Pascal VOC
-        ↓
-Preprocessing
-(resize + normalize)
-        ↓
-DeepLabV3 + ResNet50
-        ↓
 ASPP Module
         ↓
 Decoder
