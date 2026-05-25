@@ -1,18 +1,4 @@
 
-from torchvision.models.segmentation import deeplabv3_resnet50
-from tqdm import tqdm
-
-from dataset import VOCDataset
-from utils import plot_loss
-
-
-IMAGE_DIR = "VOC2012/JPEGImages"
-MASK_DIR = "VOC2012/SegmentationClass"
-
-
-dataset = VOCDataset(IMAGE_DIR, MASK_DIR)
-
-loader = DataLoader(
     dataset,
     batch_size=4,
     shuffle=True
