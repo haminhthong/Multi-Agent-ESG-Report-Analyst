@@ -1,12 +1,4 @@
 
-1️⃣ Sơ đồ kiến trúc DeepLabV3 (ASPP)
-2️⃣ Code tính IoU / mIoU chuẩn cho Pascal VOC
-3️⃣ Viết luôn Chương 3 đầy đủ ~4 trang (tránh đạo văn)
-
-Mình làm xong thì báo cáo gần như hoàn chỉnh để nộp luôn.đề tài phân đoạn ảnh deep lab với bộ dữ liệu https://www.kaggle.com/datasets/gopalbhattrai/pascal-voc-2012-dataset
-
-Với đề tài “Phân đoạn ảnh bằng mô hình DeepLab sử dụng dataset Pascal VOC 2012”, mình sẽ viết giúp bạn nội dung phần phát biểu bài toán + mô tả dataset để bạn điền vào Chương 1 trong báo cáo theo đúng mẫu file bạn đã gửi. Nội dung được viết lại để dùng trực tiếp trong report.
-
 1. Phát biểu bài toán
 1.1 Mô tả bài toán
 
