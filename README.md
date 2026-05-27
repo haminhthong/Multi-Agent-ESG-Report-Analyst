@@ -1,14 +1,4 @@
 
-Một bản đồ phân đoạn (segmentation mask) có kích thước tương ứng với ảnh đầu vào.
-Mỗi pixel trong ảnh được gán một nhãn lớp đối tượng tương ứng.
-
-Ví dụ:
-
-Ảnh đầu vào	Kết quả phân đoạn
-ảnh có người, xe, chó	mỗi pixel được gán nhãn: person, car, dog
-1.2 Giới thiệu Dataset
-
-Trong đề tài này, nhóm sử dụng bộ dữ liệu Pascal VOC 2012 để huấn luyện và đánh giá mô hình.
 
 Pascal VOC 2012 là một bộ dữ liệu tiêu chuẩn được sử dụng rộng rãi trong các bài toán nhận dạng đối tượng, phát hiện đối tượng và phân đoạn ảnh. Dataset này cung cấp các ảnh tự nhiên cùng với nhãn được gán ở mức pixel cho từng đối tượng trong ảnh.
 
