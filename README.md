@@ -1,23 +1,4 @@
 
-    ).cpu().numpy()
-
-
-plt.figure(figsize=(12,4))
-
-
-plt.subplot(1,3,1)
-plt.title("Input Image")
-plt.imshow(image.permute(1,2,0))
-
-
-plt.subplot(1,3,2)
-plt.title("Ground Truth")
-plt.imshow(mask)
-
-
-plt.subplot(1,3,3)
-plt.title("Prediction")
-plt.imshow(pred)
 
 
 plt.show()
