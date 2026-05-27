@@ -1,18 +1,5 @@
 
 
-
-plt.show()
-▶️ Cách chạy project
-Train model
-python train.py
-Test segmentation
-python predict.py
-📊 Pipeline hệ thống (để ghi trong Chương 2)
-Pascal VOC Dataset
-        ↓
-Data Preprocessing
-(resize + tensor)
-        ↓
 DeepLabV3 + ResNet50 Backbone
         ↓
 ASPP Module
