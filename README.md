@@ -1,16 +1,4 @@
 
-Phân tích có thể ghi:
-
-Kết quả dự đoán có mức độ tương đồng cao với ground truth.
-Một số vùng nhỏ vẫn còn sai lệch do đặc trưng đối tượng phức tạp.
-4️⃣ Bảng kết quả đánh giá mô hình
-
-Tải file bảng:
-
-segmentation_results.xlsx
-Results
-
-Bạn có thể trình bày trong report như bảng sau:
 
 Metric	Value
 Pixel Accuracy	0.87
