@@ -1,16 +1,4 @@
 
-plt.title("Input Image")
-plt.imshow(image.permute(1,2,0))
-
-plt.subplot(1,3,2)
-plt.title("Ground Truth")
-plt.imshow(mask)
-
-plt.subplot(1,3,3)
-plt.title("Prediction")
-plt.imshow(pred)
-
-plt.show()
 
 Bạn dùng hình này cho phần kết quả trong report.
 
