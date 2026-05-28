@@ -1,17 +1,4 @@
 
-DeepLabV3 cho khả năng phân đoạn tốt các đối tượng chính trong ảnh.
-Một số lỗi vẫn xuất hiện ở vùng biên đối tượng do sự tương đồng về màu sắc và texture.
-
-💡 Nếu bạn muốn, mình có thể viết luôn full project chuẩn để nộp gồm:
-
-deeplab-project/
-│
-├── train.py
-├── dataset.py
-├── predict.py
-├── utils.py
-└── requirements.txt
-
 và code chạy 1 lệnh là train luôn (chuẩn như đồ án AI).
 
 ok
