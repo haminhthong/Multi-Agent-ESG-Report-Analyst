@@ -1,15 +1,4 @@
 
-    shuffle=True
-)
-
-model = model.to(device)
-
-
-criterion = torch.nn.CrossEntropyLoss()
-
-optimizer = torch.optim.Adam(
-    model.parameters(),
-    lr=0.0001
 )
 
 
