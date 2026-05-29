@@ -1,16 +1,4 @@
 
-    loop = tqdm(loader)
-
-    for images, masks in loop:
-
-        images = images.to(device)
-
-        masks = masks.to(device)
-
-        outputs = model(images)['out']
-
-        loss = criterion(outputs, masks)
-
         optimizer.zero_grad()
 
         loss.backward()
