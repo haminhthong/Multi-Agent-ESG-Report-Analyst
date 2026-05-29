@@ -1,18 +1,4 @@
 
-
-Cài đặt:
-
-pip install -r requirements.txt
-2️⃣ dataset.py
-import os
-import cv2
-import torch
-import numpy as np
-
-from torch.utils.data import Dataset
-from torchvision import transforms
-
-
 class VOCDataset(Dataset):
 
     def __init__(self, image_dir, mask_dir):
