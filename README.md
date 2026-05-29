@@ -1,18 +1,4 @@
 
-)
-
-
-num_epochs = 10
-
-loss_history = []
-
-
-for epoch in range(num_epochs):
-
-    model.train()
-
-    total_loss = 0
-
     loop = tqdm(loader)
 
     for images, masks in loop:
