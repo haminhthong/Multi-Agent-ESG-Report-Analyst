@@ -1,15 +1,5 @@
 
 
-    epoch_loss = total_loss / len(loader)
-
-    loss_history.append(epoch_loss)
-
-    print("Epoch Loss:", epoch_loss)
-
-
-torch.save(model.state_dict(),"deeplab_model.pth")
-
-
 plot_loss(loss_history)
 5️⃣ predict.py
 import torch
