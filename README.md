@@ -1,18 +1,4 @@
 
-model.load_state_dict(
-    torch.load("deeplab_model.pth")
-)
-
-model.to(device)
-
-model.eval()
-
-
-image, mask = dataset[10]
-
-
-with torch.no_grad():
-
     input_img = image.unsqueeze(0).to(device)
 
     output = model(input_img)['out']
