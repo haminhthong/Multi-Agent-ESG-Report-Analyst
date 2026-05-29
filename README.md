@@ -1,17 +1,4 @@
 
-├── requirements.txt
-│
-└── VOC2012/
-     ├── JPEGImages
-     ├── SegmentationClass
-     └── ImageSets
-1️⃣ requirements.txt
-torch
-torchvision
-opencv-python
-matplotlib
-tqdm
-numpy
 
 Cài đặt:
 
