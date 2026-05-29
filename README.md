@@ -1,16 +1,4 @@
 
-        optimizer.zero_grad()
-
-        loss.backward()
-
-        optimizer.step()
-
-        total_loss += loss.item()
-
-        loop.set_description(f"Epoch {epoch+1}")
-
-        loop.set_postfix(loss=loss.item())
-
 
     epoch_loss = total_loss / len(loader)
 
