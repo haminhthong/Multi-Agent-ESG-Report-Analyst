@@ -1,18 +1,4 @@
 
-3️⃣ utils.py
-import matplotlib.pyplot as plt
-
-
-def plot_loss(loss_history):
-
-    plt.plot(loss_history)
-
-    plt.title("Training Loss")
-
-    plt.xlabel("Epoch")
-
-    plt.ylabel("Loss")
-
     plt.show()
 4️⃣ train.py
 import torch
