@@ -1,18 +1,4 @@
 
-JPEGImages: chứa ảnh gốc
-SegmentationClass: chứa ảnh mask phân đoạn (mỗi màu tương ứng với một lớp)
-ImageSets: danh sách các ảnh thuộc từng tập dữ liệu
-1.3 Giới hạn bài toán
-
-Trong phạm vi của đồ án này, nhóm chỉ tập trung vào bài toán semantic segmentation sử dụng mô hình DeepLab trên dataset Pascal VOC 2012. Một số giới hạn của đề tài bao gồm:
-
-Chỉ sử dụng một kiến trúc mô hình chính là DeepLab.
-Dataset sử dụng là Pascal VOC 2012, không mở rộng sang các dataset lớn hơn như COCO hay Cityscapes.
-Quá trình huấn luyện được thực hiện với tài nguyên phần cứng giới hạn.
-Việc tối ưu hyperparameter chỉ được thực hiện ở mức cơ bản.
-1.4 Bố cục đồ án
-
-Báo cáo đồ án được tổ chức thành các chương như sau:
 
 Chương 1 – Phát biểu bài toán: Trình bày tổng quan về bài toán phân đoạn ảnh, mô tả input, output của hệ thống và giới thiệu dataset được sử dụng.
 Chương 2 – Giải pháp đề xuất: Mô tả chi tiết phương pháp tiếp cận, các bước tiền xử lý dữ liệu và kiến trúc mô hình DeepLab được sử dụng.
