@@ -1,17 +1,4 @@
 
-
-Bảng 3.x. Kết quả đánh giá mô hình phân đoạn ảnh
-
-💡 Nếu bạn muốn, mình có thể làm thêm 3 hình nữa để report nhìn giống paper AI thật:
-
-Kiến trúc DeepLab (ASPP + Decoder)
-Biểu đồ mIoU theo Epoch
-Hình minh họa dataset Pascal VOC
-
-Thường thêm mấy hình này thì report nhìn chuyên nghiệp hơn rất nhiều và dễ đạt 9–10 điểm. 
-
-viết code hoàn chỉnh
-
 Mình viết cho bạn code hoàn chỉnh huấn luyện mô hình DeepLabV3 để phân đoạn ảnh với dataset Pascal VOC 2012 (dataset bạn gửi trên Kaggle). Code dùng PyTorch và có luôn:
 
 Load dataset
