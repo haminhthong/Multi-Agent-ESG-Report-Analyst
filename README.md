@@ -1,21 +1,4 @@
 
-Mình viết cho bạn code hoàn chỉnh huấn luyện mô hình DeepLabV3 để phân đoạn ảnh với dataset Pascal VOC 2012 (dataset bạn gửi trên Kaggle). Code dùng PyTorch và có luôn:
-
-Load dataset
-Train model
-Vẽ Loss theo Epoch
-Dự đoán ảnh Prediction vs Ground Truth
-
-Bạn chỉ cần chạy trong Google Colab hoặc Python.
-
-1️⃣ Cài thư viện
-!pip install torch torchvision matplotlib opencv-python tqdm
-2️⃣ Import thư viện
-import os
-import cv2
-import torch
-import numpy as np
-import matplotlib.pyplot as plt
 
 from torch.utils.data import Dataset, DataLoader
 from torchvision import transforms
