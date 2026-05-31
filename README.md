@@ -1,20 +1,4 @@
 
-📊 Pipeline hệ thống (để ghi trong Chương 2)
-Pascal VOC Dataset
-        ↓
-Data Preprocessing
-(resize + tensor)
-        ↓
-DeepLabV3 + ResNet50 Backbone
-        ↓
-ASPP Module
-        ↓
-Decoder
-        ↓
-Segmentation Map
-        ↓
-Evaluation
-📈 Phần kết quả (Chương 3)
 
 Bạn có thể ghi:
 
