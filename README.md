@@ -1,27 +1,4 @@
 
-
-        return image, mask
-3️⃣ utils.py
-import matplotlib.pyplot as plt
-
-
-def plot_loss(loss_history):
-
-    plt.plot(loss_history)
-
-    plt.title("Training Loss")
-
-    plt.xlabel("Epoch")
-
-    plt.ylabel("Loss")
-
-    plt.show()
-4️⃣ train.py
-import torch
-from torch.utils.data import DataLoader
-from torchvision.models.segmentation import deeplabv3_resnet50
-from tqdm import tqdm
-
 from dataset import VOCDataset
 from utils import plot_loss
 
