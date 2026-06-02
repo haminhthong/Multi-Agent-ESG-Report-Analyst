@@ -1,23 +1,4 @@
 
-Validation	1449
-Test	1456
-
-Ngoài ra còn có tập trainval gồm 2913 ảnh được sử dụng cho huấn luyện và validation.
-
-Cấu trúc dữ liệu
-
-Dataset bao gồm các thư mục chính:
-
-VOC2012
- ├── JPEGImages           (ảnh gốc)
- ├── SegmentationClass    (mask phân đoạn)
- ├── ImageSets
- │     └── Segmentation
- │           ├── train.txt
- │           ├── val.txt
- │           └── trainval.txt
-
-Trong đó:
 
 JPEGImages: chứa ảnh gốc
 SegmentationClass: chứa ảnh mask phân đoạn (mỗi màu tương ứng với một lớp)
