@@ -1,21 +1,4 @@
 
-)
-
-model = model.to(device)
-
-
-criterion = torch.nn.CrossEntropyLoss()
-
-optimizer = torch.optim.Adam(
-    model.parameters(),
-    lr=0.0001
-)
-
-
-num_epochs = 10
-
-loss_history = []
-
 
 for epoch in range(num_epochs):
 
