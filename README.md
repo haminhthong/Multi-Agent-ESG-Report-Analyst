@@ -1,16 +1,4 @@
 
-│
-├── train.py
-├── dataset.py
-├── predict.py
-├── utils.py
-└── requirements.txt
-
-và code chạy 1 lệnh là train luôn (chuẩn như đồ án AI).
-
-ok
-
-Mình viết cho bạn full project DeepLabV3 hoàn chỉnh để dùng với dataset Pascal VOC 2012 từ Kaggle. Cấu trúc này rất phù hợp để nộp báo cáo / đồ án Deep Learning.
 
 📁 Cấu trúc Project
 deeplabv3-segmentation/
