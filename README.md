@@ -1,19 +1,4 @@
 
-Một số lỗi vẫn xảy ra tại vùng bihác nhau, giúp mô hình nhận diện các đối tượng có kích thước khác nhau trong ảnh.
-
-Bài toán được thực hiện trên bộ dữ liệu Pascal VOC 2012, một dataset phổ biến trong nghiên cứu thị giác máy tính.
-
-Input của bài toán
-Ảnh RGB chứa nhiều đối tượng khác nhau trong môi trường thực tế.
-Kích thước ảnh có thể thay đổi tùy theo dataset.
-Output của bài toán
-Một bản đồ phân đoạn (segmentation mask) có kích thước tương ứng với ảnh đầu vào.
-Mỗi pixel trong ảnh được gán một nhãn lớp đối tượng tương ứng.
-
-Ví dụ:
-
-Ảnh đầu vào	Kết quả phân đoạn
-ảnh có người, xe, chó	mỗi pixel được gán nhãn: person, car, dog
 1.2 Giới thiệu Dataset
 
 Trong đề tài này, nhóm sử dụng bộ dữ liệu Pascal VOC 2012 để huấn luyện và đánh giá mô hình.
