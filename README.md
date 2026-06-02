@@ -1,14 +1,5 @@
 
 
-
-        mask = cv2.imread(mask_path,0)
-
-        image = self.transform(image)
-
-        mask = cv2.resize(mask,(256,256))
-
-        mask = torch.tensor(mask).long()
-
         return image, mask
 3️⃣ utils.py
 import matplotlib.pyplot as plt
