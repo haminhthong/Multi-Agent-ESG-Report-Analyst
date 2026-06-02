@@ -1,21 +1,4 @@
 
-
-for epoch in range(num_epochs):
-
-    model.train()
-
-    total_loss = 0
-
-    loop = tqdm(loader)
-
-    for images, masks in loop:
-
-        images = images.to(device)
-
-        masks = masks.to(device)
-
-        outputs = model(images)['out']
-
         loss = criterion(outputs, masks)
 
         optimizer.zero_grad()
