@@ -1,22 +1,4 @@
 
-plt.title("Ground Truth")
-plt.imshow(mask)
-
-
-plt.subplot(1,3,3)
-plt.title("Prediction")
-plt.imshow(pred)
-
-
-plt.show()
-▶️ Cách chạy project
-Train model
-python train.py
-Test segmentation
-python predict.py
-📊 Pipeline hệ thống (để ghi trong Chương 2)
-Pascal VOC Dataset
-        ↓
 Data Preprocessing
 (resize + tensor)
         ↓
