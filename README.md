@@ -1,16 +1,4 @@
 
-torch
-torchvision
-opencv-python
-matplotlib
-tqdm
-numpy
-
-Cài đặt:
-
-pip install -r requirements.txt
-2️⃣ dataset.py
-import os
 import cv2
 import torch
 import numpy as np
