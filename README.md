@@ -1,28 +1,4 @@
 
-
-person
-car
-bicycle
-dog
-cat
-horse
-bus
-train
-bottle
-chair
-dining table
-sofa
-tv/monitor
-…
-
-Các lớp này được chia thành nhiều nhóm như người, động vật, phương tiện và đồ vật trong nhà.
-
-Chia tập dữ liệu
-
-Dataset Pascal VOC 2012 được chia thành các tập:
-
-Tập dữ liệu	Số ảnh
-Train	1464
 Validation	1449
 Test	1456
 
