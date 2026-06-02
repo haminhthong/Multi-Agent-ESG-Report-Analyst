@@ -1,21 +1,5 @@
 
 
-Mình đã tạo sẵn 3 hình + 1 bảng kết quả để bạn đưa vào report.
-
-1️⃣ Sơ đồ Pipeline hệ thống (Chương 2)
-
-Tải hình:
-Download pipeline diagram
-
-Bạn có thể chèn dưới mục 2.3 Quy trình xử lý hệ thống với chú thích ví dụ:
-
-Hình 2.x. Pipeline tổng thể của hệ thống phân đoạn ảnh sử dụng DeepLab
-
-2️⃣ Biểu đồ Loss theo Epoch (Chương 3)
-
-Tải hình:
-Download Loss chart
-
 Chú thích gợi ý:
 
 Hình 3.x. Sự thay đổi của hàm mất mát trong quá trình huấn luyện
