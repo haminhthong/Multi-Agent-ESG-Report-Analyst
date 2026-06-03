@@ -1,24 +1,3 @@
-ợp để nộp báo cáo / đồ án D
-1️⃣ requirements.txt
-torch
-torchvision
-opencv-python
-matplotlib
-tqdm
-numpy
-
-Cài đặt:
-
-pip install -r requirements.txt
-2️⃣ dataset.py
-import os
-import cv2
-import torch
-import numpy as np
-
-from torch.utils.data import Dataset
-from torchvision import transforms
-
 
 class VOCDataset(Dataset):
 
