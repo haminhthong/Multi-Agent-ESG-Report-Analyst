@@ -1,18 +1,4 @@
-ợp để nộp báo cáo / đồ án Deep Learning.
-
-📁 Cấu trúc Project
-deeplabv3-segmentation/
-│
-├── dataset.py
-├── train.py
-├── predict.py
-├── utils.py
-├── requirements.txt
-│
-└── VOC2012/
-     ├── JPEGImages
-     ├── SegmentationClass
-     └── ImageSets
+ợp để nộp báo cáo / đồ án D
 1️⃣ requirements.txt
 torch
 torchvision
