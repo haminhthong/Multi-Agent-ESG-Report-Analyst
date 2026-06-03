@@ -1,27 +1,4 @@
 
-
-Chú thích gợi ý:
-
-Hình 3.x. Sự thay đổi của hàm mất mát trong quá trình huấn luyện
-
-Phân tích bạn có thể ghi trong report:
-
-Giá trị loss giảm dần theo số epoch.
-Điều này cho thấy mô hình học được đặc trưng của dữ liệu.
-Sau khoảng epoch 40, loss bắt đầu ổn định → mô hình dần hội tụ.
-3️⃣ Hình Prediction vs Ground Truth
-
-Tải hình:
-Download prediction vs ground truth
-
-Chú thích gợi ý:
-
-Hình 3.x. So sánh giữa ground truth và kết quả dự đoán của mô hình
-
-Phân tích có thể ghi:
-
-Kết quả dự đoán có mức độ tương đồng cao với ground truth.
-Một số vùng nhỏ vẫn còn sai lệch do đặc trưng đối tượng phức tạp.
 4️⃣ Bảng kết quả đánh giá mô hình
 
 Tải file bảng:
