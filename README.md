@@ -1,24 +1,4 @@
 
-import torch
-import matplotlib.pyplot as plt
-
-from torchvision.models.segmentation import deeplabv3_resnet50
-
-from dataset import VOCDataset
-
-
-IMAGE_DIR = "VOC2012/JPEGImages"
-MASK_DIR = "VOC2012/SegmentationClass"
-
-
-dataset = VOCDataset(IMAGE_DIR, MASK_DIR)
-
-
-device = torch.device(
-    "cuda" if torch.cuda.is_available() else "cpu"
-)
-
-
 model = deeplabv3_resnet50()
 
 model.classifier[4] = torch.nn.Conv2d(
