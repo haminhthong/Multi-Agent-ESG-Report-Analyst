@@ -1,33 +1,4 @@
 
-        )
-
-        image = cv2.imread(img_path)
-        image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
-
-        mask = cv2.imread(mask_path,0)
-
-        image = self.transform(image)
-
-        mask = cv2.resize(mask,(256,256))
-
-        mask = torch.tensor(mask).long()
-
-        return image, mask
-3️⃣ utils.py
-import matplotlib.pyplot as plt
-
-
-def plot_loss(loss_history):
-
-    plt.plot(loss_history)
-
-    plt.title("Training Loss")
-
-    plt.xlabel("Epoch")
-
-    plt.ylabel("Loss")
-
-    plt.show()
 4️⃣ train.py
 import torch
 from torch.utils.data import DataLoader
