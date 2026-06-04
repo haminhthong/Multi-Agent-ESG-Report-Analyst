@@ -1,28 +1,4 @@
 
-device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-
-model = deeplabv3_resnet50(pretrained=True)
-
-model.classifier[4] = torch.nn.Conv2d(
-    256,
-    21,
-    kernel_size=1
-)
-
-model = model.to(device)
-
-VOC có 21 class
-
-7️⃣ Loss và Optimizer
-criterion = torch.nn.CrossEntropyLoss()
-
-optimizer = torch.optim.Adam(
-    model.parameters(),
-    lr=0.0001
-)
-8️⃣ Training Model
-num_epochs = 10
-
 loss_history = []
 
 for epoch in range(num_epochs):
