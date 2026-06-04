@@ -1,40 +1,4 @@
 
-
-
-device = torch.device(
-    "cuda" if torch.cuda.is_available() else "cpu"
-)
-
-
-model = deeplabv3_resnet50()
-
-model.classifier[4] = torch.nn.Conv2d(
-    256,
-    21,
-    kernel_size=1
-)
-
-model.load_state_dict(
-    torch.load("deeplab_model.pth")
-)
-
-model.to(device)
-
-model.eval()
-
-
-image, mask = dataset[10]
-
-
-with torch.no_grad():
-
-    input_img = image.unsqueeze(0).to(device)
-
-    output = model(input_img)['out']
-
-    pred = torch.argmax(
-        output.squeeze(),
-        dim=0
     ).cpu().numpy()
 
 
