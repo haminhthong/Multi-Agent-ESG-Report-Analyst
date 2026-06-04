@@ -1,30 +1,4 @@
 
-Test	1456
-
-Ngoài ra còn có tập trainval gồm 2913 ảnh được sử dụng cho huấn luyện và validation.
-
-Cấu trúc dữ liệu
-
-Dataset bao gồm các thư mục chính:
-
-VOC2012
- ├── JPEGImages           (ảnh gốc)
- ├── SegmentationClass    (mask phân đoạn)
- ├── ImageSets
- │     └── Segmentation
- │           ├── train.txt
- │           ├── val.txt
- │           └── trainval.txt
-
-Trong đó:
-
-JPEGImages: chứa ảnh gốc
-SegmentationClass: chứa ảnh mask phân đoạn (mỗi màu tương ứng với một lớp)
-ImageSets: danh sách các ảnh thuộc từng tập dữ liệu
-1.3 Giới hạn bài toán
-
-Trong phạm vi của đồ án này, nhóm chỉ tập trung vào bài toán semantic segmentation sử dụng mô hình DeepLab trên dataset Pascal VOC 2012. Một số giới hạn của đề tài bao gồm:
-
 Chỉ sử dụng một kiến trúc mô hình chính là DeepLab.
 Dataset sử dụng là Pascal VOC 2012, không mở rộng sang các dataset lớn hơn như COCO hay Cityscapes.
 Quá trình huấn luyện được thực hiện với tài nguyên phần cứng giới hạn.
