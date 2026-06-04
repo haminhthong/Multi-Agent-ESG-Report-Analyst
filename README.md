@@ -1,25 +1,4 @@
 
-        optimizer.step()
-
-        total_loss += loss.item()
-
-        loop.set_description(f"Epoch {epoch+1}")
-
-        loop.set_postfix(loss=loss.item())
-
-
-    epoch_loss = total_loss / len(loader)
-
-    loss_history.append(epoch_loss)
-
-    print("Epoch Loss:", epoch_loss)
-
-
-torch.save(model.state_dict(),"deeplab_model.pth")
-
-
-plot_loss(loss_history)
-5️⃣ predict.py
 import torch
 import matplotlib.pyplot as plt
 
