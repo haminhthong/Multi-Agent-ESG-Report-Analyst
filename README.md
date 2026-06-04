@@ -1,35 +1,4 @@
 
-loss_history = []
-
-for epoch in range(num_epochs):
-
-    model.train()
-    total_loss = 0
-
-    loop = tqdm(train_loader)
-
-    for images, masks in loop:
-
-        images = images.to(device)
-        masks = masks.to(device)
-
-        outputs = model(images)['out']
-
-        loss = criterion(outputs, masks)
-
-        optimizer.zero_grad()
-        loss.backward()
-        optimizer.step()
-
-        total_loss += loss.item()
-
-        loop.set_description(f"Epoch {epoch+1}")
-        loop.set_postfix(loss=loss.item())
-
-    epoch_loss = total_loss / len(train_loader)
-
-    loss_history.append(epoch_loss)
-
     print("Epoch Loss:", epoch_loss)
 9️⃣ Vẽ biểu đồ Loss
 plt.plot(loss_history)
