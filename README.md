@@ -1,27 +1,4 @@
 
-import matplotlib.pyplot as plt
-
-from torch.utils.data import Dataset, DataLoader
-from torchvision import transforms
-from torchvision.models.segmentation import deeplabv3_resnet50
-
-from tqdm import tqdm
-3️⃣ Đường dẫn dataset
-
-Sau khi tải dataset Kaggle và giải nén:
-
-VOC2012/
- ├── JPEGImages
- ├── SegmentationClass
- ├── ImageSets
-IMAGE_DIR = "VOC2012/JPEGImages"
-MASK_DIR = "VOC2012/SegmentationClass"
-4️⃣ Dataset Loader
-class VOCDataset(Dataset):
-
-    def __init__(self, image_dir, mask_dir):
-
-        self.image_dir = image_dir
         self.mask_dir = mask_dir
         self.images = os.listdir(image_dir)
 
