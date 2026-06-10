@@ -1,20 +1,4 @@
 
-plt.title("Ground Truth")
-plt.imshow(mask)
-
-plt.subplot(1,3,3)
-plt.title("Prediction")
-plt.imshow(pred)
-
-plt.show()
-
-Bạn dùng hình này cho phần kết quả trong report.
-
-12️⃣ Lưu model
-torch.save(model.state_dict(),"deeplab_voc.pth")
-📊 Pipeline hệ thống (để viết trong Chương 2)
-
-Quy trình hoạt động của hệ thống:
 
 Dataset Pascal VOC
         ↓
