@@ -1,23 +1,4 @@
 
-
-Dataset Pascal VOC
-        ↓
-Preprocessing
-(resize + normalize)
-        ↓
-DeepLabV3 + ResNet50
-        ↓
-ASPP Module
-        ↓
-Decoder
-        ↓
-Segmentation Mask
-        ↓
-Evaluation (IoU, Accuracy)
-📈 Phần phân tích kết quả (viết cho Chương 3)
-
-Bạn có thể viết:
-
 Loss giảm dần qua các epoch chứng tỏ mô hình học được đặc trưng của dữ liệu.
 DeepLabV3 cho khả năng phân đoạn tốt các đối tượng chính trong ảnh.
 Một số lỗi vẫn xuất hiện ở vùng biên đối tượng do sự tương đồng về màu sắc và texture.
