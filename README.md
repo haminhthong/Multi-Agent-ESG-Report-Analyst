@@ -1,33 +1,4 @@
 
-bottle
-chair
-dining table
-sofa
-tv/monitor
-…
-
-Các lớp này được chia thành nhiều nhóm như người, động vật, phương tiện và đồ vật trong nhà.
-
-Chia tập dữ liệu
-
-Dataset Pascal VOC 2012 được chia thành các tập:
-
-Tập dữ liệu	Số ảnh
-Train	1464
-Validation	1449
-Test	1456
-
-Ngoài ra còn có tập trainval gồm 2913 ảnh được sử dụng cho huấn luyện và validation.
-
-Cấu trúc dữ liệu
-
-Dataset bao gồm các thư mục chính:
-
-VOC2012
- ├── JPEGImages           (ảnh gốc)
- ├── SegmentationClass    (mask phân đoạn)
- ├── ImageSets
- │     └── Segmentation
  │           ├── train.txt
  │           ├── val.txt
  │           └── trainval.txt
