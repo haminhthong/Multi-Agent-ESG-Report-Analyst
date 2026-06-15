@@ -1,26 +1,4 @@
 
-    pred = torch.argmax(output.squeeze(), dim=0).cpu().numpy()
-11️⃣ Hiển thị Prediction vs Ground Truth
-plt.figure(figsize=(12,4))
-
-plt.subplot(1,3,1)
-plt.title("Input Image")
-plt.imshow(image.permute(1,2,0))
-
-plt.subplot(1,3,2)
-plt.title("Ground Truth")
-plt.imshow(mask)
-
-plt.subplot(1,3,3)
-plt.title("Prediction")
-plt.imshow(pred)
-
-plt.show()
-
-Bạn dùng hình này cho phần kết quả trong report.
-
-12️⃣ Lưu model
-torch.save(model.state_dict(),"deeplab_voc.pth")
 📊 Pipeline hệ thống (để viết trong Chương 2)
 
 Quy trình hoạt động của hệ thống:
