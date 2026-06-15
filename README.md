@@ -1,33 +1,4 @@
 
-
-        loop.set_description(f"Epoch {epoch+1}")
-        loop.set_postfix(loss=loss.item())
-
-    epoch_loss = total_loss / len(train_loader)
-
-    loss_history.append(epoch_loss)
-
-    print("Epoch Loss:", epoch_loss)
-9️⃣ Vẽ biểu đồ Loss
-plt.plot(loss_history)
-plt.title("Training Loss")
-plt.xlabel("Epoch")
-plt.ylabel("Loss")
-plt.show()
-
-Bạn chụp hình này đưa vào Chương 3
-
-🔟 Test Prediction
-model.eval()
-
-image, mask = dataset[10]
-
-with torch.no_grad():
-
-    input_img = image.unsqueeze(0).to(device)
-
-    output = model(input_img)['out']
-
     pred = torch.argmax(output.squeeze(), dim=0).cpu().numpy()
 11️⃣ Hiển thị Prediction vs Ground Truth
 plt.figure(figsize=(12,4))
