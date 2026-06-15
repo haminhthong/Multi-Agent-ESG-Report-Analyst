@@ -1,25 +1,4 @@
- kết quả thực nghiệm và đánh giá hiệu năng của mô hình.
-Kết luận: Tổng kết những kết quả đạt được, hạn chế của đề tài và hướng phát triển trong tương lai.
 
-✅ Nếu bạn muốn, mình có thể viết tiếp luôn cho bạn Chương 2 (Giải pháp đề xuất DeepLab + pipeline huấn luyện) để bạn copy thẳng vào báo cáo 10–15 trang luôn.
-
-hs.docx
-Tài liệu
-làm chương 1 2
-Đã ngừng suy nghĩ
-
-Mình đã tạo sẵn 3 hình + 1 bảng kết quả để bạn đưa vào report.
-
-1️⃣ Sơ đồ Pipeline hệ thống (Chương 2)
-
-Tải hình:
-Download pipeline diagram
-
-Bạn có thể chèn dưới mục 2.3 Quy trình xử lý hệ thống với chú thích ví dụ:
-
-Hình 2.x. Pipeline tổng thể của hệ thống phân đoạn ảnh sử dụng DeepLab
-
-2️⃣ Biểu đồ Loss theo Epoch (Chương 3)
 
 Tải hình:
 Download Loss chart
