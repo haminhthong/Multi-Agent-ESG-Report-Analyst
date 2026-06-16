@@ -1,27 +1,4 @@
 
-├── predict.py
-├── utils.py
-├── requirements.txt
-│
-└── VOC2012/
-     ├── JPEGImages
-     ├── SegmentationClass
-     └── ImageSets
-1️⃣ requirements.txt
-torch
-torchvision
-opencv-python
-matplotlib
-tqdm
-numpy
-
-Cài đặt:
-
-pip install -r requirements.txt
-2️⃣ dataset.py
-import os
-import cv2
-import torch
 import numpy as np
 
 from torch.utils.data import Dataset
