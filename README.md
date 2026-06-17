@@ -1,24 +1,4 @@
-\↓
-ASPP Module
-        ↓
-Decoder
-        ↓
-Segmentation Map
-        ↓
-Evaluation
-📈 Phần kết quả (Chương 3)
 
-Bạn có thể ghi:
-
-Loss giảm dần theo epoch chứng tỏ mô hình học tốt đặc trưng dữ liệu.
-DeepLabV3 cho kết quả phân đoạn tốt với các đối tượng lớn như người, xe, động vật.
-Một số lỗi vẫn xảy ra tại vùng biên của đối tượng.
-
-✅ Nếu bạn muốn, mình có thể làm thêm 3 thứ cực quan trọng để report đẹp hơn:
-
-1️⃣ Sơ đồ kiến trúc DeepLabV3 (ASPP)
-2️⃣ Code tính IoU / mIoU chuẩn cho Pascal VOC
-3️⃣ Viết luôn Chương 3 đầy đủ ~4 trang (tránh đạo văn)
 
 Mình làm xong thì báo cáo gần như hoàn chỉnh để nộp luôn.đề tài phân đoạn ảnh deep lab với bộ dữ liệu https://www.kaggle.com/datasets/gopalbhattrai/pascal-voc-2012-dataset
 
