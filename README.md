@@ -1,22 +1,4 @@
 
-1.4 Bố cục đồ án
-
-Báo cáo đồ án được tổ chức thành các chương như sau:
-
-Chương 1 – Phát biểu bài toán: Trình bày tổng quan về bài toán phân đoạn ảnh, mô tả input, output của hệ thống và giới thiệu dataset được sử dụng.
-Chương 2 – Giải pháp đề xuất: Mô tả chi tiết phương pháp tiếp cận, các bước tiền xử lý dữ liệu và kiến trúc mô hình DeepLab được sử dụng.
-Chương 3 – Các thực nghiệm và đánh giá: Trình bày quá trình huấn luyện mô hình, các tham số sử dụng, kết quả thực nghiệm và đánh giá hiệu năng của mô hình.
-Kết luận: Tổng kết những kết quả đạt được, hạn chế của đề tài và hướng phát triển trong tương lai.
-
-✅ Nếu bạn muốn, mình có thể viết tiếp luôn cho bạn Chương 2 (Giải pháp đề xuất DeepLab + pipeline huấn luyện) để bạn copy thẳng vào báo cáo 10–15 trang luôn.
-
-hs.docx
-Tài liệu
-làm chương 1 2
-Đã ngừng suy nghĩ
-
-Mình đã tạo sẵn 3 hình + 1 bảng kết quả để bạn đưa vào report.
-
 1️⃣ Sơ đồ Pipeline hệ thống (Chương 2)
 
 Tải hình:
