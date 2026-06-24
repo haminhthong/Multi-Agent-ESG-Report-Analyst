@@ -1,28 +1,5 @@
 
 
-from utils import plot_loss
-
-
-IMAGE_DIR = "VOC2012/JPEGImages"
-MASK_DIR = "VOC2012/SegmentationClass"
-
-
-dataset = VOCDataset(IMAGE_DIR, MASK_DIR)
-
-loader = DataLoader(
-    dataset,
-    batch_size=4,
-    shuffle=True
-)
-
-
-device = torch.device(
-    "cuda" if torch.cuda.is_available() else "cpu"
-)
-
-
-model = deeplabv3_resnet50(pretrained=True)
-
 model.classifier[4] = torch.nn.Conv2d(
     256,
     21,
