@@ -1,43 +1,4 @@
 
-
-        loop.set_postfix(loss=loss.item())
-
-
-    epoch_loss = total_loss / len(loader)
-
-    loss_history.append(epoch_loss)
-
-    print("Epoch Loss:", epoch_loss)
-
-
-torch.save(model.state_dict(),"deeplab_model.pth")
-
-
-plot_loss(loss_history)
-5️⃣ predict.py
-import torch
-import matplotlib.pyplot as plt
-
-from torchvision.models.segmentation import deeplabv3_resnet50
-
-from dataset import VOCDataset
-
-
-IMAGE_DIR = "VOC2012/JPEGImages"
-MASK_DIR = "VOC2012/SegmentationClass"
-
-
-dataset = VOCDataset(IMAGE_DIR, MASK_DIR)
-
-
-device = torch.device(
-    "cuda" if torch.cuda.is_available() else "cpu"
-)
-
-
-model = deeplabv3_resnet50()
-
-model.classifier[4] = torch.nn.Conv2d(
     256,
     21,
     kernel_size=1
