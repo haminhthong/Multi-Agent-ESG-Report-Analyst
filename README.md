@@ -1,49 +1,4 @@
 
-    dataset,
-    batch_size=4,
-    shuffle=True
-)
-
-
-device = torch.device(
-    "cuda" if torch.cuda.is_available() else "cpu"
-)
-
-
-model = deeplabv3_resnet50(pretrained=True)
-
-model.classifier[4] = torch.nn.Conv2d(
-    256,
-    21,
-    kernel_size=1
-)
-
-model = model.to(device)
-
-
-criterion = torch.nn.CrossEntropyLoss()
-
-optimizer = torch.optim.Adam(
-    model.parameters(),
-    lr=0.0001
-)
-
-
-num_epochs = 10
-
-loss_history = []
-
-
-for epoch in range(num_epochs):
-
-    model.train()
-
-    total_loss = 0
-
-    loop = tqdm(loader)
-
-    for images, masks in loop:
-
         images = images.to(device)
 
         masks = masks.to(device)
