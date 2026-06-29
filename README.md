@@ -1,39 +1,4 @@
 
-
-ok
-
-Mình viết cho bạn full project DeepLabV3 hoàn chỉnh để dùng với dataset Pascal VOC 2012 từ Kaggle. Cấu trúc này rất phù hợp để nộp báo cáo / đồ án Deep Learning.
-
-📁 Cấu trúc Project
-deeplabv3-segmentation/
-│
-├── dataset.py
-├── train.py
-├── predict.py
-├── utils.py
-├── requirements.txt
-│
-└── VOC2012/
-     ├── JPEGImages
-     ├── SegmentationClass
-     └── ImageSets
-1️⃣ requirements.txt
-torch
-torchvision
-opencv-python
-matplotlib
-tqdm
-numpy
-
-Cài đặt:
-
-pip install -r requirements.txt
-2️⃣ dataset.py
-import os
-import cv2
-import torch
-import numpy as np
-
 from torch.utils.data import Dataset
 from torchvision import transforms
 
