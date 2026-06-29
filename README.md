@@ -1,32 +1,4 @@
 
-Trong đề tài này, nhóm nghiên cứu áp dụng mô hình DeepLab để thực hiện bài toán phân đoạn ảnh. DeepLab là một kiến trúc học sâu được thiết kế cho bài toán semantic segmentation, sử dụng atrous convolution (dilated convolution) để mở rộng vùng quan sát của mạng mà không làm tăng số lượng tham số. Ngoài ra, DeepLab còn sử dụng kỹ thuật Atrous Spatial Pyramid Pooling (ASPP) để trích xuất đặc trưng ở nhiều tỷ lệ khác nhau, giúp mô hình nhận diện các đối tượng có kích thước khác nhau trong ảnh.
-
-Bài toán được thực hiện trên bộ dữ liệu Pascal VOC 2012, một dataset phổ biến trong nghiên cứu thị giác máy tính.
-
-Input của bài toán
-Ảnh RGB chứa nhiều đối tượng khác nhau trong môi trường thực tế.
-Kích thước ảnh có thể thay đổi tùy theo dataset.
-Output của bài toán
-Một bản đồ phân đoạn (segmentation mask) có kích thước tương ứng với ảnh đầu vào.
-Mỗi pixel trong ảnh được gán một nhãn lớp đối tượng tương ứng.
-
-Ví dụ:
-
-Ảnh đầu vào	Kết quả phân đoạn
-ảnh có người, xe, chó	mỗi pixel được gán nhãn: person, car, dog
-1.2 Giới thiệu Dataset
-
-Trong đề tài này, nhóm sử dụng bộ dữ liệu Pascal VOC 2012 để huấn luyện và đánh giá mô hình.
-
-Pascal VOC 2012 là một bộ dữ liệu tiêu chuẩn được sử dụng rộng rãi trong các bài toán nhận dạng đối tượng, phát hiện đối tượng và phân đoạn ảnh. Dataset này cung cấp các ảnh tự nhiên cùng với nhãn được gán ở mức pixel cho từng đối tượng trong ảnh.
-
-Thông tin cơ bản của dataset
-Tổng số ảnh: khoảng 11.530 ảnh
-Số lớp đối tượng: 20 lớp + 1 lớp nền (background)
-Tổng số đối tượng được gán nhãn: hơn 27.000 đối tượng
-Các lớp đối tượng
-
-Dataset bao gồm 20 lớp đối tượng phổ biến trong đời sống như:
 
 person
 car
