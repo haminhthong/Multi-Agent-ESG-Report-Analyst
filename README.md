@@ -1,33 +1,4 @@
 
-    kernel_size=1
-)
-
-model.load_state_dict(
-    torch.load("deeplab_model.pth")
-)
-
-model.to(device)
-
-model.eval()
-
-
-image, mask = dataset[10]
-
-
-with torch.no_grad():
-
-    input_img = image.unsqueeze(0).to(device)
-
-    output = model(input_img)['out']
-
-    pred = torch.argmax(
-        output.squeeze(),
-        dim=0
-    ).cpu().numpy()
-
-
-plt.figure(figsize=(12,4))
-
 
 plt.subplot(1,3,1)
 plt.title("Input Image")
