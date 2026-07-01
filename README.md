@@ -1,41 +1,4 @@
 
-
-plt.subplot(1,3,1)
-plt.title("Input Image")
-plt.imshow(image.permute(1,2,0))
-
-
-plt.subplot(1,3,2)
-plt.title("Ground Truth")
-plt.imshow(mask)
-
-
-plt.subplot(1,3,3)
-plt.title("Prediction")
-plt.imshow(pred)
-
-
-plt.show()
-▶️ Cách chạy project
-Train model
-python train.py
-Test segmentation
-python predict.py
-📊 Pipeline hệ thống (để ghi trong Chương 2)
-Pascal VOC Dataset
-        ↓
-Data Preprocessing
-(resize + tensor)
-        ↓
-DeepLabV3 + ResNet50 Backbone
-        ↓
-ASPP Module
-        ↓
-Decoder
-        ↓
-Segmentation Map
-        ↓
-Evaluation
 📈 Phần kết quả (Chương 3)
 
 Bạn có thể ghi:
