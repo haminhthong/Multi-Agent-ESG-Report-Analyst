@@ -1,40 +1,4 @@
 
-Pascal VOC 2012 là một bộ dữ liệu tiêu chuẩn được sử dụng rộng rãi trong các bài toán nhận dạng đối tượng, phát hiện đối tượng và phân đoạn ảnh. Dataset này cung cấp các ảnh tự nhiên cùng với nhãn được gán ở mức pixel cho từng đối tượng trong ảnh.
-
-Thông tin cơ bản của dataset
-Tổng số ảnh: khoảng 11.530 ảnh
-Số lớp đối tượng: 20 lớp + 1 lớp nền (background)
-Tổng số đối tượng được gán nhãn: hơn 27.000 đối tượng
-Các lớp đối tượng
-
-Dataset bao gồm 20 lớp đối tượng phổ biến trong đời sống như:
-
-person
-car
-bicycle
-dog
-cat
-horse
-bus
-train
-bottle
-chair
-dining table
-sofa
-tv/monitor
-…
-
-Các lớp này được chia thành nhiều nhóm như người, động vật, phương tiện và đồ vật trong nhà.
-
-Chia tập dữ liệu
-
-Dataset Pascal VOC 2012 được chia thành các tập:
-
-Tập dữ liệu	Số ảnh
-Train	1464
-Validation	1449
-Test	1456
-
 Ngoài ra còn có tập trainval gồm 2913 ảnh được sử dụng cho huấn luyện và validation.
 
 Cấu trúc dữ liệu
