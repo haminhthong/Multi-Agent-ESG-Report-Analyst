@@ -1,34 +1,4 @@
 
-💡 Nếu bạn muốn, mình có thể làm thêm 3 hình nữa để report nhìn giống paper AI thật:
-
-Kiến trúc DeepLab (ASPP + Decoder)
-Biểu đồ mIoU theo Epoch
-Hình minh họa dataset Pascal VOC
-
-Thường thêm mấy hình này thì report nhìn chuyên nghiệp hơn rất nhiều và dễ đạt 9–10 điểm. 
-
-viết code hoàn chỉnh
-
-Mình viết cho bạn code hoàn chỉnh huấn luyện mô hình DeepLabV3 để phân đoạn ảnh với dataset Pascal VOC 2012 (dataset bạn gửi trên Kaggle). Code dùng PyTorch và có luôn:
-
-Load dataset
-Train model
-Vẽ Loss theo Epoch
-Dự đoán ảnh Prediction vs Ground Truth
-
-Bạn chỉ cần chạy trong Google Colab hoặc Python.
-
-1️⃣ Cài thư viện
-!pip install torch torchvision matplotlib opencv-python tqdm
-2️⃣ Import thư viện
-import os
-import cv2
-import torch
-import numpy as np
-import matplotlib.pyplot as plt
-
-from torch.utils.data import Dataset, DataLoader
-from torchvision import transforms
 from torchvision.models.segmentation import deeplabv3_resnet50
 
 from tqdm import tqdm
