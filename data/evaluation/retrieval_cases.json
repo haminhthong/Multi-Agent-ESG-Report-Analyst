@@ -1,0 +1,44 @@
+[
+  {
+    "id": "boeing_environment",
+    "question": "What environmental emissions and energy data does Boeing disclose?",
+    "query_scope": ["boeing-demo"],
+    "expected": [
+      {"document_id": "boeing-demo", "page": 34}
+    ]
+  },
+  {
+    "id": "boeing_safety",
+    "question": "How does Boeing address employee safety and training?",
+    "query_scope": ["boeing-demo"],
+    "expected": [
+      {"document_id": "boeing-demo", "page": 18},
+      {"document_id": "boeing-demo", "page": 43}
+    ]
+  },
+  {
+    "id": "boeing_governance",
+    "question": "How does the board oversee climate and enterprise risk?",
+    "query_scope": ["boeing-demo"],
+    "expected": [
+      {"document_id": "boeing-demo", "page": 65}
+    ]
+  },
+  {
+    "id": "boeing_scope_3",
+    "question": "Does the report disclose Scope 3 greenhouse gas emissions?",
+    "query_scope": ["boeing-demo"],
+    "expected": [
+      {"document_id": "boeing-demo", "page": 34}
+    ]
+  },
+  {
+    "id": "boeing_suppliers",
+    "question": "How many suppliers were rated using social criteria?",
+    "query_scope": ["boeing-demo"],
+    "expected": [
+      {"document_id": "boeing-demo", "page": 43}
+    ]
+  }
+]
+
