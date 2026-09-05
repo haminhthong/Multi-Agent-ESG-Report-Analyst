@@ -1,79 +1,116 @@
 # Phương pháp luận Đánh giá & Chuẩn mực Benchmark (Benchmark Methodology)
+## Evidence-Grounded ESG Intelligence & Audit System
 
-Tài liệu này công bố minh bạch quy trình xây dựng tập dữ liệu, phương pháp gán nhãn Ground Truth và định nghĩa toán học các chỉ số đo lường phục vụ đánh giá hệ thống **Multi-Agent ESG Report Analyst**.
+Tài liệu này công bố minh bạch quy trình xây dựng tập dữ liệu kiểm chuẩn, phương pháp gán nhãn Ground Truth và định nghĩa toán học các chỉ số đo lường 4 tầng (4-Tier Evaluation) phục vụ đánh giá hệ thống.
 
 ---
 
-## 1. Quy mô & Cấu trúc Tập Dữ liệu (Dataset Scale & Inventory)
+## 1. Quy mô & Cấu trúc Tập Dữ liệu Đa ngành (Cross-Sector Evaluation Suite)
 
-Để loại bỏ hoàn toàn vấn đề "kết quả 1.0 ảo" trên trích đoạn đơn lẻ, hệ thống thiết lập bộ benchmark đa ngành (Cross-Sector Evaluation Suite) bao trùm 3 nhóm ngành trọng điểm:
+Để đảm bảo tính khách quan và loại bỏ hoàn toàn vấn đề "kết quả 1.0 ảo" trên trích đoạn đơn lẻ, hệ thống thiết lập bộ benchmark đa ngành bao trùm 3 nhóm ngành trọng điểm:
 
-| Nhóm ngành (Sector) | Doanh nghiệp | Năm báo cáo | Định dạng & Phạm vi | Chủ đề ESG chính |
+| Nhóm ngành (Sector) | Doanh nghiệp | Năm báo cáo | Định dạng & Phạm vi | Chủ đề ESG chính & Hard Negatives |
 |---|---|---|---|---|
-| **Industrials** | The Boeing Company | 2025 | Báo cáo Phát triển Bền vững | Net-Zero 2030, Scope 1/2/3, An toàn bay & OHS, Đánh giá nhà cung ứng |
+| **Industrials & Aerospace** | The Boeing Company | 2023 - 2025 | Báo cáo Phát triển Bền vững | Net-Zero 2030, Scope 1/2/3, An toàn bay & OHS, Đánh giá nhà cung ứng, **Hard Negative: Tuyên bố báo cáo không được kiểm toán (Trang 70)** |
 | **Energy & Utilities** | NextEra Energy | 2024 | Báo cáo Bền vững & Real Zero | Công suất năng lượng tái tạo (Wind/Solar/Storage), Giảm cường độ phát thải Scope 1, Đa dạng sinh học, Kiểm toán độc lập ERM CVS |
 | **Materials & Mining** | Alcoa Corporation | 2024 | Báo cáo Bền vững & Khí hậu | Nhôm phát thải thấp EcoLum, TRIR & Zero Fatality, Bồi hoàn mỏ Bauxite, Đa dạng giới lãnh đạo, Chống tham nhũng |
 
 ### Thống kê Định lượng Tổng thể:
 - **Số lượng báo cáo đối sánh**: 3 tập tài liệu đa ngành.
-- **Số trang trích đoạn chuẩn hóa**: 15 trang trích đoạn đại diện có cấu trúc trang độc lập (`---PAGE X---`).
-- **Số lượng truy vấn kiểm thử Retrieval (Retrieval Queries)**: 15 câu hỏi Ground Truth độc lập.
-- **Số lượng kiểm thử chất lượng câu trả lời (Answer Eval Cases)**: 10 kịch bản đo lường chuyên sâu.
+- **Số trang trích đoạn chuẩn hóa**: 16 trang trích đoạn đại diện có cấu trúc trang độc lập (`---PAGE X---`), bao gồm cả bảng số liệu và phản ví dụ (hard negatives).
+- **Số lượng truy vấn kiểm chuẩn Retrieval**: 21 câu hỏi Ground Truth độc lập (tăng từ 15 cases ban đầu, bổ sung các câu hỏi về bảng, mâu thuẫn số liệu và so sánh).
+- **Số lượng ca kiểm chuẩn trích xuất số liệu (Extraction Cases)**: 10 ca kiểm thử cấu trúc số liệu định lượng (Scope 1/2/3, Targets, Baseline, TRIR).
+- **Số lượng ca kiểm chuẩn chất lượng câu trả lời (Answer Eval Cases)**: 10 kịch bản đo lường chuyên sâu.
 
 ---
 
-## 2. Quy trình Gán nhãn Chuẩn (Annotation Procedure)
+## 2. Khung Đánh giá Toàn diện 4 Tầng (4-Tier Evaluation Architecture)
 
-1. **Chuẩn hóa khung tiêu chuẩn**: Các tiêu chí đánh giá được ánh xạ trực tiếp từ các bộ tiêu chuẩn quốc tế:
-   - **GRI Standards**: GRI 302 (Năng lượng), GRI 305 (Phát thải khí nhà kính), GRI 403 (An toàn sức khỏe nghề nghiệp), GRI 205 (Chống tham nhũng).
-   - **SASB Standards**: Aerospace & Defense, Electric Utilities & Power Generators, Metals & Mining.
-   - **TCFD Recommendations**: Quản trị rủi ro khí hậu của Hội đồng quản trị (Board Oversight).
-2. **Nguyên tắc Không Rò rỉ Nhãn (Zero Data Leakage)**:
-   - Trong quá trình truy xuất, `document_id` và `page` kỳ vọng tuyệt đối **không** được truyền vào câu truy vấn hoặc bộ lọc ngầm.
-   - Hệ thống phải tự mở rộng truy vấn và so khớp ngữ nghĩa trên toàn bộ corpus hoặc phạm vi chỉ định (`query_scope`).
-3. **Độ phân giải trang (Page-Level Granularity)**:
-   - Mỗi câu hỏi được gán nhãn chính xác đến số trang (`document_id`, `page`) chứa dữ liệu trả lời, cho phép kiểm chứng chéo trực tiếp trên tệp PDF gốc.
+```
+┌────────────────────────────────────────────────────────────────────────┐
+│               Tier 1: Retrieval & Reranking Performance                │
+│       Hit@K · Recall@K · MRR@K · nDCG@K · Page Boundary Accuracy       │
+└───────────────────────────────────┬────────────────────────────────────┘
+                                    │
+                                    ▼
+┌────────────────────────────────────────────────────────────────────────┐
+│               Tier 2: Structured ESG Fact Extraction                   │
+│        Precision · Recall · F1-Score · Unit Normalization Rate         │
+└───────────────────────────────────┬────────────────────────────────────┘
+                                    │
+                                    ▼
+┌────────────────────────────────────────────────────────────────────────┐
+│             Tier 3: Answer Faithfulness & Groundedness                 │
+│      Citation Correctness · Claim Faithfulness · Hallucination Rate     │
+└───────────────────────────────────┬────────────────────────────────────┘
+                                    │
+                                    ▼
+┌────────────────────────────────────────────────────────────────────────┐
+│         Tier 4: ESG Rubric Coverage & Greenwashing Screening           │
+│    Disclosure Coverage % · Target Credibility · Evidence Quality       │
+└────────────────────────────────────────────────────────────────────────┘
+```
 
 ---
 
 ## 3. Định nghĩa Toán học của các Chỉ số Đo lường
 
-### A. Chỉ số Truy xuất Bằng chứng (Retrieval Metrics)
+### A. Tầng 1: Chỉ số Truy xuất Bằng chứng (Retrieval Metrics)
 
-* **Recall@K**: Tỷ lệ các trang chứa bằng chứng kỳ vọng ($E$) được hệ thống tìm thấy trong Top-$K$ kết quả trả về ($R_K$):
+* **Recall@K / Hit@K**: Tỷ lệ các trang chứa bằng chứng kỳ vọng ($E$) được hệ thống tìm thấy trong Top-$K$ kết quả trả về ($R_K$):
   $$\text{Recall@K} = \frac{|R_K \cap E|}{|E|}$$
 
 * **MRR (Mean Reciprocal Rank)**: Nghịch đảo vị trí xuất hiện đầu tiên của trang bằng chứng chuẩn xác ($rank_1$):
   $$\text{MRR} = \frac{1}{|Q|} \sum_{q \in Q} \frac{1}{rank_1(q)}$$
 
-* **Precision@K**: Tỷ lệ các đoạn trích trả về trong Top-$K$ thực sự thuộc tập bằng chứng kỳ vọng:
-  $$\text{Precision@K} = \frac{|R_K \cap E|}{K}$$
+* **nDCG@K (Normalized Discounted Cumulative Gain)**: Đánh giá chất lượng xếp hạng có trọng số vị trí, ưu tiên đưa bằng chứng quan trọng nhất lên đầu:
+  $$\text{DCG}@K = \sum_{i=1}^K \frac{2^{rel_i} - 1}{\log_2(i + 1)}, \quad \text{nDCG}@K = \frac{\text{DCG}@K}{\text{IDCG}@K}$$
+  *(Trong đó $rel_i = 1$ nếu chunk thứ $i$ trúng đúng trang ground truth, ngược lại $rel_i = 0$).*
 
-### B. Chỉ số Chất lượng Câu trả lời & Kiểm soát Ảo giác (Answer Quality & RAG Triad)
+### B. Tầng 2: Chỉ số Bóc tách Số liệu Có cấu trúc (Extraction Metrics)
 
-* **Citation Correctness**: Tỷ lệ trích dẫn dạng `[Tên tài liệu, trang X]` trong câu trả lời trỏ đúng vào trang tài liệu có thật và đã được truy xuất:
+Đối với mỗi chỉ tiêu ESG (Scope 1, Scope 2, Scope 3, Net-Zero Year, Baseline Year, TRIR):
+* **Precision**: Tỷ lệ các số liệu trích xuất thực sự trùng khớp với ground truth về giá trị và đơn vị.
+* **Recall**: Tỷ lệ các số liệu có mặt trong văn bản được trích xuất thành công.
+* **F1-Score**: Trung bình điều hòa giữa Precision và Recall:
+  $$F_1 = 2 \cdot \frac{\text{Precision} \cdot \text{Recall}}{\text{Precision} + \text{Recall}}$$
+
+### C. Tầng 3: Chất lượng Câu trả lời & Kiểm soát Ảo giác (Answer Quality & RAG Triad)
+
+* **Citation Correctness**: Tỷ lệ trích dẫn dạng `[Tên tài liệu, trang X]` trong câu trả lời trỏ đúng vào trang tài liệu có thật và đã được lập chỉ mục:
   $$\text{Citation Correctness} = \frac{\text{Số trích dẫn trang hợp lệ}}{\text{Tổng số trích dẫn trong câu trả lời}}$$
 
 * **Answer Faithfulness (Groundedness)**: Tỷ lệ các câu mang khẳng định sự thật (số liệu, tỷ lệ %, năm, cam kết) có bằng chứng trực tiếp hỗ trợ trong văn bản trích đoạn:
   $$\text{Faithfulness} = \frac{\text{Số khẳng định có bằng chứng hỗ trợ}}{\text{Tổng số khẳng định trong câu trả lời}}$$
 
-* **Answer Completeness**: Mức độ bao phủ các ý hỏi và số liệu mục tiêu kỳ vọng từ câu hỏi người dùng:
-  $$\text{Completeness} = \frac{\text{Số ý & số liệu kỳ vọng xuất hiện}}{\text{Tổng số yêu cầu kỳ vọng}}$$
-
-* **Unsupported Claim Rate (Hallucination Rate)**: Đo lường trực tiếp tỷ lệ phát ngôn không có căn cứ (nguy cơ bịa đặt thông tin của LLM):
+* **Unsupported Claim Rate (Hallucination Rate)**: Đo lường trực tiếp tỷ lệ phát ngôn không có căn cứ (nguy cơ bịa đặt thông tin):
   $$\text{Unsupported Claim Rate} = 1.0 - \text{Faithfulness}$$
+
+### D. Tầng 4: Độ phủ Chuẩn mực & Sàng lọc Greenwashing
+
+* **Disclosure Coverage %**: Tỷ lệ tiêu chí GRI/SASB được công bố có bằng chứng xác thực trong tổng số tiêu chí chuẩn mực kiểm toán.
+* **Greenwashing Risk Level**: Tổng hợp điểm cảnh báo đa tín hiệu theo ngưỡng:
+  - `LOW`: $0 - 1$ điểm cảnh báo (Đầy đủ số liệu, có năm cơ sở, có kiểm toán độc lập).
+  - `MEDIUM`: $2 - 4$ điểm cảnh báo (Thiếu năm cơ sở hoặc thiếu bảo đảm độc lập).
+  - `HIGH`: $\ge 5$ điểm cảnh báo (Lạm dụng từ ngữ tham vọng, hoàn toàn thiếu số liệu định lượng, phát thải tăng).
 
 ---
 
-## 4. Hướng dẫn Tái hiện Kết quả Thực nghiệm (Reproducibility)
+## 4. Hướng dẫn Tái hiện Kết quả Thực nghiệm (Reproducibility Commands)
 
 ```powershell
-# 1. Chạy thực nghiệm bóc tách (Ablation Study) 4 cấu hình Retrieval
-python -m app.cli benchmark --ablation
+# 1. Chạy thực nghiệm bóc tách Ablation Study trên 4 cấu hình Retrieval (21 test cases)
+python -m app.cli benchmark --top-k 5
 
-# 2. Chạy đánh giá chất lượng câu trả lời và tỷ lệ ảo giác
-python -m app.cli evaluate-answer
+# 2. Chạy đánh giá độ chính xác trích xuất số liệu có cấu trúc (Tier 2 Extraction)
+python -m app.cli evaluate-extraction
 
-# 3. Chạy Quality Gate kiểm tra hồi quy trong CI/CD
+# 3. Chạy đánh giá chất lượng câu trả lời, độ trung thực và tỷ lệ ảo giác (RAG Triad)
+python -m app.cli evaluate-answer --top-k 5
+
+# 4. Chạy Quality Gate kiểm tra hồi quy trong CI/CD pipeline
 python -m app.cli evaluate --top-k 5 --min-recall 0.8 --min-mrr 0.8
+
+# 5. Chạy toàn bộ 43 bài kiểm thử tự động
+python -m pytest
 ```

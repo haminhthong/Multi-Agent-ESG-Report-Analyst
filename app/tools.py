@@ -1,7 +1,8 @@
 import re
 from typing import Any
 
-from app.models import Citation
+from app.evidence_extractor import EvidenceExtractionAgent
+from app.models import Citation, ESGFact, EvidenceConflict
 from app.rubric import (
     CRITERIA_DEFINITIONS,
     METRIC_PATTERN,
@@ -13,7 +14,7 @@ from app.store import Store
 
 
 class AgentTools:
-    """Tập hợp các công cụ (Agent Tools) cho kiến trúc Agentic RAG.
+    """Tập hợp các công cụ (Agent Tools) cho kiến trúc Agentic ESG Intelligence.
 
     Các tool này có thể được gọi độc lập bởi Supervisor Agent trong luồng LLM Tool Calling
     hoặc chạy trong luồng Deterministic Orchestration.
@@ -28,6 +29,8 @@ class AgentTools:
         limit: int = 6,
         document_ids: list[str] | None = None,
         retrieval_mode: str = "hybrid_rerank",
+        pillar: str | None = None,
+        year: int | None = None,
     ) -> list[Citation]:
         """Tool 1: Tìm kiếm đoạn văn bản bằng chứng theo nhiều chế độ (BM25, Dense, Hybrid, Rerank)."""
         raw_results = self.store.search(
@@ -35,6 +38,8 @@ class AgentTools:
             limit=limit,
             document_ids=document_ids,
             mode=retrieval_mode,
+            pillar=pillar,
+            year=year,
         )
         citations: list[Citation] = []
         for row in raw_results:
@@ -50,6 +55,11 @@ class AgentTools:
                     page=row["page"],
                     excerpt=" ".join(row["text"].split())[:700],
                     score=float(score),
+                    section=row.get("section_title"),
+                    block_id=row.get("block_id"),
+                    block_type=row.get("block_type", "text"),
+                    retrieval_score=float(row.get("score") or score),
+                    reranker_score=row.get("rerank_score"),
                 )
             )
         return citations
@@ -59,7 +69,8 @@ class AgentTools:
         with self.store.connect() as db:
             placeholders = ",".join("?" for _ in chunk_ids)
             sql = (
-                f"SELECT c.id chunk_id, c.document_id, c.page, c.text, d.name "
+                f"SELECT c.id chunk_id, c.document_id, c.page, c.text, d.name, "
+                f"c.section_title, c.block_type, c.block_id, c.pillar "
                 f"FROM chunks c JOIN documents d ON d.id=c.document_id "
                 f"WHERE c.id IN ({placeholders})"
             )
@@ -81,13 +92,7 @@ class AgentTools:
 
     @staticmethod
     def verify_claim(claim: str, excerpt: str) -> dict[str, Any]:
-        """Tool 4: Thẩm định xem khẳng định (claim) có được căn cứ trên trích đoạn hay không.
-
-        Kiểm tra:
-        - Có bị mâu thuẫn bởi mẫu câu phủ định hay không.
-        - Các con số/năm trong claim có xuất hiện trong excerpt hay không.
-        - Mức độ tương đồng từ khóa giữa claim và excerpt.
-        """
+        """Tool 4: Thẩm định xem khẳng định (claim) có được căn cứ trên trích đoạn hay không."""
         claim_lower = claim.lower()
         excerpt_lower = excerpt.lower()
 
@@ -122,7 +127,8 @@ class AgentTools:
 
         matched_criteria = []
         for c in pillar_criteria:
-            found = any(req in combined_text for req in c.required_evidence) or any(
+            check_keywords = c.retrieval_keywords or c.required_evidence
+            found = any(req in combined_text for req in check_keywords) or any(
                 unit.lower() in combined_text for unit in c.metric_units
             )
             if found:
@@ -137,3 +143,13 @@ class AgentTools:
             "total_criteria": total,
             "disclosure_coverage": coverage,
         }
+
+    @staticmethod
+    def extract_structured_facts(citations: list[Citation]) -> list[ESGFact]:
+        """Tool 6: Trích xuất các sự thật ESG có cấu trúc (ESGFact) với đơn vị và năm chuẩn hóa."""
+        return EvidenceExtractionAgent.extract_facts(citations)
+
+    @staticmethod
+    def detect_conflicts(facts: list[ESGFact]) -> list[EvidenceConflict]:
+        """Tool 7: Phát hiện mâu thuẫn số liệu công bố giữa các trang hoặc tài liệu."""
+        return EvidenceExtractionAgent.detect_conflicts(facts)

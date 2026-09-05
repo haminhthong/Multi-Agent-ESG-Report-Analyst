@@ -59,10 +59,15 @@ def seed_demo(store: Store, force: bool = False) -> None:
 
 def _load_demo_pages(path: Path) -> list[tuple[int, str]]:
     """Hàm phụ trợ đọc tệp trích đoạn văn bản demo được cấu trúc theo thẻ `---PAGE X---`."""
+    import re
+
+    raw = path.read_text(encoding="utf-8").strip()
+    if raw.startswith("---PAGE "):
+        raw = raw[len("---PAGE ") :]
 
     pages: list[tuple[int, str]] = []
-    for block in path.read_text(encoding="utf-8").split("\n---PAGE "):
+    for block in re.split(r"(?:\n|^)---PAGE ", raw):
         page_header, separator, body = block.partition("---\n")
         if separator and page_header.strip().isdigit():
-            pages.append((int(page_header.strip()), body))
+            pages.append((int(page_header.strip()), body.strip()))
     return pages

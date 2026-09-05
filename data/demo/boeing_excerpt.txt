@@ -1,4 +1,4 @@
-6---
+---PAGE 6---
 Boeing reports progress against goals including net-zero emissions at manufacturing and workplace sites by 2030. The report presents targets and progress indicators for Scope 1 and Scope 2 greenhouse gas emissions.
 ---PAGE 18---
 Employee safety is governed through an occupational health and safety management system. Manufacturing leaders received advanced worker safety training focused on prevention of serious injuries and fatalities.
@@ -8,4 +8,5 @@ Key environmental data tables report total energy consumed, grid electricity and
 Training, safety and supplier data are reported. As of the end of 2024, 724 suppliers were rated using social criteria, a 148% increase.
 ---PAGE 65---
 The board oversees climate-related risks and opportunities. Management assesses climate risks and integrates them into enterprise risk management. The report references ethics, compliance, audit and anti-corruption programs.
-
+---PAGE 70---
+This sustainability report has not been independently assured by any external third-party auditor. There was no external assurance provided for reported greenhouse gas metrics.

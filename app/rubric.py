@@ -1,5 +1,6 @@
 import re
 from dataclasses import dataclass
+
 from app.models import RubricCriterion
 
 
@@ -13,6 +14,9 @@ class PillarRubric:
 
 # ==============================================================================
 # BỘ TIÊU CHÍ CẤU TRÚC CHUẨN MỰC (STRUCTURED ESG CRITERIA)
+# Đã tách bạch:
+# - retrieval_keywords: Các từ khóa tìm kiếm văn bản tự nhiên trong tài liệu
+# - required_fields: Danh sách các trường dữ liệu định lượng cần trích xuất có cấu trúc
 # ==============================================================================
 CRITERIA_DEFINITIONS: list[RubricCriterion] = [
     # Environment
@@ -22,7 +26,23 @@ CRITERIA_DEFINITIONS: list[RubricCriterion] = [
         name="Phát thải Scope 1 và Scope 2",
         description="Công bố giá trị phát thải tuyệt đối Scope 1 và Scope 2 theo kỳ báo cáo",
         framework_reference="GRI 305-1 / GRI 305-2",
-        required_evidence=["scope_1_value", "scope_2_value", "unit", "reporting_year"],
+        retrieval_keywords=[
+            "scope 1",
+            "scope 2",
+            "direct emissions",
+            "indirect emissions",
+            "greenhouse gas",
+            "emissions",
+            "tco2e",
+        ],
+        required_fields=["scope_1_value", "scope_2_value", "unit", "reporting_year"],
+        required_evidence=[
+            "scope 1",
+            "scope 2",
+            "greenhouse gas",
+            "emissions",
+            "tco2e",
+        ],
         metric_units=["tCO2e", "ktCO2e", "MtCO2e", "co2e", "tons", "tonnes"],
         mandatory=True,
     ),
@@ -32,7 +52,14 @@ CRITERIA_DEFINITIONS: list[RubricCriterion] = [
         name="Phát thải Scope 3",
         description="Công bố phát thải gián tiếp trong chuỗi giá trị (Scope 3)",
         framework_reference="GRI 305-3",
-        required_evidence=["scope_3_value", "unit"],
+        retrieval_keywords=[
+            "scope 3",
+            "value chain emissions",
+            "supply chain emissions",
+            "indirect emissions",
+        ],
+        required_fields=["scope_3_value", "unit"],
+        required_evidence=["scope 3", "value chain", "indirect emissions"],
         metric_units=["tCO2e", "ktCO2e", "MtCO2e", "co2e"],
         mandatory=False,
     ),
@@ -42,7 +69,19 @@ CRITERIA_DEFINITIONS: list[RubricCriterion] = [
         name="Mục tiêu giảm phát thải & Net-Zero",
         description="Cam kết mục tiêu giảm phát thải kèm năm đích (Target year) và năm cơ sở (Baseline year)",
         framework_reference="GRI 305-5 / TCFD",
-        required_evidence=["target_statement", "target_year", "baseline_year"],
+        retrieval_keywords=[
+            "net zero",
+            "net-zero",
+            "target",
+            "goal",
+            "commit",
+            "baseline",
+            "base year",
+            "aim",
+            "pathway",
+        ],
+        required_fields=["target_statement", "target_year", "baseline_year"],
+        required_evidence=["target", "net zero", "net-zero", "goal", "commit", "baseline"],
         metric_units=["%", "tCO2e", "net-zero"],
         mandatory=True,
     ),
@@ -52,7 +91,16 @@ CRITERIA_DEFINITIONS: list[RubricCriterion] = [
         name="Tiến độ thực hiện & Biến động phát thải",
         description="Số liệu so sánh tiến độ thực hiện giảm phát thải so với năm cơ sở",
         framework_reference="GRI 305-5",
-        required_evidence=["current_value", "baseline_value", "change_percentage"],
+        retrieval_keywords=[
+            "reduced",
+            "decreased",
+            "reduction",
+            "progress",
+            "compared to",
+            "from baseline",
+        ],
+        required_fields=["current_value", "baseline_value", "change_percentage"],
+        required_evidence=["reduced", "decreased", "progress", "reduction", "compared"],
         metric_units=["%", "tCO2e"],
         mandatory=False,
     ),
@@ -62,7 +110,19 @@ CRITERIA_DEFINITIONS: list[RubricCriterion] = [
         name="Quản lý Năng lượng, Nước & Tiêu thụ Tài nguyên",
         description="Số liệu tiêu thụ năng lượng tái tạo, quản lý nguồn nước và rác thải",
         framework_reference="GRI 302 / GRI 303 / GRI 306",
-        required_evidence=["resource_value", "unit"],
+        retrieval_keywords=[
+            "energy",
+            "renewable",
+            "electricity",
+            "water",
+            "waste",
+            "mwh",
+            "gwh",
+            "gj",
+            "tj",
+        ],
+        required_fields=["resource_value", "unit"],
+        required_evidence=["energy", "renewable", "water", "waste", "electricity"],
         metric_units=["MWh", "GWh", "GJ", "TJ", "m3", "m³", "ML", "%"],
         mandatory=False,
     ),
@@ -73,7 +133,17 @@ CRITERIA_DEFINITIONS: list[RubricCriterion] = [
         name="An toàn & Sức khỏe Lao động",
         description="Báo cáo số sự cố an toàn, tỷ lệ chấn thương hoặc số giờ huấn luyện an toàn",
         framework_reference="GRI 403-9",
-        required_evidence=["safety_metric", "unit"],
+        retrieval_keywords=[
+            "safety",
+            "injury",
+            "fatalit",
+            "trir",
+            "incident",
+            "lost time",
+            "occupational health",
+        ],
+        required_fields=["safety_metric", "unit"],
+        required_evidence=["safety", "injury", "fatalit", "incidents", "trir"],
         metric_units=["incidents", "rate per 200,000 hours", "hours", "fatalities"],
         mandatory=True,
     ),
@@ -83,7 +153,16 @@ CRITERIA_DEFINITIONS: list[RubricCriterion] = [
         name="Quy mô Nhân sự & Đào tạo",
         description="Số lượng lao động, giờ đào tạo bình quân và mức đầu tư nhân lực",
         framework_reference="GRI 404-1",
-        required_evidence=["employee_count", "training_hours"],
+        retrieval_keywords=[
+            "employee",
+            "workforce",
+            "training",
+            "training hours",
+            "person-hours",
+            "headcount",
+        ],
+        required_fields=["employee_count", "training_hours"],
+        required_evidence=["employee", "workforce", "training", "hours"],
         metric_units=["employees", "hours", "person-hours"],
         mandatory=False,
     ),
@@ -93,7 +172,16 @@ CRITERIA_DEFINITIONS: list[RubricCriterion] = [
         name="Đa dạng & Bình đẳng giới",
         description="Tỷ lệ nữ giới trong nhân sự, cấp quản lý hoặc HĐQT",
         framework_reference="GRI 405-1",
-        required_evidence=["diversity_percentage", "group"],
+        retrieval_keywords=[
+            "diversity",
+            "gender",
+            "women",
+            "female",
+            "minority",
+            "inclusion",
+        ],
+        required_fields=["diversity_percentage", "group"],
+        required_evidence=["diversity", "inclusion", "gender", "women"],
         metric_units=["%"],
         mandatory=False,
     ),
@@ -103,7 +191,15 @@ CRITERIA_DEFINITIONS: list[RubricCriterion] = [
         name="Quyền Con người & Lao động Trẻ em/Cưỡng bức",
         description="Chính sách và rà soát tuân thủ quyền con người trong hoạt động",
         framework_reference="GRI 412",
-        required_evidence=["policy_statement", "due_diligence"],
+        retrieval_keywords=[
+            "human rights",
+            "forced labor",
+            "child labor",
+            "due diligence",
+            "labor standards",
+        ],
+        required_fields=["policy_statement", "due_diligence"],
+        required_evidence=["human rights", "forced labor", "child labor"],
         metric_units=["sites", "%"],
         mandatory=False,
     ),
@@ -113,7 +209,15 @@ CRITERIA_DEFINITIONS: list[RubricCriterion] = [
         name="Đánh giá ESG Chuỗi Cung ứng",
         description="Tỷ lệ nhà cung cấp được đánh giá theo tiêu chuẩn xã hội & môi trường",
         framework_reference="GRI 414-1",
-        required_evidence=["supplier_count", "assessment_percentage"],
+        retrieval_keywords=[
+            "supplier",
+            "supply chain",
+            "vendor",
+            "procurement",
+            "social criteria",
+        ],
+        required_fields=["supplier_count", "assessment_percentage"],
+        required_evidence=["supplier", "supply chain", "social criteria"],
         metric_units=["suppliers", "%"],
         mandatory=False,
     ),
@@ -124,7 +228,15 @@ CRITERIA_DEFINITIONS: list[RubricCriterion] = [
         name="Giám sát của Hội đồng Quản trị",
         description="Cơ cấu HĐQT, ủy ban ESG/bền vững và tính độc lập của các thành viên",
         framework_reference="GRI 2-9 / GRI 2-12",
-        required_evidence=["committee_name", "board_independence"],
+        retrieval_keywords=[
+            "board",
+            "oversight",
+            "committee",
+            "independent directors",
+            "governance committee",
+        ],
+        required_fields=["committee_name", "board_independence"],
+        required_evidence=["board", "oversight", "committee"],
         metric_units=["%", "members"],
         mandatory=True,
     ),
@@ -134,7 +246,15 @@ CRITERIA_DEFINITIONS: list[RubricCriterion] = [
         name="Đạo đức Kinh doanh & Bộ Quy tắc Ứng xử",
         description="Chính sách đạo đức, đào tạo tuân thủ cho cán bộ công nhân viên",
         framework_reference="GRI 2-23 / GRI 2-24",
-        required_evidence=["code_of_conduct", "compliance_rate"],
+        retrieval_keywords=[
+            "ethics",
+            "code of conduct",
+            "compliance",
+            "whistleblower",
+            "integrity",
+        ],
+        required_fields=["code_of_conduct", "compliance_rate"],
+        required_evidence=["ethics", "code of conduct", "compliance"],
         metric_units=["%", "employees"],
         mandatory=False,
     ),
@@ -144,7 +264,15 @@ CRITERIA_DEFINITIONS: list[RubricCriterion] = [
         name="Phòng chống Tham nhũng & Hối lộ",
         description="Chính sách phòng chống tham nhũng và kết quả kiểm tra/xử lý vi phạm",
         framework_reference="GRI 205-1 / GRI 205-3",
-        required_evidence=["policy_statement", "confirmed_incidents"],
+        retrieval_keywords=[
+            "anti-corruption",
+            "anticorruption",
+            "bribery",
+            "corruption",
+            "fcpa",
+        ],
+        required_fields=["policy_statement", "confirmed_incidents"],
+        required_evidence=["anti-corruption", "anticorruption", "bribery"],
         metric_units=["incidents", "cases", "%"],
         mandatory=False,
     ),
@@ -154,7 +282,15 @@ CRITERIA_DEFINITIONS: list[RubricCriterion] = [
         name="Quản trị Rủi ro Khí hậu & ESG Enterprise Risk",
         description="Tích hợp rủi ro khí hậu (TCFD) vào khung quản trị rủi ro doanh nghiệp",
         framework_reference="GRI 2-12 / TCFD",
-        required_evidence=["risk_framework", "assessment"],
+        retrieval_keywords=[
+            "risk management",
+            "climate risk",
+            "enterprise risk",
+            "tcfd",
+            "erm",
+        ],
+        required_fields=["risk_framework", "assessment"],
+        required_evidence=["risk management", "climate risk", "enterprise risk"],
         metric_units=[],
         mandatory=False,
     ),
@@ -164,7 +300,17 @@ CRITERIA_DEFINITIONS: list[RubricCriterion] = [
         name="Bảo đảm Độc lập từ Bên thứ Ba",
         description="Tuyên bố hoặc báo cáo bảo đảm độc lập (Limited/Reasonable assurance) cho số liệu ESG",
         framework_reference="GRI 2-5 / ISAE 3000",
-        required_evidence=["assurance_provider", "scope", "opinion_type"],
+        retrieval_keywords=[
+            "assurance",
+            "independent assurance",
+            "external assurance",
+            "limited assurance",
+            "reasonable assurance",
+            "audit",
+            "isae 3000",
+        ],
+        required_fields=["assurance_provider", "scope", "opinion_type"],
+        required_evidence=["assurance", "independent", "audit", "external assurance"],
         metric_units=[],
         mandatory=True,
     ),
@@ -245,10 +391,9 @@ VAGUE_WORDS = ("aim", "aspire", "committed", "ambition", "world-class", "leading
 # CÁC MẪU BIỂU THỨC CHÍNH QUY (REGEX PATTERNS) NÂNG CAO
 # ==============================================================================
 
-
 # Nhận diện số liệu đo lường cụ thể kèm đơn vị thực tế (%, tCO2e, ktCO2e, MtCO2e, MWh, GWh, GJ, TJ, m3, ML, hours...)
 METRIC_PATTERN = re.compile(
-    r"\b\d+(?:[,.]\d+)?\s*"
+    r"\b\d+(?:[,.]\d+)*\s*"
     r"(?:%|tons?|tonnes?|tco2e|co2e|ktco2e|mtco2e|mwh|gwh|gj|tj|m3|m³|ml|hours?|"
     r"employees?|suppliers?|incidents?|fatalities)"
     r"(?=\s|[.,;:)]|$)",
@@ -260,7 +405,7 @@ YEAR_PATTERN = re.compile(r"\b20[12]\d\b")
 
 # Nhận diện cam kết mục tiêu CÓ NGỮ CẢNH (không coi mọi năm đơn lẻ là target)
 TARGET_PATTERN = re.compile(
-    r"\b(?:target|goal|commit|aim|net[ -]?zero)\b.{0,80}?\b(?:20[2-5]\d)\b",
+    r"\b(?:target|targets|goal|goals|commit|commits|committed|commitment|aim|aims|net[ -]?zero)\b.{0,80}?\b(?:20[2-5]\d)\b",
     re.IGNORECASE,
 )
 
@@ -272,14 +417,14 @@ BASELINE_PATTERN = re.compile(
 
 # Nhận diện tuyên bố có sự kiểm toán/bảo đảm từ bên thứ ba độc lập
 ASSURANCE_PATTERN = re.compile(
-    r"\b(?:independent|external|limited|reasonable) assurance\b",
+    r"\b(?:independent|external|limited|reasonable)\s+(?:assurance|assured|audit|audited)\b",
     re.IGNORECASE,
 )
 
 # Nhận diện Phủ định (Negation Patterns)
 NEGATED_ASSURANCE_PATTERN = re.compile(
-    r"(?:\b(?:no|not|without|lack(?:s|ed)?)\b.{0,40}?\b(?:independent|external)?\s*assurance\b|"
-    r"\b(?:independent|external)?\s*assurance\b.{0,40}?\b(?:was not|not|missing|unprovided|not provided)\b)",
+    r"(?:\b(?:no|not|without|lack(?:s|ed)?)\b.{0,60}?\b(?:independent|external)?\s*(?:assurance|assured|audit|audited)\b|"
+    r"\b(?:independent|external)?\s*(?:assurance|assured|audit|audited)\b.{0,60}?\b(?:was not|not|missing|unprovided|not provided|not conducted)\b)",
     re.IGNORECASE,
 )
 

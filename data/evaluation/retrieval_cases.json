@@ -3,6 +3,7 @@
     "id": "boeing_environment",
     "question": "What environmental emissions and energy data does Boeing disclose?",
     "query_scope": ["boeing-demo"],
+    "category": "table_retrieval",
     "expected": [
       {"document_id": "boeing-demo", "page": 34}
     ]
@@ -11,6 +12,7 @@
     "id": "boeing_safety",
     "question": "How does Boeing address employee safety and training?",
     "query_scope": ["boeing-demo"],
+    "category": "cross_page",
     "expected": [
       {"document_id": "boeing-demo", "page": 18},
       {"document_id": "boeing-demo", "page": 43}
@@ -20,6 +22,7 @@
     "id": "boeing_governance",
     "question": "How does the board oversee climate and enterprise risk?",
     "query_scope": ["boeing-demo"],
+    "category": "fact_retrieval",
     "expected": [
       {"document_id": "boeing-demo", "page": 65}
     ]
@@ -28,6 +31,7 @@
     "id": "boeing_scope_3",
     "question": "Does the report disclose Scope 3 greenhouse gas emissions?",
     "query_scope": ["boeing-demo"],
+    "category": "fact_retrieval",
     "expected": [
       {"document_id": "boeing-demo", "page": 34}
     ]
@@ -36,14 +40,34 @@
     "id": "boeing_suppliers",
     "question": "How many suppliers were rated using social criteria?",
     "query_scope": ["boeing-demo"],
+    "category": "numeric_extraction",
     "expected": [
       {"document_id": "boeing-demo", "page": 43}
+    ]
+  },
+  {
+    "id": "boeing_net_zero_target_year",
+    "question": "What target year has Boeing established for net-zero emissions at manufacturing sites?",
+    "query_scope": ["boeing-demo"],
+    "category": "target_baseline",
+    "expected": [
+      {"document_id": "boeing-demo", "page": 6}
+    ]
+  },
+  {
+    "id": "boeing_hard_negative_assurance",
+    "question": "Does Boeing have independent third-party external assurance for its greenhouse gas report?",
+    "query_scope": ["boeing-demo"],
+    "category": "negative_evidence",
+    "expected": [
+      {"document_id": "boeing-demo", "page": 70}
     ]
   },
   {
     "id": "nextera_renewables",
     "question": "What is NextEra Energy's total wind and solar renewable generation capacity?",
     "query_scope": ["nextera-demo"],
+    "category": "numeric_extraction",
     "expected": [
       {"document_id": "nextera-demo", "page": 12}
     ]
@@ -52,6 +76,7 @@
     "id": "nextera_scope_1_reduction",
     "question": "How much has NextEra reduced direct Scope 1 greenhouse gas emissions rate?",
     "query_scope": ["nextera-demo"],
+    "category": "numeric_extraction",
     "expected": [
       {"document_id": "nextera-demo", "page": 28}
     ]
@@ -60,6 +85,7 @@
     "id": "nextera_external_assurance",
     "question": "Which independent firm provided external assurance over greenhouse gas inventories?",
     "query_scope": ["nextera-demo"],
+    "category": "fact_retrieval",
     "expected": [
       {"document_id": "nextera-demo", "page": 88}
     ]
@@ -68,6 +94,7 @@
     "id": "nextera_biodiversity",
     "question": "What wildlife and water conservation initiatives are disclosed by NextEra?",
     "query_scope": ["nextera-demo"],
+    "category": "fact_retrieval",
     "expected": [
       {"document_id": "nextera-demo", "page": 45}
     ]
@@ -76,14 +103,25 @@
     "id": "nextera_board_compensation",
     "question": "How does NextEra link executive compensation and board governance to climate targets?",
     "query_scope": ["nextera-demo"],
+    "category": "fact_retrieval",
     "expected": [
       {"document_id": "nextera-demo", "page": 71}
+    ]
+  },
+  {
+    "id": "nextera_water_withdrawal",
+    "question": "What water withdrawal reduction or operational recycling percentage is achieved by NextEra?",
+    "query_scope": ["nextera-demo"],
+    "category": "numeric_extraction",
+    "expected": [
+      {"document_id": "nextera-demo", "page": 45}
     ]
   },
   {
     "id": "alcoa_safety_trir",
     "question": "What is Alcoa's Total Recordable Incident Rate and fatality count?",
     "query_scope": ["alcoa-demo"],
+    "category": "numeric_extraction",
     "expected": [
       {"document_id": "alcoa-demo", "page": 15}
     ]
@@ -92,6 +130,7 @@
     "id": "alcoa_low_carbon_aluminum",
     "question": "What is the carbon intensity of Alcoa's low-carbon EcoLum aluminum brand?",
     "query_scope": ["alcoa-demo"],
+    "category": "numeric_extraction",
     "expected": [
       {"document_id": "alcoa-demo", "page": 32}
     ]
@@ -100,6 +139,7 @@
     "id": "alcoa_female_diversity",
     "question": "What percentage of women hold professional and leadership positions at Alcoa?",
     "query_scope": ["alcoa-demo"],
+    "category": "numeric_extraction",
     "expected": [
       {"document_id": "alcoa-demo", "page": 50}
     ]
@@ -108,6 +148,7 @@
     "id": "alcoa_anti_corruption",
     "question": "What percentage of salaried employees completed ethics and anti-corruption training?",
     "query_scope": ["alcoa-demo"],
+    "category": "numeric_extraction",
     "expected": [
       {"document_id": "alcoa-demo", "page": 68}
     ]
@@ -116,8 +157,38 @@
     "id": "alcoa_board_committee",
     "question": "Which committee of Alcoa's board oversees tailings safety and community human rights?",
     "query_scope": ["alcoa-demo"],
+    "category": "fact_retrieval",
     "expected": [
       {"document_id": "alcoa-demo", "page": 92}
+    ]
+  },
+  {
+    "id": "alcoa_bauxite_rehabilitation",
+    "question": "How many hectares of bauxite mine rehabilitation did Alcoa report?",
+    "query_scope": ["alcoa-demo"],
+    "category": "numeric_extraction",
+    "expected": [
+      {"document_id": "alcoa-demo", "page": 15}
+    ]
+  },
+  {
+    "id": "cross_company_scope1",
+    "question": "Compare direct Scope 1 greenhouse gas emissions reductions between NextEra and Alcoa",
+    "query_scope": ["nextera-demo", "alcoa-demo"],
+    "category": "cross_document_compare",
+    "expected": [
+      {"document_id": "nextera-demo", "page": 28},
+      {"document_id": "alcoa-demo", "page": 32}
+    ]
+  },
+  {
+    "id": "cross_company_board_oversight",
+    "question": "How do the board committees of Boeing and NextEra oversee enterprise climate risks?",
+    "query_scope": ["boeing-demo", "nextera-demo"],
+    "category": "cross_document_compare",
+    "expected": [
+      {"document_id": "boeing-demo", "page": 65},
+      {"document_id": "nextera-demo", "page": 71}
     ]
   }
 ]

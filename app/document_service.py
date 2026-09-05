@@ -1,6 +1,6 @@
 import hashlib
 
-from app.agents import DocumentAgent
+from app.agents import DocumentAgent, DocumentIntelligenceAgent
 from app.models import DocumentIngestResponse
 from app.store import Store
 
@@ -35,18 +35,19 @@ class OcrRequiredError(DocumentIngestError):
 
 
 class DocumentIngestionService:
-    """Dịch vụ chịu trách nhiệm tiếp nhận, thẩm định, trích xuất và lập chỉ mục báo cáo PDF.
+    """Dịch vụ tiếp nhận, thẩm định, trích xuất thông minh và lập chỉ mục báo cáo PDF.
 
-    Quy trình xử lý:
-    1. Kiểm tra tính hợp lệ của tệp (đuôi file, MIME type, Magic Bytes `%PDF-`, dung lượng).
-    2. Tạo mã định danh duy nhất (Content Hash SHA-256) giúp tính chất Idempotent (tránh lặp).
-    3. Đọc danh sách trang và văn bản tương ứng thông qua DocumentAgent.
-    4. Đánh giá chất lượng trích xuất (Extraction Quality score).
-    5. Lưu trữ metadata và tạo chỉ mục tìm kiếm full-text trong Store.
+    Quy trình:
+    1. Thẩm định tính toàn vẹn (Magic Bytes `%PDF-`, MIME type, Size).
+    2. SHA-256 Content Hash (Idempotency).
+    3. Trích xuất khối LayoutBlocks và tính điểm Extraction Quality.
+    4. Cảnh báo OCR_REQUIRED nếu tài liệu chủ yếu là ảnh quét.
+    5. Lưu trữ metadata và lập chỉ mục tìm kiếm Hybrid trong Store.
     """
 
     def __init__(self, store: Store):
         self.store = store
+        self.doc_agent = DocumentIntelligenceAgent
 
     def ingest(
         self,
@@ -58,17 +59,7 @@ class DocumentIngestionService:
         year: int | None = None,
         force: bool = False,
     ) -> DocumentIngestResponse:
-        """Thực thi quy trình tiếp nhận và lập chỉ mục một tệp PDF hoàn chỉnh.
-
-        Tham số:
-            content: Dữ liệu nhị phân (bytes) của tệp PDF.
-            filename: Tên tệp gốc.
-            content_type: MIME type gửi từ client.
-            company: Tên công ty (tùy chọn).
-            sector: Ngành nghề GICS (tùy chọn).
-            year: Năm báo cáo (tùy chọn).
-            force: Nếu True, buộc lập chỉ mục lại kể cả khi tệp đã tồn tại.
-        """
+        """Thực thi quy trình tiếp nhận và lập chỉ mục một tệp PDF hoàn chỉnh."""
 
         # Step 1: Kiểm tra tính hợp lệ của tệp
         self._validate_file(content, filename, content_type)
@@ -77,7 +68,6 @@ class DocumentIngestionService:
         document_id = hashlib.sha256(content).hexdigest()[:16]
         existing = self.store.get_document(document_id)
 
-        # Nếu tệp đã được lập chỉ mục trước đó và không yêu cầu force -> Bỏ qua
         if existing and not force and existing["extraction_quality"] is not None:
             return DocumentIngestResponse(
                 id=document_id,
@@ -88,7 +78,7 @@ class DocumentIngestionService:
                 status="already_indexed",
             )
 
-        # Step 3: Trích xuất danh sách trang bằng DocumentAgent
+        # Step 3: Trích xuất danh sách trang
         try:
             pages = DocumentAgent.extract_pdf(content)
         except Exception as exc:
@@ -101,14 +91,14 @@ class DocumentIngestionService:
                 "PDF có quá ít trang chứa văn bản; cần chạy OCR trước khi lập chỉ mục"
             )
 
-        # Step 5: Lưu trữ vào database và chia chunk
+        # Step 5: Lưu trữ vào database và chia chunk đa tầng
         self.store.add_document(
             document_id,
             filename,
             pages,
-            company,
-            sector,
-            year,
+            company=company,
+            sector=sector,
+            year=year,
             text_page_count=text_pages,
             extraction_quality=quality,
         )
@@ -133,7 +123,7 @@ class DocumentIngestionService:
 
     @staticmethod
     def _measure_quality(pages: list[tuple[int, str]]) -> tuple[int, float]:
-        """Tính toán tỷ lệ số trang chứa văn bản đọc được so với tổng số trang PDF (Extraction Quality)."""
+        """Tính toán tỷ lệ số trang chứa văn bản đọc được so với tổng số trang PDF."""
 
         if not pages:
             return 0, 0.0

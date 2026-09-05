@@ -3,8 +3,8 @@
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Multi-Agent ESG Report Analyst | Evidence-Grounded AI Dashboard</title>
-    <meta name="description" content="Nền tảng phân tích báo cáo bền vững ESG dựa trên bằng chứng trang PDF minh bạch, sử dụng kiến trúc 5 AI Agents và SQLite FTS5 RAG.">
+    <title>Evidence-Grounded ESG Intelligence & Audit System</title>
+    <meta name="description" content="Nền tảng trí tuệ và kiểm toán ESG dựa trên bằng chứng trang PDF minh bạch, sử dụng kiến trúc 7 AI Agents, Hybrid Retrieval RRF và Ma trận Bằng chứng chuẩn mực.">
     <!-- Google Fonts -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -15,53 +15,54 @@
     <div class="app-background">
         <div class="glow-orb orb-1"></div>
         <div class="glow-orb orb-2"></div>
+        <div class="glow-orb orb-3"></div>
     </div>
 
     <div class="layout-wrapper">
-        <!-- Phần đầu trang và thanh điều hướng -->
+        <!-- Header chính -->
         <header class="main-header">
             <div class="brand-container">
                 <div class="brand-icon">
-                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                         <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
                         <path d="m9 12 2 2 4-4"/>
                     </svg>
                 </div>
                 <div>
-                    <span class="badge-tag">EVIDENCE-FIRST · 5-AGENT ARCHITECTURE</span>
-                    <h1 class="brand-title">ESG Report Analyst</h1>
+                    <span class="badge-tag">EVIDENCE-FIRST · 7-AGENT INTELLIGENCE ARCHITECTURE · MULTI-TIER AUDIT</span>
+                    <h1 class="brand-title">ESG Intelligence & Audit System</h1>
                 </div>
             </div>
 
             <div class="corpus-quick-stats" id="corpus-stats-bar">
                 <div class="stat-pill">
                     <span class="stat-value" id="stat-docs">--</span>
-                    <span class="stat-label">Tài liệu</span>
+                    <span class="stat-label">Báo cáo ESG</span>
                 </div>
                 <div class="stat-pill">
                     <span class="stat-value" id="stat-chunks">--</span>
-                    <span class="stat-label">Chunks (FTS5)</span>
+                    <span class="stat-label">Chunks (Hybrid)</span>
                 </div>
                 <div class="stat-pill">
                     <span class="stat-value" id="stat-companies">--</span>
                     <span class="stat-label">Doanh nghiệp</span>
                 </div>
                 <div class="status-indicator">
-                    <span class="pulse-dot"></span> System Ready
+                    <span class="pulse-dot"></span> 7 Agents Active
                 </div>
             </div>
         </header>
 
-        <!-- Bố cục lưới chính -->
+        <!-- Bố cục Dashboard -->
         <main class="dashboard-grid">
-            <!-- Cột trái: quản lý và nạp báo cáo -->
+            <!-- Cột trái: Quản lý và nạp PDF -->
             <aside class="panel-card ingestion-panel">
                 <div class="panel-header">
-                    <h2>1. Quản lý & Ingest PDF</h2>
-                    <span class="panel-subtitle">Nạp báo cáo độ phân giải theo trang</span>
+                    <h2>1. Ingestion & Document Intel</h2>
+                    <span class="panel-subtitle">Phân loại trang & trích xuất văn bản / bảng biểu</span>
                 </div>
 
-                <!-- Biểu mẫu tải PDF -->
+                <!-- Form tải PDF -->
                 <form id="upload-form" class="upload-zone">
                     <div class="drop-area" id="drop-area">
                         <svg class="upload-icon" width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
@@ -70,26 +71,26 @@
                             <line x1="12" y1="3" x2="12" y2="15"/>
                         </svg>
                         <p class="upload-prompt">Kéo thả tệp PDF báo cáo ESG vào đây hoặc <strong>chọn tệp</strong></p>
-                        <span class="upload-note">Tối đa 75 MB · Tự động tính SHA-256 Idempotent Hash</span>
+                        <span class="upload-note">Page Classifier (Text/Table/Scan) · Idempotent SHA-256</span>
                         <input type="file" id="file-input" name="file" accept="application/pdf" class="file-input-hidden" required>
                     </div>
 
                     <div class="form-inputs-row">
-                        <input type="text" name="company" placeholder="Tên công ty (tùy chọn)" class="input-control">
-                        <input type="number" name="year" placeholder="Năm (VD: 2025)" class="input-control">
+                        <input type="text" name="company" placeholder="Tên doanh nghiệp (VD: Boeing)" class="input-control">
+                        <input type="number" name="year" placeholder="Năm (VD: 2024)" class="input-control">
                     </div>
 
                     <button type="submit" id="upload-btn" class="btn btn-secondary">
                         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
-                        Trích xuất & Index PDF
+                        Phân tích & Index PDF
                     </button>
                 </form>
 
-                <!-- Danh sách báo cáo -->
+                <!-- Danh sách tài liệu đã index -->
                 <div class="doc-list-section">
                     <div class="doc-list-header">
-                        <h3>Danh mục Báo cáo đã lập chỉ mục</h3>
-                        <button id="refresh-docs-btn" class="btn-icon" title="Làm mới list"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M23 4v6h-6"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg></button>
+                        <h3>Danh mục Báo cáo đã index</h3>
+                        <button id="refresh-docs-btn" class="btn-icon" title="Làm mới"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M23 4v6h-6"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg></button>
                     </div>
                     <div id="document-list-container" class="doc-cards-wrapper">
                         <div class="doc-skeleton">Đang nạp danh sách báo cáo...</div>
@@ -97,199 +98,399 @@
                 </div>
             </aside>
 
-            <!-- Cột phải: không gian phân tích nhiều agent -->
+            <!-- Cột phải: Không gian phân tích thông minh -->
             <section class="panel-card analysis-panel">
-                <div class="panel-header">
-                    <h2>2. Phân tích với Multi-Agent Supervisor</h2>
-                    <span class="panel-subtitle">Hệ thống 5 AI Agents đối soát bằng chứng trang PDF không tin đồn</span>
+                <!-- Thanh điều hướng Tab chính -->
+                <div class="panel-tabs-bar">
+                    <button type="button" class="tab-btn active" data-tab="tab-qa">
+                        <span>💬 Evidence Q&A & Audit</span>
+                    </button>
+                    <button type="button" class="tab-btn" data-tab="tab-matrix">
+                        <span>📊 Evidence Matrix (Audit Rubric)</span>
+                    </button>
+                    <button type="button" class="tab-btn" data-tab="tab-greenwash">
+                        <span>🛡️ Greenwashing Screening Radar</span>
+                    </button>
+                    <button type="button" class="tab-btn" data-tab="tab-analytics">
+                        <span>📈 So sánh & Xu hướng (YoY)</span>
+                    </button>
+                    <button type="button" class="tab-btn" data-tab="tab-trace">
+                        <span>⚡ Trace Waterfall & Observability</span>
+                    </button>
                 </div>
 
-                <!-- Biểu mẫu truy vấn -->
-                <form id="analyze-form" class="query-box-form">
-                    <!-- Chế độ làm việc -->
-                    <div class="mode-selector-bar">
-                        <span class="chips-title">Chế độ phân tích:</span>
-                        <label class="mode-radio-label">
-                            <input type="radio" name="analysis_mode" value="qa" checked>
-                            <span>1. Evidence Q&A (Hỏi - Đáp theo trang)</span>
-                        </label>
-                        <label class="mode-radio-label">
-                            <input type="radio" name="analysis_mode" value="audit" style="margin-left: 12px;">
-                            <span>2. Full ESG Audit (Đánh giá bao phủ chuẩn mực)</span>
-                        </label>
-                    </div>
-
-                    <!-- Các câu hỏi mẫu -->
-                    <div class="preset-chips-bar">
-                        <span class="chips-title">Mẫu truy vấn nhanh:</span>
-                        <button type="button" class="preset-chip" data-query="What are the Scope 1, Scope 2, and Scope 3 greenhouse gas emissions reported?">
-                            🌱 GHG Emissions (Scope 1/2/3)
-                        </button>
-                        <button type="button" class="preset-chip" data-query="Assess Boeing employee safety metrics, injury rate, and workforce training programs.">
-                            🛡️ Safety & Training Metrics
-                        </button>
-                        <button type="button" class="preset-chip" data-query="Check board oversight, business ethics compliance, and anti-corruption policies.">
-                            🏛️ Board Oversight & Ethics
-                        </button>
-                        <button type="button" class="preset-chip" data-query="Screen for missing baseline years or unverified climate targets.">
-                            ⚠️ Screening Signals Check
-                        </button>
-                    </div>
-
-                    <div class="textarea-wrapper">
-                        <textarea id="question-input" class="textarea-control" rows="3" placeholder="Nhập câu hỏi hoặc chọn mẫu truy vấn..." required>What are the Scope 1, Scope 2, and Scope 3 greenhouse gas emissions disclosed in this report?</textarea>
-                    </div>
-
-                    <div class="query-actions">
-                        <div class="top-k-selector">
-                            <label for="top-k-input">Top Citations:</label>
-                            <input type="number" id="top-k-input" value="6" min="1" max="15" class="input-control input-sm">
+                <!-- NỘI DUNG TAB 1: EVIDENCE Q&A & AUDIT -->
+                <div id="tab-qa" class="tab-content active">
+                    <!-- Form truy vấn -->
+                    <form id="analyze-form" class="query-box-form">
+                        <div class="mode-selector-bar">
+                            <span class="chips-title">Chế độ hoạt động:</span>
+                            <label class="mode-radio-label">
+                                <input type="radio" name="analysis_mode" value="qa" checked>
+                                <span>1. Evidence Q&A (Fact Lookup & Trích dẫn trang)</span>
+                            </label>
+                            <label class="mode-radio-label">
+                                <input type="radio" name="analysis_mode" value="audit" style="margin-left: 14px;">
+                                <span>2. Full ESG Audit (Ma trận chuẩn mực & Sàng lọc)</span>
+                            </label>
                         </div>
-                        <button type="submit" id="analyze-btn" class="btn btn-primary">
-                            <svg class="btn-sparkle" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m12 3-1.912 5.813a2 2 0 0 1-1.275 1.275L3 12l5.813 1.912a2 2 0 0 1 1.275 1.275L12 21l1.912-5.813a2 2 0 0 1 1.275-1.275L21 12l-5.813-1.912a2 2 0 0 1-1.275-1.275L12 3z"/></svg>
-                            Kích hoạt Pipeline Phân tích
-                        </button>
-                    </div>
-                </form>
 
-                <!-- Trạng thái chờ và tiến trình agent -->
-                <div id="agent-trace-box" class="agent-trace-card hidden">
-                    <div class="trace-header">
-                        <div class="spinner"></div>
-                        <h3>Supervisor Agent đang điều phối Pipeline...</h3>
+                        <!-- Các câu hỏi mẫu -->
+                        <div class="preset-chips-bar">
+                            <span class="chips-title">Mẫu truy vấn nhanh:</span>
+                            <button type="button" class="preset-chip" data-query="What are the Scope 1, Scope 2, and Scope 3 greenhouse gas emissions reported?">
+                                🌱 GHG Scope 1/2/3
+                            </button>
+                            <button type="button" class="preset-chip" data-query="Review climate target, baseline year, and screening for greenwashing risk.">
+                                🎯 Net-Zero & Baseline
+                            </button>
+                            <button type="button" class="preset-chip" data-query="Assess employee safety metrics, injury rate, TRIR, and training hours.">
+                                🛡️ Safety & TRIR
+                            </button>
+                            <button type="button" class="preset-chip" data-query="Check board oversight, business ethics, and third-party independent assurance.">
+                                🏛️ Board & Assurance
+                            </button>
+                        </div>
+
+                        <div class="textarea-wrapper">
+                            <textarea id="question-input" class="textarea-control" rows="3" placeholder="Nhập câu hỏi phân tích hoặc chọn mẫu truy vấn..." required>What are the Scope 1, Scope 2, and Scope 3 greenhouse gas emissions disclosed in this report?</textarea>
+                        </div>
+
+                        <div class="query-actions">
+                            <div class="top-k-selector">
+                                <label for="top-k-input">Top Citations:</label>
+                                <input type="number" id="top-k-input" value="6" min="1" max="15" class="input-control input-sm">
+                            </div>
+                            <button type="submit" id="analyze-btn" class="btn btn-primary">
+                                <svg class="btn-sparkle" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m12 3-1.912 5.813a2 2 0 0 1-1.275 1.275L3 12l5.813 1.912a2 2 0 0 1 1.275 1.275L12 21l1.912-5.813a2 2 0 0 1 1.275-1.275L21 12l-5.813-1.912a2 2 0 0 1-1.275-1.275L12 3z"/></svg>
+                                Thực thi Pipeline 7 Agents
+                            </button>
+                        </div>
+                    </form>
+
+                    <!-- Tiến trình 7 Agent -->
+                    <div id="agent-trace-box" class="agent-trace-card hidden">
+                        <div class="trace-header">
+                            <div class="spinner"></div>
+                            <h3>Supervisor Agent đang điều phối Pipeline 7-Agent...</h3>
+                        </div>
+                        <div class="agent-stepper" id="agent-stepper-steps">
+                            <div class="step-item" id="step-doc"><span class="step-num">1</span> <span class="step-label">Doc Intel</span></div>
+                            <div class="step-item" id="step-plan"><span class="step-num">2</span> <span class="step-label">Query Planner</span></div>
+                            <div class="step-item" id="step-retrieval"><span class="step-num">3</span> <span class="step-label">Hybrid RRF</span></div>
+                            <div class="step-item" id="step-verify"><span class="step-num">4</span> <span class="step-label">Verifier</span></div>
+                            <div class="step-item" id="step-extract"><span class="step-num">5</span> <span class="step-label">Facts & Conflicts</span></div>
+                            <div class="step-item" id="step-audit"><span class="step-num">6</span> <span class="step-label">ESG Audit</span></div>
+                            <div class="step-item" id="step-synth"><span class="step-num">7</span> <span class="step-label">Synthesis</span></div>
+                        </div>
                     </div>
-                    <div class="agent-stepper" id="agent-stepper-steps">
-                        <div class="step-item" id="step-doc"><span class="step-num">1</span> <span class="step-label">Document Agent</span></div>
-                        <div class="step-item" id="step-retrieval"><span class="step-num">2</span> <span class="step-label">Retrieval Agent (BM25)</span></div>
-                        <div class="step-item" id="step-validator"><span class="step-num">3</span> <span class="step-label">Evidence Validator</span></div>
-                        <div class="step-item" id="step-esg"><span class="step-num">4</span> <span class="step-label">Coverage & Screening</span></div>
-                        <div class="step-item" id="step-explanation"><span class="step-num">5</span> <span class="step-label">Explanation Agent</span></div>
+
+                    <!-- Khu vực kết quả Q&A -->
+                    <div id="results-display-area" class="results-area hidden">
+                        <!-- Tổng hợp câu trả lời -->
+                        <div class="result-summary-card">
+                            <div class="summary-top">
+                                <span class="card-badge">EVIDENCE-GROUNDED SYNTHESIS</span>
+                                <div class="badges-row">
+                                    <div id="coverage-badge" class="risk-badge risk-low">COVERAGE: --%</div>
+                                    <div id="confidence-badge" class="risk-badge risk-low">CONFIDENCE: --</div>
+                                    <div id="engine-badge" class="badge-tag">DETERMINISTIC ($0)</div>
+                                </div>
+                            </div>
+                            <p id="analysis-answer-text" class="answer-text">--</p>
+                        </div>
+
+                        <!-- Điểm 3 trụ cột E, S, G -->
+                        <div class="pillars-grid">
+                            <!-- Trụ cột E -->
+                            <div class="pillar-card pillar-e" id="pillar-card-E">
+                                <div class="pillar-header">
+                                    <span class="pillar-icon">🌱</span>
+                                    <div class="pillar-title-group">
+                                        <h4>Environment (E)</h4>
+                                        <span class="pillar-sub">Môi trường & Khí hậu</span>
+                                    </div>
+                                    <div class="pillar-score-badge" id="score-val-E">--%</div>
+                                </div>
+                                <div class="pillar-metrics">
+                                    <div class="metric-bar-group">
+                                        <div class="metric-label"><span>Bao phủ tiêu chí (Coverage)</span><span id="disc-val-E">0%</span></div>
+                                        <div class="progress-track"><div class="progress-fill fill-emerald" id="disc-bar-E" style="width:0%"></div></div>
+                                    </div>
+                                    <div class="metric-bar-group">
+                                        <div class="metric-label"><span>Chất lượng bằng chứng (Evidence Quality)</span><span id="qual-val-E">0%</span></div>
+                                        <div class="progress-track"><div class="progress-fill fill-teal" id="qual-bar-E" style="width:0%"></div></div>
+                                    </div>
+                                    <div class="metric-bar-group">
+                                        <div class="metric-label"><span>Độ đầy đủ số liệu (Data Completeness)</span><span id="perf-val-E">0%</span></div>
+                                        <div class="progress-track"><div class="progress-fill fill-accent" id="perf-bar-E" style="width:0%"></div></div>
+                                    </div>
+                                </div>
+                                <div class="pillar-findings" id="findings-E"></div>
+                            </div>
+
+                            <!-- Trụ cột S -->
+                            <div class="pillar-card pillar-s" id="pillar-card-S">
+                                <div class="pillar-header">
+                                    <span class="pillar-icon">👥</span>
+                                    <div class="pillar-title-group">
+                                        <h4>Social (S)</h4>
+                                        <span class="pillar-sub">Xã hội & Lao động</span>
+                                    </div>
+                                    <div class="pillar-score-badge" id="score-val-S">--%</div>
+                                </div>
+                                <div class="pillar-metrics">
+                                    <div class="metric-bar-group">
+                                        <div class="metric-label"><span>Bao phủ tiêu chí (Coverage)</span><span id="disc-val-S">0%</span></div>
+                                        <div class="progress-track"><div class="progress-fill fill-emerald" id="disc-bar-S" style="width:0%"></div></div>
+                                    </div>
+                                    <div class="metric-bar-group">
+                                        <div class="metric-label"><span>Chất lượng bằng chứng (Evidence Quality)</span><span id="qual-val-S">0%</span></div>
+                                        <div class="progress-track"><div class="progress-fill fill-teal" id="qual-bar-S" style="width:0%"></div></div>
+                                    </div>
+                                    <div class="metric-bar-group">
+                                        <div class="metric-label"><span>Độ đầy đủ số liệu (Data Completeness)</span><span id="perf-val-S">0%</span></div>
+                                        <div class="progress-track"><div class="progress-fill fill-accent" id="perf-bar-S" style="width:0%"></div></div>
+                                    </div>
+                                </div>
+                                <div class="pillar-findings" id="findings-S"></div>
+                            </div>
+
+                            <!-- Trụ cột G -->
+                            <div class="pillar-card pillar-g" id="pillar-card-G">
+                                <div class="pillar-header">
+                                    <span class="pillar-icon">🏛️</span>
+                                    <div class="pillar-title-group">
+                                        <h4>Governance (G)</h4>
+                                        <span class="pillar-sub">Quản trị doanh nghiệp</span>
+                                    </div>
+                                    <div class="pillar-score-badge" id="score-val-G">--%</div>
+                                </div>
+                                <div class="pillar-metrics">
+                                    <div class="metric-bar-group">
+                                        <div class="metric-label"><span>Bao phủ tiêu chí (Coverage)</span><span id="disc-val-G">0%</span></div>
+                                        <div class="progress-track"><div class="progress-fill fill-emerald" id="disc-bar-G" style="width:0%"></div></div>
+                                    </div>
+                                    <div class="metric-bar-group">
+                                        <div class="metric-label"><span>Chất lượng bằng chứng (Evidence Quality)</span><span id="qual-val-G">0%</span></div>
+                                        <div class="progress-track"><div class="progress-fill fill-teal" id="qual-bar-G" style="width:0%"></div></div>
+                                    </div>
+                                    <div class="metric-bar-group">
+                                        <div class="metric-label"><span>Độ đầy đủ số liệu (Data Completeness)</span><span id="perf-val-G">0%</span></div>
+                                        <div class="progress-track"><div class="progress-fill fill-accent" id="perf-bar-G" style="width:0%"></div></div>
+                                    </div>
+                                </div>
+                                <div class="pillar-findings" id="findings-G"></div>
+                            </div>
+                        </div>
+
+                        <!-- Trích dẫn nguồn theo trang -->
+                        <div class="citations-section">
+                            <div class="section-title-row">
+                                <h3>📌 Bằng chứng Nguồn có Kiểm chứng (Page Provenance)</h3>
+                                <span class="citations-count-badge" id="citations-count-text">0 citations</span>
+                            </div>
+                            <div id="citations-grid-container" class="citations-grid"></div>
+                        </div>
                     </div>
                 </div>
 
-                <!-- Kết quả phân tích -->
-                <div id="results-display-area" class="results-area hidden">
-                    <!-- Thẻ kết luận tổng quan -->
-                    <div class="result-summary-card">
-                        <div class="summary-top">
-                            <span class="card-badge">TỔNG HỢP GIẢI THÍCH (GIAI ĐOẠN 1)</span>
-                            <div id="coverage-badge" class="risk-badge risk-low">COVERAGE: --%</div>
+                <!-- NỘI DUNG TAB 2: EVIDENCE MATRIX -->
+                <div id="tab-matrix" class="tab-content">
+                    <div class="tab-inner-header">
+                        <div>
+                            <h3>Ma trận Kiểm toán Bằng chứng ESG (Evidence Matrix)</h3>
+                            <p class="panel-subtitle">Đối soát từng tiêu chí chuẩn mực GRI / SASB với số liệu trích xuất và số trang nguồn.</p>
                         </div>
-                        <p id="analysis-answer-text" class="answer-text">--</p>
-                    </div>
-
-                    <!-- Thẻ tín hiệu screening -->
-                    <div class="greenwashing-signals-card">
-                        <h4>⚠️ Tín hiệu cần chuyên gia kiểm tra (Screening Signals)</h4>
-                        <ul id="greenwashing-signals-list" class="signals-list">
-                            <!-- Rendered dynamically -->
-                        </ul>
-                    </div>
-
-                    <!-- Lưới điểm ba trụ cột -->
-                    <div class="pillars-grid">
-                        <!-- Trụ cột E -->
-                        <div class="pillar-card pillar-e" id="pillar-card-E">
-                            <div class="pillar-header">
-                                <span class="pillar-icon">🌱</span>
-                                <div class="pillar-title-group">
-                                    <h4>Environment (E)</h4>
-                                    <span class="pillar-sub">Môi trường & Khí hậu</span>
-                                </div>
-                                <div class="pillar-score-badge" id="score-val-E">--%</div>
-                            </div>
-                            <div class="pillar-metrics">
-                                <div class="metric-bar-group">
-                                    <div class="metric-label"><span>Bao phủ tiêu chí (Coverage)</span><span id="disc-val-E">0%</span></div>
-                                    <div class="progress-track"><div class="progress-fill fill-emerald" id="disc-bar-E" style="width:0%"></div></div>
-                                </div>
-                                <div class="metric-bar-group">
-                                    <div class="metric-label"><span>Chất lượng bằng chứng (Evidence Quality)</span><span id="qual-val-E">0%</span></div>
-                                    <div class="progress-track"><div class="progress-fill fill-teal" id="qual-bar-E" style="width:0%"></div></div>
-                                </div>
-                                <div class="metric-bar-group">
-                                    <div class="metric-label"><span>Độ đầy đủ số liệu (Data Completeness)</span><span id="perf-val-E">0%</span></div>
-                                    <div class="progress-track"><div class="progress-fill fill-accent" id="perf-bar-E" style="width:0%"></div></div>
-                                </div>
-                            </div>
-                            <div class="pillar-findings" id="findings-E"></div>
-                        </div>
-
-                        <!-- Trụ cột S -->
-                        <div class="pillar-card pillar-s" id="pillar-card-S">
-                            <div class="pillar-header">
-                                <span class="pillar-icon">👥</span>
-                                <div class="pillar-title-group">
-                                    <h4>Social (S)</h4>
-                                    <span class="pillar-sub">Xã hội & An toàn lao động</span>
-                                </div>
-                                <div class="pillar-score-badge" id="score-val-S">--%</div>
-                            </div>
-                            <div class="pillar-metrics">
-                                <div class="metric-bar-group">
-                                    <div class="metric-label"><span>Bao phủ tiêu chí (Coverage)</span><span id="disc-val-S">0%</span></div>
-                                    <div class="progress-track"><div class="progress-fill fill-emerald" id="disc-bar-S" style="width:0%"></div></div>
-                                </div>
-                                <div class="metric-bar-group">
-                                    <div class="metric-label"><span>Chất lượng bằng chứng (Evidence Quality)</span><span id="qual-val-S">0%</span></div>
-                                    <div class="progress-track"><div class="progress-fill fill-teal" id="qual-bar-S" style="width:0%"></div></div>
-                                </div>
-                                <div class="metric-bar-group">
-                                    <div class="metric-label"><span>Độ đầy đủ số liệu (Data Completeness)</span><span id="perf-val-S">0%</span></div>
-                                    <div class="progress-track"><div class="progress-fill fill-accent" id="perf-bar-S" style="width:0%"></div></div>
-                                </div>
-                            </div>
-                            <div class="pillar-findings" id="findings-S"></div>
-                        </div>
-
-                        <!-- Trụ cột G -->
-                        <div class="pillar-card pillar-g" id="pillar-card-G">
-                            <div class="pillar-header">
-                                <span class="pillar-icon">🏛️</span>
-                                <div class="pillar-title-group">
-                                    <h4>Governance (G)</h4>
-                                    <span class="pillar-sub">Quản trị doanh nghiệp</span>
-                                </div>
-                                <div class="pillar-score-badge" id="score-val-G">--%</div>
-                            </div>
-                            <div class="pillar-metrics">
-                                <div class="metric-bar-group">
-                                    <div class="metric-label"><span>Bao phủ tiêu chí (Coverage)</span><span id="disc-val-G">0%</span></div>
-                                    <div class="progress-track"><div class="progress-fill fill-emerald" id="disc-bar-G" style="width:0%"></div></div>
-                                </div>
-                                <div class="metric-bar-group">
-                                    <div class="metric-label"><span>Chất lượng bằng chứng (Evidence Quality)</span><span id="qual-val-G">0%</span></div>
-                                    <div class="progress-track"><div class="progress-fill fill-teal" id="qual-bar-G" style="width:0%"></div></div>
-                                </div>
-                                <div class="metric-bar-group">
-                                    <div class="metric-label"><span>Độ đầy đủ số liệu (Data Completeness)</span><span id="perf-val-G">0%</span></div>
-                                    <div class="progress-track"><div class="progress-fill fill-accent" id="perf-bar-G" style="width:0%"></div></div>
-                                </div>
-                            </div>
-                            <div class="pillar-findings" id="findings-G"></div>
+                        <div class="filter-controls-row">
+                            <select id="matrix-pillar-filter" class="input-control select-control">
+                                <option value="all">Tất cả Trụ cột (E, S, G)</option>
+                                <option value="E">Environment (E)</option>
+                                <option value="S">Social (S)</option>
+                                <option value="G">Governance (G)</option>
+                            </select>
+                            <select id="matrix-status-filter" class="input-control select-control">
+                                <option value="all">Tất cả Trạng thái</option>
+                                <option value="found">✓ Đã công bố (Found)</option>
+                                <option value="missing">⚠ Còn thiếu (Missing)</option>
+                                <option value="contradicts">❌ Mâu thuẫn (Contradicts)</option>
+                            </select>
                         </div>
                     </div>
 
+                    <div class="table-responsive-wrapper">
+                        <table class="audit-matrix-table" id="audit-matrix-table">
+                            <thead>
+                                <tr>
+                                    <th>Trụ cột</th>
+                                    <th>Tiêu chí ESG (GRI/SASB)</th>
+                                    <th>Trạng thái</th>
+                                    <th>Số liệu trích xuất</th>
+                                    <th>Đơn vị</th>
+                                    <th>Năm</th>
+                                    <th>Bằng chứng nguồn (Trang)</th>
+                                    <th>Độ tin cậy</th>
+                                </tr>
+                            </thead>
+                            <tbody id="audit-matrix-body">
+                                <tr>
+                                    <td colspan="8" class="text-center-cell">Chưa có dữ liệu ma trận. Hãy chạy một truy vấn phân tích ở Tab 1 hoặc nạp báo cáo.</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
 
-                    <!-- Trích dẫn nguồn đã kiểm chứng -->
-                    <div class="citations-section">
-                        <div class="section-title-row">
-                            <h3>📌 Danh sách Bằng chứng Nguồn (Verified Page Citations)</h3>
-                            <span class="citations-count-badge" id="citations-count-text">0 citations</span>
+                <!-- NỘI DUNG TAB 3: GREENWASHING SCREENING RADAR -->
+                <div id="tab-greenwash" class="tab-content">
+                    <div class="tab-inner-header">
+                        <div>
+                            <h3>Sàng lọc Rủi ro Greenwashing Đa Tín hiệu</h3>
+                            <p class="panel-subtitle">Đánh giá 3 góc độ: Độ tin cậy mục tiêu, Chất lượng số liệu, và Rủi ro định hướng văn phong.</p>
                         </div>
-                        <div id="citations-grid-container" class="citations-grid">
-                            <!-- Nội dung được tạo động -->
+                        <div id="gw-overall-risk-badge" class="risk-badge risk-low">RISK LEVEL: LOW</div>
+                    </div>
+
+                    <!-- Disclaimer -->
+                    <div class="disclaimer-alert">
+                        <strong>Lưu ý Kiểm toán:</strong> Chỉ số sàng lọc rủi ro (Screening Risk) là công cụ khuyến nghị định hướng chuyên gia đối soát chuyên sâu, không phải kết luận pháp lý hay phán quyết hành vi gian lận của doanh nghiệp.
+                    </div>
+
+                    <div class="signals-three-cols-grid">
+                        <!-- Cột 1: Target Credibility -->
+                        <div class="signal-card-box">
+                            <div class="signal-card-header">
+                                <span class="signal-header-icon">🎯</span>
+                                <h4>1. Target Credibility</h4>
+                            </div>
+                            <p class="signal-card-desc">Đối soát năm cơ sở (Baseline Year), cam kết Net-Zero và mốc trung hạn 2030.</p>
+                            <ul id="gw-target-signals" class="signal-items-list">
+                                <li>Chưa có dữ liệu phân tích.</li>
+                            </ul>
+                        </div>
+
+                        <!-- Cột 2: Evidence Quality -->
+                        <div class="signal-card-box">
+                            <div class="signal-card-header">
+                                <span class="signal-header-icon">📊</span>
+                                <h4>2. Evidence Quality</h4>
+                            </div>
+                            <p class="signal-card-desc">Mật độ số liệu đo lường, phạm vi bảo đảm độc lập (Assurance) và dấu hiệu phát thải tăng.</p>
+                            <ul id="gw-evidence-signals" class="signal-items-list">
+                                <li>Chưa có dữ liệu phân tích.</li>
+                            </ul>
+                        </div>
+
+                        <!-- Cột 3: Narrative Risk -->
+                        <div class="signal-card-box">
+                            <div class="signal-card-header">
+                                <span class="signal-header-icon">📝</span>
+                                <h4>3. Narrative Risk</h4>
+                            </div>
+                            <p class="signal-card-desc">Tỷ lệ từ ngữ định hướng tham vọng (vague words) so với số liệu chứng minh thực tế.</p>
+                            <ul id="gw-narrative-signals" class="signal-items-list">
+                                <li>Chưa có dữ liệu phân tích.</li>
+                            </ul>
                         </div>
                     </div>
 
-                    <!-- Vết thực thi và giới hạn hệ thống -->
-                    <div class="audit-details-accordion">
-                        <details>
-                            <summary>🔍 Xem Vết thực thi Supervisor Trace & Giới hạn hệ thống (Limitations)</summary>
+                    <!-- Danh sách phát hiện mâu thuẫn số liệu (Conflicts) nếu có -->
+                    <div class="conflicts-section" id="conflicts-section">
+                        <h4>⚠️ Cảnh báo Mâu thuẫn Số liệu giữa các Trang / Báo cáo</h4>
+                        <div id="conflicts-list" class="conflicts-list">
+                            <p class="upload-note">Không phát hiện mâu thuẫn số liệu giữa các trang.</p>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- NỘI DUNG TAB 4: SO SÁNH & XU HƯỚNG -->
+                <div id="tab-analytics" class="tab-content">
+                    <div class="analytics-subsections">
+                        <!-- Tiểu mục A: So sánh chéo doanh nghiệp -->
+                        <div class="analytics-box">
+                            <div class="tab-inner-header">
+                                <div>
+                                    <h3>So sánh Chéo Doanh nghiệp (Cross-Company Comparison)</h3>
+                                    <p class="panel-subtitle">Đối chiếu mức độ công bố và số liệu ESG cùng tiêu chí giữa các báo cáo.</p>
+                                </div>
+                            </div>
+
+                            <form id="compare-form" class="inline-tool-form">
+                                <input type="text" id="compare-companies-input" class="input-control" placeholder="Tên các công ty (cách nhau bởi dấu phẩy, VD: Boeing, Airbus)" value="Boeing, Airbus">
+                                <button type="submit" id="run-compare-btn" class="btn btn-secondary">
+                                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M16 3h5v5"/><path d="M4 20L21 3"/><path d="M21 16v5h-5"/><path d="M15 15l6 6"/><path d="M4 4l5 5"/></svg>
+                                    Chạy Đối sánh
+                                </button>
+                            </form>
+
+                            <div id="compare-results-container" class="table-responsive-wrapper" style="margin-top: 16px;">
+                                <p class="upload-note">Nhập danh sách doanh nghiệp và bấm 'Chạy Đối sánh' để so sánh ma trận.</p>
+                            </div>
+                        </div>
+
+                        <!-- Tiểu mục B: Phân tích xu hướng theo thời gian (YoY) -->
+                        <div class="analytics-box" style="margin-top: 24px;">
+                            <div class="tab-inner-header">
+                                <div>
+                                    <h3>Phân tích Diễn biến Chuỗi Thời gian (Temporal Trend Analysis)</h3>
+                                    <p class="panel-subtitle">Theo dõi lịch sử phát thải qua các năm, biến động YoY% và khoảng cách so với năm cơ sở.</p>
+                                </div>
+                            </div>
+
+                            <form id="temporal-form" class="inline-tool-form">
+                                <input type="text" id="temporal-company-input" class="input-control" placeholder="Tên công ty (VD: Boeing)" value="Boeing">
+                                <select id="temporal-metric-input" class="input-control select-control">
+                                    <option value="scope_1_emissions">Scope 1 GHG Emissions</option>
+                                    <option value="scope_2_emissions">Scope 2 GHG Emissions</option>
+                                    <option value="scope_3_emissions">Scope 3 GHG Emissions</option>
+                                    <option value="renewable_energy">Renewable Energy %</option>
+                                </select>
+                                <button type="submit" id="run-temporal-btn" class="btn btn-secondary">
+                                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 3v18h18"/><path d="m19 9-5 5-4-4-3 3"/></svg>
+                                    Phân tích Trend
+                                </button>
+                            </form>
+
+                            <div id="temporal-results-container" class="temporal-card" style="margin-top: 16px;">
+                                <p class="upload-note">Bấm 'Phân tích Trend' để dựng biểu đồ chuỗi thời gian.</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- NỘI DUNG TAB 5: TRACE WATERFALL & OBSERVABILITY -->
+                <div id="tab-trace" class="tab-content">
+                    <div class="tab-inner-header">
+                        <div>
+                            <h3>Observability: Vết Thực thi & Độ trễ Từng Agent (Latency Waterfall)</h3>
+                            <p class="panel-subtitle">Đo lường thời gian xử lý thực tế (ms) của 7 Agent phục vụ tối ưu hóa hệ thống.</p>
+                        </div>
+                        <div class="stat-pill" style="flex-direction:row; gap:8px;">
+                            <span class="stat-label">Tổng độ trễ:</span>
+                            <span class="stat-value" id="total-trace-latency">0 ms</span>
+                        </div>
+                    </div>
+
+                    <!-- Waterfall Chart Bars -->
+                    <div class="waterfall-chart-container" id="waterfall-container">
+                        <p class="upload-note">Chưa có vết thực thi. Hãy gửi câu hỏi phân tích để xem biểu đồ waterfall.</p>
+                    </div>
+
+                    <!-- Logs chi tiết -->
+                    <div class="audit-details-accordion" style="margin-top: 24px;">
+                        <details open>
+                            <summary>🔍 Nhật ký Điều phối Chi tiết (Supervisor Trace Logs)</summary>
                             <div class="accordion-content">
-                                <h5>Agent Execution Trace Logs:</h5>
                                 <ul id="trace-logs-list" class="trace-list"></ul>
-                                <h5>System Scope & Limitations:</h5>
+                            </div>
+                        </details>
+                    </div>
+
+                    <!-- Limitations -->
+                    <div class="audit-details-accordion" style="margin-top: 16px;">
+                        <details open>
+                            <summary>⚖️ Phạm vi & Giới hạn Hệ thống (System Limitations)</summary>
+                            <div class="accordion-content">
                                 <ul id="limitations-list" class="limitations-list"></ul>
                             </div>
                         </details>
@@ -299,7 +500,7 @@
         </main>
 
         <footer class="main-footer">
-            <p>© 2026 Multi-Agent ESG Report Analyst · Evidence-First AI System · Clean Code Portfolio Project</p>
+            <p>© 2026 Evidence-Grounded ESG Intelligence & Audit System · 7-Agent Architecture · Offline-First Deterministic Engine ($0 Cost)</p>
         </footer>
     </div>
 

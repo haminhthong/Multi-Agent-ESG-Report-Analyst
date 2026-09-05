@@ -10,6 +10,8 @@ from app.config import settings
 from app.demo import seed_demo
 from app.document_service import DocumentIngestionService
 from app.evaluation import (
+    ExtractionEvalCase,
+    evaluate_extraction,
     evaluate_retrieval,
     evaluate_retrieval_ablation,
     load_evaluation_cases,
@@ -21,14 +23,17 @@ DEFAULT_ANSWER_EVAL = Path("data/evaluation/answer_eval_cases.json")
 
 
 def main() -> None:
-    """Điểm vào chính (CLI Entrypoint) quản trị hệ thống ESG Report Analyst.
+    """Điểm vào chính (CLI Entrypoint) quản trị hệ thống Evidence-Grounded ESG Intelligence.
 
-    Hỗ trợ 5 lệnh chính:
+    Hỗ trợ các lệnh:
     1. `ingest`: Nạp dữ liệu dataset hàng loạt từ tệp CSV metadata.
-    2. `evaluate`: Chạy bộ đánh giá retrieval (Recall@K, MRR) và đóng vai trò Quality Gate trong CI/CD.
-    3. `benchmark`: Chạy thực nghiệm bóc tách Ablation Study so sánh BM25, Dense, Hybrid, Reranker.
-    4. `evaluate-answer`: Đánh giá chất lượng câu trả lời (Faithfulness, Citation Correctness, Hallucination Rate).
-    5. `stats`: Xuất báo cáo thống kê quy mô corpus.
+    2. `evaluate`: Chạy bộ đánh giá retrieval (Recall@K, MRR, nDCG) và Quality Gate CI/CD.
+    3. `benchmark`: Chạy thực nghiệm bóc tách Ablation Study so sánh 4 cấu hình Retrieval.
+    4. `evaluate-answer`: Đánh giá chất lượng câu trả lời & RAG Triad Guardrails.
+    5. `evaluate-extraction`: Đánh giá trích xuất sự thật ESG có cấu trúc (Tier 2 Evaluation).
+    6. `audit`: Khởi chạy kiểm toán ESG toàn diện sinh Evidence Matrix.
+    7. `compare`: So sánh đối chiếu chất lượng công bố giữa các doanh nghiệp.
+    8. `stats`: Xuất báo cáo thống kê quy mô corpus.
     """
     _enable_utf8_output()
     args = _build_parser().parse_args()
@@ -82,6 +87,80 @@ def main() -> None:
         if report.faithfulness < args.min_faithfulness:
             raise SystemExit(1)
 
+    elif args.command == "evaluate-extraction":
+        seed_demo(store)
+        supervisor = SupervisorAgent(store)
+        # Bộ test trích xuất mẫu dựa trên dữ liệu demo
+        extraction_cases = [
+            ExtractionEvalCase(
+                id="boeing_suppliers_extracted",
+                question="How many suppliers were rated using social criteria?",
+                query_scope=["boeing-demo"],
+                expected_metric="supplier_assessment",
+                expected_value=724,
+                expected_unit="suppliers",
+                expected_year=2024,
+            ),
+            ExtractionEvalCase(
+                id="nextera_renewables_mw",
+                question="What is NextEra's total wind and solar generation capacity?",
+                query_scope=["nextera-demo"],
+                expected_metric="renewable_energy",
+                expected_value=34000,
+                expected_unit="megawatt",
+                expected_year=2024,
+            ),
+            ExtractionEvalCase(
+                id="alcoa_trir_safety",
+                question="What is Alcoa's Total Recordable Incident Rate?",
+                query_scope=["alcoa-demo"],
+                expected_metric="work_safety",
+                expected_value=1.12,
+                expected_unit=None,
+                expected_year=2024,
+            ),
+        ]
+        rep = evaluate_extraction(supervisor, extraction_cases, top_k=args.top_k)
+        print("\n=== KẾT QUẢ STRUCTURED EXTRACTION EVALUATION ===")
+        print(f"• Exact Match: {rep.exact_match * 100:.1f}%")
+        print(f"• Numeric Tolerance Accuracy (5%): {rep.numeric_tolerance_acc * 100:.1f}%")
+        print(f"• Unit Accuracy: {rep.unit_acc * 100:.1f}%")
+        print(f"• Year Accuracy: {rep.year_acc * 100:.1f}%\n")
+        print(rep.model_dump_json(indent=2))
+
+    elif args.command == "audit":
+        seed_demo(store)
+        supervisor = SupervisorAgent(store)
+        doc_ids = [args.document_id] if getattr(args, "document_id", None) else None
+        res = supervisor.run(
+            question="Comprehensive ESG Audit covering emissions, targets, workforce safety, governance, and assurance.",
+            top_k=args.top_k,
+            document_ids=doc_ids,
+            mode="audit",
+        )
+        print("\n=== ESG AUDIT EVIDENCE MATRIX ===")
+        print("| Criterion | Pillar | Status | Value | Year | Page |")
+        print("|---|---|---|---|---|---|")
+        for row in res.evidence_matrix:
+            page_str = f"p.{row.citation.page}" if row.citation else "—"
+            val_str = f"{row.value} {row.unit or ''}".strip() if row.value else "—"
+            print(
+                f"| {row.criterion_name} | {row.pillar} | {row.status} | {val_str} | {row.reporting_year or '—'} | {page_str} |"
+            )
+        if res.screening_result:
+            print(f"\nGreenwashing Screening Risk: {res.screening_result.risk_level}")
+            for sig in res.screening_result.all_signals:
+                print(f"  {sig}")
+
+    elif args.command == "compare":
+        seed_demo(store)
+        supervisor = SupervisorAgent(store)
+        companies = args.companies.split(",")
+        comp = supervisor.audit.run_comparison(companies, store)
+        print(f"\n=== CROSS-COMPANY COMPARISON ({', '.join(companies)}) ===")
+        for f in comp.findings:
+            print(f"• {f}")
+
     else:
         print(json.dumps(store.stats(), ensure_ascii=False, indent=2))
 
@@ -89,7 +168,7 @@ def main() -> None:
 def _build_parser() -> argparse.ArgumentParser:
     """Khai báo cấu trúc tham số lệnh CLI và các subcommands rõ ràng."""
     parser = argparse.ArgumentParser(
-        description="Công cụ quản trị dòng lệnh ESG Report Analyst CLI"
+        description="Công cụ quản trị dòng lệnh ESG Intelligence & Audit CLI"
     )
     parser.add_argument("--database", type=Path, default=settings.database_path)
     commands = parser.add_subparsers(dest="command", required=True)
@@ -103,7 +182,7 @@ def _build_parser() -> argparse.ArgumentParser:
 
     # Subcommand: evaluate
     evaluate = commands.add_parser(
-        "evaluate", help="Đánh giá chất lượng truy xuất (Retrieval Evaluation)"
+        "evaluate", help="Đánh giá chất lượng truy xuất (Retrieval Evaluation: Recall, MRR, nDCG)"
     )
     evaluate.add_argument("--cases", type=Path, default=DEFAULT_EVALUATION)
     evaluate.add_argument("--top-k", type=int, default=5)
@@ -125,6 +204,23 @@ def _build_parser() -> argparse.ArgumentParser:
     ans_eval.add_argument("--cases", type=Path, default=DEFAULT_ANSWER_EVAL)
     ans_eval.add_argument("--top-k", type=int, default=5)
     ans_eval.add_argument("--min-faithfulness", type=float, default=0.0)
+
+    # Subcommand: evaluate-extraction
+    ext_eval = commands.add_parser(
+        "evaluate-extraction", help="Đánh giá độ chính xác trích xuất số liệu ESG có cấu trúc"
+    )
+    ext_eval.add_argument("--top-k", type=int, default=6)
+
+    # Subcommand: audit
+    audit = commands.add_parser("audit", help="Chạy kiểm toán ESG và xuất Evidence Matrix")
+    audit.add_argument("--document-id", type=str)
+    audit.add_argument("--top-k", type=int, default=12)
+
+    # Subcommand: compare
+    compare = commands.add_parser(
+        "compare", help="So sánh đối chiếu chất lượng công bố giữa các doanh nghiệp"
+    )
+    compare.add_argument("--companies", type=str, default="Boeing,NextEra Energy,Alcoa")
 
     # Subcommand: stats
     commands.add_parser("stats", help="Hiển thị thống kê tổng quan corpus")
