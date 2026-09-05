@@ -65,15 +65,17 @@ class CriterionCitationRef(BaseModel):
 
 
 class CriterionResult(BaseModel):
-    """Kết quả đánh giá từng tiêu chí đơn lẻ."""
+    """Kết quả đánh giá từng tiêu chí đơn lẻ theo độ đầy đủ dữ liệu (Completeness)."""
 
     criterion_id: str
-    status: Literal["found", "not_found", "contradicts", "unclear"]
+    status: Literal["found", "partial", "not_found", "missing", "contradicts", "unclear"]
     value: str | None = None
     unit: str | None = None
     reporting_year: int | None = None
     citation: CriterionCitationRef | None = None
     confidence: float = Field(ge=0.0, le=1.0, default=0.0)
+    matched_fields: list[str] = Field(default_factory=list)
+    missing_fields: list[str] = Field(default_factory=list)
 
 
 class PillarResult(BaseModel):
@@ -118,6 +120,14 @@ class ESGFact(BaseModel):
     source: Citation | None = None
     confidence: float = Field(ge=0.0, le=1.0, default=0.0)
     validation_status: Literal["valid", "conflict", "unverified"] = "valid"
+
+    # Lưu vết nguyên bản và chuẩn hóa (Dual Value/Unit Representation)
+    raw_value: float | str | None = None
+    raw_unit: str | None = None
+    normalized_value: float | None = None
+    normalized_unit: str | None = None
+    methodology: str | None = None  # e.g. "market-based", "location-based", "gross", "net"
+    organizational_boundary: str | None = None
 
 
 class EvidenceConflict(BaseModel):
@@ -198,12 +208,13 @@ class EvidenceMatrixRow(BaseModel):
     criterion_id: str
     criterion_name: str
     pillar: Literal["E", "S", "G"]
-    status: Literal["found", "missing", "contradicts", "unclear"]
+    status: Literal["found", "partial", "missing", "not_found", "contradicts", "unclear"]
     value: str | None = None
     unit: str | None = None
     reporting_year: int | None = None
     citation: CriterionCitationRef | None = None
     confidence: float = 0.0
+    missing_fields: list[str] = Field(default_factory=list)
 
 
 class AnalysisRequest(BaseModel):
@@ -266,7 +277,9 @@ class AnalysisResponse(BaseModel):
     """Schema kết quả tổng hợp hoàn chỉnh do Supervisor Agent trả về."""
 
     mode: Literal["qa", "audit"] = "qa"
-    agent_mode: Literal["llm_agentic", "deterministic_fallback"] = "deterministic_fallback"
+    agent_mode: Literal["llm_agentic", "deterministic_fallback", "agent_orchestrated"] = (
+        "deterministic_fallback"
+    )
     answer: str
     disclosure_coverage: float = Field(ge=0.0, le=100.0, default=0.0)
     evidence_quality: float = Field(ge=0.0, le=100.0, default=0.0)
@@ -287,6 +300,7 @@ class AnalysisResponse(BaseModel):
     screening_result: GreenwashingScreeningResult | None = None
     temporal_analysis: TemporalAnalysisResult | None = None
     comparison: CompanyComparisonResult | None = None
+    evidence_completeness: dict[str, Any] = Field(default_factory=dict)
     trace_steps: list[AgentTraceStep] = Field(default_factory=list)
 
 
@@ -311,6 +325,7 @@ class AnalysisState(BaseModel):
     pillars: list[PillarResult] = Field(default_factory=list)
     overall_coverage: float = 0.0
     verification_summary: dict[str, Any] = Field(default_factory=dict)
+    evidence_completeness: dict[str, Any] = Field(default_factory=dict)
     answer: str = ""
     warnings: list[str] = Field(default_factory=list)
     limitations: list[str] = Field(default_factory=list)

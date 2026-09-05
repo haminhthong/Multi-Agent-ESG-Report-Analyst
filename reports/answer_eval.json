@@ -1,0 +1,106 @@
+{
+  "cases": 10,
+  "faithfulness": 0.92,
+  "citation_correctness": 0.8033,
+  "completeness": 0.9,
+  "unsupported_claim_rate": 0.08,
+  "details": [
+    {
+      "id": "ans_boeing_suppliers",
+      "citation_correctness": 0.8,
+      "faithfulness": 1.0,
+      "completeness": 1.0,
+      "unsupported_claim_rate": 0.0,
+      "cited_count": 5,
+      "unsupported_claims": []
+    },
+    {
+      "id": "ans_boeing_netzero",
+      "citation_correctness": 0.8,
+      "faithfulness": 1.0,
+      "completeness": 1.0,
+      "unsupported_claim_rate": 0.0,
+      "cited_count": 5,
+      "unsupported_claims": []
+    },
+    {
+      "id": "ans_nextera_renewables",
+      "citation_correctness": 0.8,
+      "faithfulness": 1.0,
+      "completeness": 1.0,
+      "unsupported_claim_rate": 0.0,
+      "cited_count": 5,
+      "unsupported_claims": []
+    },
+    {
+      "id": "ans_nextera_emissions_reduction",
+      "citation_correctness": 0.8,
+      "faithfulness": 0.8,
+      "completeness": 1.0,
+      "unsupported_claim_rate": 0.2,
+      "cited_count": 5,
+      "unsupported_claims": [
+        "Key metrics include emissions intensity of 0"
+      ]
+    },
+    {
+      "id": "ans_nextera_assurance",
+      "citation_correctness": 0.8,
+      "faithfulness": 1.0,
+      "completeness": 0.6667,
+      "unsupported_claim_rate": 0.0,
+      "cited_count": 5,
+      "unsupported_claims": []
+    },
+    {
+      "id": "ans_alcoa_safety",
+      "citation_correctness": 0.8,
+      "faithfulness": 1.0,
+      "completeness": 0.6667,
+      "unsupported_claim_rate": 0.0,
+      "cited_count": 5,
+      "unsupported_claims": []
+    },
+    {
+      "id": "ans_alcoa_ecolum",
+      "citation_correctness": 0.8,
+      "faithfulness": 0.8,
+      "completeness": 0.6667,
+      "unsupported_claim_rate": 0.2,
+      "cited_count": 5,
+      "unsupported_claims": [
+        "0 metric tons of CO2e per ton of aluminum produced"
+      ]
+    },
+    {
+      "id": "ans_alcoa_female_representation",
+      "citation_correctness": 0.8,
+      "faithfulness": 1.0,
+      "completeness": 1.0,
+      "unsupported_claim_rate": 0.0,
+      "cited_count": 5,
+      "unsupported_claims": []
+    },
+    {
+      "id": "ans_alcoa_anti_corruption",
+      "citation_correctness": 0.8,
+      "faithfulness": 0.6,
+      "completeness": 1.0,
+      "unsupported_claim_rate": 0.4,
+      "cited_count": 5,
+      "unsupported_claims": [
+        "During the reporting year, 99",
+        "4% of eligible salaried personnel completed comprehensive anti-corruption a"
+      ]
+    },
+    {
+      "id": "ans_boeing_board_governance",
+      "citation_correctness": 0.8333,
+      "faithfulness": 1.0,
+      "completeness": 1.0,
+      "unsupported_claim_rate": 0.0,
+      "cited_count": 6,
+      "unsupported_claims": []
+    }
+  ]
+}

@@ -1,0 +1,84 @@
+{
+  "manifest_version": "2.0.0",
+  "project_name": "Evidence-Grounded ESG Intelligence & Audit Platform",
+  "git_commit": "f7da23acc724ac61fe5b17f2c4020329f3a2a44a",
+  "evaluated_at": "2026-09-06T02:21:00Z",
+  "environment": {
+    "python_version": "3.13.14",
+    "dense_model": "sentence-transformers/all-MiniLM-L6-v2",
+    "reranker_model": "cross-encoder/ms-marco-MiniLM-L-6-v2",
+    "sparse_engine": "SQLite FTS5 (BM25)",
+    "fusion_algorithm": "Reciprocal Rank Fusion (RRF k=60.0)",
+    "platform_mode": "Evidence-Grounded Agent-Orchestrated ESG Audit"
+  },
+  "dataset_manifest": {
+    "retrieval_cases": {
+      "path": "data/evaluation/retrieval_cases.json",
+      "sha256": "EBACE93245CC43765A379EBCDADDE4EE96D562AEBF89FD9F27E9F768ED15A9AE",
+      "count": 21
+    },
+    "answer_eval_cases": {
+      "path": "data/evaluation/answer_eval_cases.json",
+      "sha256": "0CB18F2F43836EFE784F26EFEC1AD2A30F966213A78693BA395FEEACD96DBEB7",
+      "count": 10
+    },
+    "corpus_sectors": [
+      "Aerospace & Industrials (Boeing)",
+      "Clean Energy & Utilities (NextEra Energy)",
+      "Materials & Mining (Alcoa)"
+    ]
+  },
+  "benchmark_results": {
+    "retrieval_ablation": {
+      "cases": 21,
+      "top_k": 5,
+      "systems": {
+        "BM25": {
+          "recall_at_5": 1.0,
+          "mrr_at_5": 0.9048,
+          "ndcg_at_5": 0.9238,
+          "precision_at_5": 0.254
+        },
+        "Dense": {
+          "recall_at_5": 1.0,
+          "mrr_at_5": 0.9206,
+          "ndcg_at_5": 0.941,
+          "precision_at_5": 0.2468
+        },
+        "Hybrid_RRF": {
+          "recall_at_5": 1.0,
+          "mrr_at_5": 0.9762,
+          "ndcg_at_5": 0.9824,
+          "precision_at_5": 0.2333
+        },
+        "Hybrid_Reranker": {
+          "recall_at_5": 1.0,
+          "mrr_at_5": 0.9524,
+          "ndcg_at_5": 0.9648,
+          "precision_at_5": 0.2333
+        }
+      }
+    },
+    "structured_fact_extraction": {
+      "cases": 3,
+      "exact_match": 1.0,
+      "numeric_tolerance_acc_5pct": 1.0,
+      "unit_accuracy": 1.0,
+      "year_accuracy": 1.0,
+      "features": [
+        "Canonical GHG unit normalization (ktCO2e, MtCO2e -> tCO2e)",
+        "Energy unit normalization (GWh -> MWh)",
+        "Metric-span localized year extraction (separating baseline vs reporting year)",
+        "Multidimensional conflict detection (grouping by metric + reporting year + methodology)"
+      ]
+    },
+    "answer_quality_and_grounding": {
+      "cases": 10,
+      "answer_faithfulness": 0.92,
+      "citation_correctness": 0.80,
+      "answer_completeness": 0.90,
+      "unsupported_claim_rate": 0.08,
+      "hallucination_prevention": "Strict provenance checking against retrieved context window"
+    }
+  }
+}

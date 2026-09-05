@@ -1,5 +1,6 @@
 import json
 import logging
+import re
 from typing import Any
 
 import httpx
@@ -150,25 +151,26 @@ class LLMClient:
         citations: list[dict[str, Any]],
         rubric_summary: str | None = None,
     ) -> str | None:
-        """Tổng hợp câu trả lời chính văn dựa trên bằng chứng đã xác thực, bắt buộc kèm trích dẫn số trang."""
+        """Tổng hợp câu trả lời chính văn dựa trên bằng chứng đã xác thực, bắt buộc kèm trích dẫn số trang hoặc citation ID."""
         context_lines = []
         for i, cite in enumerate(citations, 1):
             doc = cite.get("document_name") or cite.get("document_id", "Doc")
             page = cite.get("page", 1)
             excerpt = cite.get("excerpt", "")
-            context_lines.append(f"[{i}] [{doc}, trang {page}]: {excerpt}")
+            cid = cite.get("cid", f"[C{i}]")
+            context_lines.append(f"{cid} [{doc}, trang {page}]: {excerpt}")
         context = "\n".join(context_lines)
 
         system_prompt = (
             "You are an Evidence-Grounded ESG Analyst. Your task is to answer the question using ONLY "
-            "the provided excerpts. Every factual statement MUST cite its source as [Tên tài liệu, trang X]. "
+            "the provided excerpts. Every factual statement MUST cite its source as [C1] or [Tên tài liệu, trang X]. "
             "Do NOT hallucinate or assume facts not present in the excerpts. If evidence is insufficient, state clearly what is missing."
         )
         user_prompt = (
             f"Question: {question}\n\n"
             f"Verified Excerpts:\n{context}\n\n"
             f"Rubric Summary:\n{rubric_summary or 'None'}\n\n"
-            "Provide a concise, professional answer with explicit page citations."
+            "Provide a concise, professional answer with explicit citations (e.g. [C1] or [Document, page X])."
         )
         return self.chat_completion(
             [
@@ -177,3 +179,19 @@ class LLMClient:
             ],
             temperature=0.1,
         )
+
+
+def validate_answer_grounding(
+    answer: str, valid_citations: list[dict[str, Any]]
+) -> tuple[bool, list[int]]:
+    """Kiểm tra xem toàn bộ các số trang xuất hiện trong câu trả lời có thuộc tập citation đã truy xuất không."""
+    if not answer:
+        return True, []
+
+    valid_pages = {int(c.get("page", 0)) for c in valid_citations if c.get("page")}
+    cited_pages = [
+        int(m.group(1)) for m in re.finditer(r"(?:trang|page)\s*(\d+)", answer, re.IGNORECASE)
+    ]
+    hallucinated = [p for p in cited_pages if p not in valid_pages]
+    is_valid = len(hallucinated) == 0
+    return is_valid, hallucinated

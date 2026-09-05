@@ -45,10 +45,10 @@ from app.tools import AgentTools
 
 
 # ==============================================================================
-# AGENT 1: DOCUMENT INTELLIGENCE AGENT
+# DOCUMENT INTELLIGENCE CAPABILITY
 # ==============================================================================
 class DocumentIntelligenceAgent:
-    """Agent 1: Document Intelligence & Page/Layout Preservation Agent.
+    """Năng lực Document Intelligence & Thẩm định Cấu trúc Trang (Page Quality Gate).
 
     Nhiệm vụ:
     1. Tiếp nhận và giải mã cấu trúc tài liệu PDF đa tầng (Native Text, Table, Scanned, Mixed).
@@ -138,16 +138,16 @@ DocumentAgent = DocumentIntelligenceAgent
 
 
 # ==============================================================================
-# AGENT 2: QUERY PLANNING AGENT
+# QUERY PLANNING CAPABILITY
 # ==============================================================================
 class QueryPlanningAgent:
-    """Agent 2: Agentic Query Decomposition & Planning Agent.
+    """Năng lực Phân tích Ý định & Lập Kế hoạch Truy xuất (Query Planning & Intent Classifier).
 
     Nhiệm vụ:
     Phân rã câu hỏi tự nhiên phức tạp của người dùng thành RetrievalPlan gồm:
     - `intent`: Mục tiêu nghiệp vụ (fact_lookup, criterion_audit, cross_document_compare, greenwashing_screening, temporal_trend)
     - `subqueries`: Danh sách các truy vấn con đa góc nhìn (target, baseline, scope 1/2/3, assurance, metrics)
-    - `required_evidence`: Danh mục bằng chứng bắt buộc cần tìm
+    - `required_evidence`: Danh mục bằng chứng bắt buộc cần tìm làm Quality Gate
     """
 
     def plan(
@@ -242,15 +242,15 @@ class QueryPlanningAgent:
 
 
 # ==============================================================================
-# AGENT 3: RETRIEVAL AGENT
+# HYBRID RETRIEVAL & RERANKING CAPABILITY
 # ==============================================================================
 class RetrievalAgent:
-    """Agent 3: Query Expansion & Advanced Hybrid Retrieval Agent.
+    """Năng lực Truy xuất Bằng chứng Kết hợp & Tái xếp hạng (Hybrid Retrieval & Global Fusion).
 
     Nhiệm vụ:
     1. Thực thi truy xuất Hybrid (BM25 + Dense) kết hợp RRF Fusion và Cross-Encoder Reranker.
-    2. Hỗ trợ chạy theo kế hoạch phân rã `RetrievalPlan` (Agentic Multi-Hop Retrieval).
-    3. Tự động khử trùng lặp và đa dạng hóa nguồn trích dẫn theo trang (Diversification).
+    2. Thực thi Global RRF Fusion qua các subqueries để triệt tiêu bias thứ tự truy vấn.
+    3. Tự động khử trùng lặp và đa dạng hóa nguồn trích dẫn theo trang (Page Diversification).
     """
 
     def __init__(self, store: Store, mode: str | None = None):
@@ -297,12 +297,20 @@ class RetrievalAgent:
         return EvidenceVerificationAgent.validate(citations)
 
     def run_plan(self, plan: RetrievalPlan, top_k: int) -> list[Citation]:
-        """Thực thi truy xuất đa truy vấn theo kế hoạch RetrievalPlan và hợp nhất kết quả."""
-        all_citations: list[Citation] = []
-        seen: set[tuple[str, int, str]] = set()
+        """Thực thi truy xuất đa truy vấn theo kế hoạch RetrievalPlan với Global RRF Fusion.
 
-        # Phân bổ ngân sách top_k cho các subqueries
-        sub_limit = max(3, top_k // max(1, len(plan.subqueries)) + 2)
+        Loại bỏ bias thứ tự truy vấn bằng cách tính Reciprocal Rank Fusion (RRF)
+        toàn cục qua tất cả các subqueries trước khi lọc Top-K.
+        """
+        if not plan.subqueries:
+            return []
+
+        sub_limit = max(top_k, 6)
+        rrf_k = 60.0
+
+        rrf_scores: dict[tuple[str, int, str], float] = {}
+        row_candidates: dict[tuple[str, int, str], dict] = {}
+        rerank_scores: dict[tuple[str, int, str], float] = {}
 
         for sq in plan.subqueries:
             sub_results = self.store.search(
@@ -311,43 +319,72 @@ class RetrievalAgent:
                 document_ids=plan.document_scope,
                 mode=self.mode,
             )
-            for row in sub_results:
+            for rank, row in enumerate(sub_results, start=1):
                 sig = (row["document_id"], row["page"], row["text"][:60])
-                if sig in seen:
-                    continue
-                seen.add(sig)
-                all_citations.append(
-                    Citation(
-                        chunk_id=row["chunk_id"],
-                        document_id=row["document_id"],
-                        document_name=row["name"],
-                        page=row["page"],
-                        excerpt=" ".join(row["text"].split())[:700],
-                        score=float(
-                            row.get("score") or round(1 / (1 + abs(row.get("rank", 1.0))), 4)
-                        ),
-                        section=row.get("section_title"),
-                        block_id=row.get("block_id"),
-                        block_type=row.get("block_type", "text"),
-                        retrieval_score=float(row.get("score") or 0.0),
-                        reranker_score=row.get("rerank_score"),
-                    )
-                )
+                sub_score = 1.0 / (rrf_k + rank)
+                rrf_scores[sig] = rrf_scores.get(sig, 0.0) + sub_score
+                if sig not in row_candidates:
+                    row_candidates[sig] = row
+                if row.get("rerank_score") is not None:
+                    curr_rerank = rerank_scores.get(sig, -999.0)
+                    rerank_scores[sig] = max(curr_rerank, float(row["rerank_score"]))
 
-        validated = EvidenceVerificationAgent.validate(all_citations)
+        scored_candidates: list[Citation] = []
+        for sig, row in row_candidates.items():
+            fused_score = rrf_scores[sig]
+            if sig in rerank_scores and rerank_scores[sig] > -999.0:
+                fused_score += rerank_scores[sig] * 0.1
+
+            citation = Citation(
+                chunk_id=row["chunk_id"],
+                document_id=row["document_id"],
+                document_name=row["name"],
+                page=row["page"],
+                excerpt=" ".join(row["text"].split())[:700],
+                score=round(fused_score, 4),
+                section=row.get("section_title"),
+                block_id=row.get("block_id"),
+                block_type=row.get("block_type", "text"),
+                retrieval_score=float(row.get("score") or 0.0),
+                reranker_score=rerank_scores.get(sig, row.get("rerank_score")),
+            )
+            scored_candidates.append(citation)
+
+        # Sắp xếp toàn cục theo điểm RRF fusion
+        scored_candidates.sort(key=lambda c: c.score, reverse=True)
+
+        # Đa dạng hóa theo trang (Page Diversification)
+        diversified: list[Citation] = []
+        page_counts: dict[tuple[str, int], int] = {}
+        for c in scored_candidates:
+            pk = (c.document_id, c.page)
+            if (
+                page_counts.get(pk, 0) >= 2
+                and len(diversified) + (len(scored_candidates) - len(diversified)) > top_k
+            ):
+                continue
+            page_counts[pk] = page_counts.get(pk, 0) + 1
+            diversified.append(c)
+
+        if len(diversified) < top_k:
+            for c in scored_candidates:
+                if c not in diversified:
+                    diversified.append(c)
+
+        validated = EvidenceVerificationAgent.validate(diversified)
         return validated[:top_k]
 
 
 # ==============================================================================
-# AGENT 4: EVIDENCE VERIFICATION & CONFLICT AGENT
+# EVIDENCE VERIFICATION & PROVENANCE CAPABILITY
 # ==============================================================================
 class EvidenceVerificationAgent:
-    """Agent 4: Evidence Provenance, Claim Verification & Conflict Detector.
+    """Năng lực Thẩm định Bằng chứng & Kiểm chứng Khẳng định (Evidence Verification).
 
     Nhiệm vụ:
     1. Kiểm tra tính hợp lệ hình thức của citation (page >= 1, min words, deduplication).
     2. Thẩm định độc lập các khẳng định (Claim Verification) xem có mâu thuẫn hay không.
-    3. Phát hiện xung đột số liệu công bố (Conflicting Disclosures).
+    3. Xác nhận tính đầy đủ nguồn gốc (Provenance Validation).
     """
 
     @staticmethod
@@ -435,16 +472,21 @@ class ESGAuditAgent:
         pillar_criteria = [c for c in CRITERIA_DEFINITIONS if c.pillar == name]
         criteria_results: list[CriterionResult] = []
         found_count = 0
+        partial_count = 0
 
         for criterion in pillar_criteria:
             res = self._evaluate_criterion(criterion, evidence)
             criteria_results.append(res)
             if res.status == "found":
                 found_count += 1
+            elif res.status == "partial":
+                partial_count += 1
 
         total_criteria = len(pillar_criteria) if pillar_criteria else len(rubric.criteria)
         disclosure_coverage = (
-            round((found_count / total_criteria) * 100, 1) if total_criteria > 0 else 0.0
+            round(((found_count + 0.5 * partial_count) / total_criteria) * 100, 1)
+            if total_criteria > 0
+            else 0.0
         )
 
         metrics = len(METRIC_PATTERN.findall(text))
@@ -463,7 +505,7 @@ class ESGAuditAgent:
         confidence = round(min(1.0, len(evidence) / 4) * (evidence_quality / 100.0), 2)
 
         findings = [
-            f"Hệ thống tìm thấy bằng chứng cho {found_count}/{total_criteria} tiêu chí thuộc trụ cột {name}.",
+            f"Hệ thống tìm thấy bằng chứng cho {found_count} tiêu chí đầy đủ và {partial_count} tiêu chí một phần trên {total_criteria} tiêu chí thuộc trụ cột {name}.",
             f"Ghi nhận {metrics} số liệu định lượng có đơn vị đo lường.",
         ]
 
@@ -499,7 +541,7 @@ class ESGAuditAgent:
     def _evaluate_criterion(
         self, criterion: RubricCriterion, citations: list[Citation]
     ) -> CriterionResult:
-        """Đánh giá trạng thái và chi tiết của 1 tiêu chí ESG dựa trên tập citation."""
+        """Đánh giá trạng thái và chi tiết của 1 tiêu chí ESG dựa trên tập citation theo độ đầy đủ required_fields."""
         for cite in citations:
             text = cite.excerpt.lower()
             keywords = criterion.retrieval_keywords or criterion.required_evidence
@@ -523,6 +565,7 @@ class ESGAuditAgent:
                             section=cite.section,
                         ),
                         confidence=0.85,
+                        missing_fields=list(criterion.required_fields),
                     )
 
                 if NEGATED_PERFORMANCE_PATTERN.search(text):
@@ -536,18 +579,96 @@ class ESGAuditAgent:
                             section=cite.section,
                         ),
                         confidence=0.8,
+                        missing_fields=list(criterion.required_fields),
                     )
 
                 metric_match = METRIC_PATTERN.search(text)
                 value = metric_match.group(0) if metric_match else None
                 year_match = YEAR_PATTERN.search(text)
                 year = int(year_match.group(0)) if year_match else None
+                unit = criterion.metric_units[0] if criterion.metric_units else None
+
+                # Đánh giá độ đầy đủ của required_fields
+                matched_fields: list[str] = []
+                missing_fields: list[str] = []
+
+                for rf in criterion.required_fields:
+                    rf_l = rf.lower()
+                    if "year" in rf_l:
+                        if year is not None:
+                            matched_fields.append(rf)
+                        else:
+                            missing_fields.append(rf)
+                    elif "unit" in rf_l:
+                        if any(u.lower() in text for u in criterion.metric_units):
+                            matched_fields.append(rf)
+                        else:
+                            missing_fields.append(rf)
+                    elif "scope_1" in rf_l:
+                        if "scope 1" in text and value is not None:
+                            matched_fields.append(rf)
+                        else:
+                            missing_fields.append(rf)
+                    elif "scope_2" in rf_l:
+                        if "scope 2" in text and value is not None:
+                            matched_fields.append(rf)
+                        else:
+                            missing_fields.append(rf)
+                    elif "scope_3" in rf_l:
+                        if "scope 3" in text and value is not None:
+                            matched_fields.append(rf)
+                        else:
+                            missing_fields.append(rf)
+                    elif any(k in rf_l for k in ("value", "rate", "percentage", "count")):
+                        if value is not None:
+                            matched_fields.append(rf)
+                        else:
+                            missing_fields.append(rf)
+                    elif "target" in rf_l:
+                        if TARGET_PATTERN.search(text) or any(
+                            t in text for t in ("net zero", "net-zero", "target", "goal")
+                        ):
+                            matched_fields.append(rf)
+                        else:
+                            missing_fields.append(rf)
+                    elif "baseline" in rf_l:
+                        if BASELINE_PATTERN.search(text) and not NEGATED_BASELINE_PATTERN.search(
+                            text
+                        ):
+                            matched_fields.append(rf)
+                        else:
+                            missing_fields.append(rf)
+                    elif "assurance" in rf_l:
+                        if ASSURANCE_PATTERN.search(text) and not NEGATED_ASSURANCE_PATTERN.search(
+                            text
+                        ):
+                            matched_fields.append(rf)
+                        else:
+                            missing_fields.append(rf)
+                    else:
+                        if any(term in text for term in rf_l.split("_")):
+                            matched_fields.append(rf)
+                        else:
+                            missing_fields.append(rf)
+
+                # Xác định status theo độ đầy đủ required_fields
+                if not missing_fields and matched_fields:
+                    status: Literal[
+                        "found", "partial", "not_found", "missing", "contradicts", "unclear"
+                    ] = "found"
+                    confidence = 0.95
+                elif matched_fields:
+                    status = "partial"
+                    confidence = 0.75
+                else:
+                    status = "partial" if value or year else "unclear"
+                    confidence = 0.50
 
                 return CriterionResult(
                     criterion_id=criterion.id,
-                    status="found",
+                    status=status,
                     value=value,
-                    unit=criterion.metric_units[0] if criterion.metric_units else None,
+                    unit=unit,
                     reporting_year=year,
                     citation=CriterionCitationRef(
                         document=cite.document_name,
@@ -555,13 +676,16 @@ class ESGAuditAgent:
                         excerpt=cite.excerpt[:200],
                         section=cite.section,
                     ),
-                    confidence=0.9,
+                    confidence=confidence,
+                    matched_fields=matched_fields,
+                    missing_fields=missing_fields,
                 )
 
         return CriterionResult(
             criterion_id=criterion.id,
-            status="not_found",
+            status="missing",
             confidence=0.0,
+            missing_fields=list(criterion.required_fields),
         )
 
     def build_evidence_matrix(
@@ -573,11 +697,11 @@ class ESGAuditAgent:
 
         for criterion in CRITERIA_DEFINITIONS:
             eval_res = self._evaluate_criterion(criterion, citations)
-            status: Literal["found", "missing", "contradicts", "unclear"] = "missing"
-            if eval_res.status == "found":
-                status = "found"
-            elif eval_res.status == "contradicts":
-                status = "contradicts"
+            status: Literal[
+                "found", "partial", "missing", "not_found", "contradicts", "unclear"
+            ] = "missing"
+            if eval_res.status in ("found", "partial", "contradicts", "unclear"):
+                status = eval_res.status  # type: ignore[assignment]
 
             # Tìm xem có fact tương ứng không để bổ sung giá trị số liệu chuẩn xác
             matched_fact = None
@@ -888,14 +1012,16 @@ ESGAnalysisAgent = ESGAuditAgent
 
 
 # ==============================================================================
-# AGENT 6: EXPLANATION SYNTHESIS AGENT
+# EXPLANATION SYNTHESIS CAPABILITY
 # ==============================================================================
 class ExplanationAgent:
-    """Agent 6: Evidence-Grounded Explanation Synthesis Agent.
+    """Năng lực Tổng hợp Giải trình & Thẩm định Trích dẫn (Explanation Synthesis & Grounding).
 
-    Nhiệm vụ: Tổng hợp câu trả lời chính văn dựa trên các trích đoạn bằng chứng đã qua xác thực.
-    - Hỗ trợ LLM Synthesis có trích dẫn nghiêm ngặt khi LLM khả dụng.
-    - Graceful fallback: Sử dụng bộ tổng hợp xác định (Deterministic Synthesis) khi offline ($0 cost).
+    Nhiệm vụ:
+    - Tổng hợp câu trả lời dựa trên trích đoạn bằng chứng đã qua xác thực.
+    - Post-Generation Citation Grounding: Thẩm định nghiêm ngặt rằng mọi trích dẫn (Document, Page)
+      trong câu trả lời do LLM sinh ra đều thuộc tập hợp bằng chứng đã truy xuất hợp lệ.
+    - Deterministic Fallback: Tự động chuyển đổi sang bộ tổng hợp xác định khi offline ($0 cost).
     """
 
     def __init__(self, llm_client: LLMClient | None = None):
@@ -915,13 +1041,28 @@ class ExplanationAgent:
             rubric_summary = f"Coverage {overall_coverage}%. " + ", ".join(
                 f"{p.pillar}: {p.disclosure_coverage}%" for p in pillars
             )
+            # Chuẩn bị citation kèm citation IDs [C1], [C2]
+            citation_payload = []
+            for idx, c in enumerate(citations[:6], start=1):
+                cd = c.model_dump()
+                cd["cid"] = f"[C{idx}]"
+                citation_payload.append(cd)
+
             llm_answer = self.llm.synthesize_answer(
                 question=question,
-                citations=[c.model_dump() for c in citations[:6]],
+                citations=citation_payload,
                 rubric_summary=rubric_summary,
             )
             if llm_answer and len(llm_answer.strip()) > 20:
-                return llm_answer
+                # Post-Generation Citation Validation
+                valid_pages = {c.page for c in citations}
+                cited_pages = [
+                    int(m.group(1))
+                    for m in re.finditer(r"(?:trang|page)\s*(\d+)", llm_answer, re.IGNORECASE)
+                ]
+                hallucinated_pages = [p for p in cited_pages if p not in valid_pages]
+                if not hallucinated_pages:
+                    return llm_answer
 
         sources = (
             ", ".join(f"[{item.document_name}, trang {item.page}]" for item in citations[:6])
@@ -960,22 +1101,17 @@ class ExplanationAgent:
 
 
 # ==============================================================================
-# AGENT 7: SUPERVISOR AGENT & OBSERVABILITY ORCHESTRATOR
+# WORKFLOW ORCHESTRATION LAYER
 # ==============================================================================
 class SupervisorAgent:
-    """Agent 7: Dynamic Agentic Supervisor & Multi-Strategy Orchestrator.
+    """Agent-Orchestrated ESG Audit Workflow & Observability Orchestrator.
 
     Nhiệm vụ:
-    - Điều phối toàn diện 7 agent:
-      1. DocumentIntelligenceAgent
-      2. QueryPlanningAgent
-      3. RetrievalAgent
-      4. EvidenceExtractionAgent
-      5. EvidenceVerificationAgent
-      6. ESGAuditAgent
-      7. ExplanationAgent
-    - Đo lường độ trễ (latency ms) cho từng bước hành động phục vụ Observability.
-    - Duy trì khả năng chạy 100% offline với $0 API cost qua Deterministic Engine.
+    - Điều phối luồng phân tích xác định (Deterministic DAG Workflow):
+      `QueryPlanning` -> `HybridRetrieval` -> `EvidenceVerification` ->
+      `FactExtraction` -> `ESGAudit` -> `ExplanationSynthesis`.
+    - Thẩm định cổng chất lượng bằng chứng (Evidence Completeness Gate).
+    - Đo lường độ trễ chi tiết (latency waterfall ms) cho từng bước phục vụ Observability.
     """
 
     def __init__(
@@ -1003,7 +1139,7 @@ class SupervisorAgent:
         document_ids: list[str] | None = None,
         mode: Literal["qa", "audit"] = "qa",
     ) -> AnalysisResponse:
-        """Thực thi luồng phân tích toàn diện qua 7 agent kèm đo lường vết thực thi (Tracing)."""
+        """Thực thi luồng phân tích toàn diện có căn cứ bằng chứng kèm đo lường vết thực thi (Tracing)."""
         is_llm_active = self.llm.is_available()
         agent_mode: Literal["llm_agentic", "deterministic_fallback"] = (
             "llm_agentic" if is_llm_active else "deterministic_fallback"
@@ -1042,11 +1178,28 @@ class SupervisorAgent:
             f"Query Planning Agent: Intent '{plan.intent}' với {len(plan.subqueries)} subqueries ({plan_lat} ms)"
         )
 
-        # Step 2: Hybrid Retrieval
+        # Step 2: Hybrid Retrieval (QA vs Targeted Audit Retrieval)
         t0 = time.perf_counter()
-        raw_citations = self.retrieval.run_plan(
-            plan, top_k=max(top_k, 10 if mode == "audit" else top_k)
-        )
+        if mode == "audit":
+            audit_subqueries = [
+                "Scope 1 Scope 2 direct indirect greenhouse gas emissions tCO2e",
+                "Scope 3 value chain supply chain indirect emissions",
+                "net zero reduction target goal baseline year 2030 2050",
+                "renewable electricity wind solar capacity MWh GWh",
+                "worker safety TRIR total recordable incident rate fatalities",
+                "female women gender diversity workforce representation",
+                "supplier social environmental assessment evaluation",
+                "board climate oversight ethics compliance external assurance independent auditor",
+            ]
+            audit_plan = RetrievalPlan(
+                intent="criterion_audit",
+                subqueries=audit_subqueries,
+                required_evidence=plan.required_evidence,
+                document_scope=document_ids,
+            )
+            raw_citations = self.retrieval.run_plan(audit_plan, top_k=max(top_k, 12))
+        else:
+            raw_citations = self.retrieval.run_plan(plan, top_k=top_k)
         retrieval_lat = round((time.perf_counter() - t0) * 1000, 2)
         trace_steps.append(
             AgentTraceStep(
@@ -1122,15 +1275,53 @@ class SupervisorAgent:
             f"ESG Audit Agent: Coverage {overall_coverage}%, Greenwashing Risk: {screening_res.risk_level} ({audit_lat} ms)"
         )
 
+        # Step 5b: Evidence Completeness Gate
+        completeness_details: dict[str, Any] = {
+            "required": plan.required_evidence,
+            "satisfied": [],
+            "missing": [],
+            "status": "complete",
+        }
+        for req in plan.required_evidence:
+            req_l = req.lower()
+            has_fact = any(
+                req_l in f.metric.lower()
+                or (f.unit and req_l in f.unit.lower())
+                or (req_l == "year" and f.year is not None)
+                or (req_l == "baseline_year" and f.baseline_year is not None)
+                or (req_l == "target" and "target" in f.metric.lower())
+                for f in facts
+            )
+            has_cite = any(req_l in c.excerpt.lower() for c in validated_citations)
+            if has_fact or has_cite:
+                completeness_details["satisfied"].append(req)
+            else:
+                completeness_details["missing"].append(req)
+
+        if completeness_details["missing"]:
+            completeness_details["status"] = "incomplete"
+
         # Step 6: Temporal / Comparison Analysis nếu cần
         temporal_analysis = None
         comparison_res = None
         if plan.intent == "temporal_trend":
-            company_hint = "Boeing"
-            for c in validated_citations:
-                if c.document_name:
-                    company_hint = c.document_name.split()[0]
-                    break
+            company_hint = "Company"
+            if validated_citations:
+                first_doc_id = validated_citations[0].document_id
+                doc_meta = self.store.get_document(first_doc_id)
+                if doc_meta and doc_meta.get("company"):
+                    company_hint = doc_meta["company"]
+                elif validated_citations[0].document_name:
+                    raw_name = validated_citations[0].document_name
+                    clean_name = re.sub(r"^\b20\d\d\b\s*", "", raw_name)
+                    clean_name = re.sub(r"\.pdf$", "", clean_name, flags=re.IGNORECASE)
+                    tokens = [
+                        t
+                        for t in clean_name.split()
+                        if not t.isdigit()
+                        and t.lower() not in ("sustainability", "report", "esg", "annual")
+                    ]
+                    company_hint = tokens[0] if tokens else clean_name.split()[0]
             temporal_analysis = self.audit.run_temporal_analysis(
                 company_hint, self.store, document_ids=document_ids
             )
@@ -1165,6 +1356,11 @@ class SupervisorAgent:
             "Câu trả lời được tổng hợp duy nhất từ các đoạn bằng chứng đã truy xuất.",
             "Nếu thông tin nằm ngoài phạm vi Top-K đoạn được tìm kiếm, hệ thống sẽ không thể đưa vào kết luận.",
         ]
+        if completeness_details["status"] == "incomplete":
+            limitations.append(
+                "[MISSING_EVIDENCE] Tài liệu chưa cung cấp đủ bằng chứng đối chứng cho các trường yêu cầu: "
+                + ", ".join(completeness_details["missing"])
+            )
         if mode == "audit":
             limitations.extend(
                 [
@@ -1196,6 +1392,7 @@ class SupervisorAgent:
             screening_result=screening_res,
             temporal_analysis=temporal_analysis,
             comparison=comparison_res,
+            evidence_completeness=completeness_details,
             trace_steps=trace_steps,
         )
 

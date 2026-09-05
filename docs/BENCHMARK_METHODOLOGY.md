@@ -1,7 +1,7 @@
 # Phương pháp luận Đánh giá & Chuẩn mực Benchmark (Benchmark Methodology)
-## Evidence-Grounded ESG Intelligence & Audit System
+## Evidence-Grounded ESG Intelligence & Audit Platform
 
-Tài liệu này công bố minh bạch quy trình xây dựng tập dữ liệu kiểm chuẩn, phương pháp gán nhãn Ground Truth và định nghĩa toán học các chỉ số đo lường 4 tầng (4-Tier Evaluation) phục vụ đánh giá hệ thống.
+Tài liệu này công bố minh bạch quy trình xây dựng tập dữ liệu kiểm chuẩn, phương pháp gán nhãn Ground Truth và định nghĩa toán học các chỉ số đo lường 4 tầng (4-Tier Evaluation) phục vụ đánh giá hệ thống. Siêu dữ liệu và mã băm toàn vẹn được theo dõi tại [`reports/benchmark_manifest.json`](../reports/benchmark_manifest.json).
 
 ---
 
@@ -18,9 +18,9 @@ Tài liệu này công bố minh bạch quy trình xây dựng tập dữ liệu
 ### Thống kê Định lượng Tổng thể:
 - **Số lượng báo cáo đối sánh**: 3 tập tài liệu đa ngành.
 - **Số trang trích đoạn chuẩn hóa**: 16 trang trích đoạn đại diện có cấu trúc trang độc lập (`---PAGE X---`), bao gồm cả bảng số liệu và phản ví dụ (hard negatives).
-- **Số lượng truy vấn kiểm chuẩn Retrieval**: 21 câu hỏi Ground Truth độc lập (tăng từ 15 cases ban đầu, bổ sung các câu hỏi về bảng, mâu thuẫn số liệu và so sánh).
-- **Số lượng ca kiểm chuẩn trích xuất số liệu (Extraction Cases)**: 10 ca kiểm thử cấu trúc số liệu định lượng (Scope 1/2/3, Targets, Baseline, TRIR).
-- **Số lượng ca kiểm chuẩn chất lượng câu trả lời (Answer Eval Cases)**: 10 kịch bản đo lường chuyên sâu.
+- **Số lượng truy vấn kiểm chuẩn Retrieval**: 21 câu hỏi Ground Truth độc lập (`data/evaluation/retrieval_cases.json`, SHA256: `EBACE93245CC...`).
+- **Số lượng ca kiểm chuẩn trích xuất số liệu (Extraction Cases)**: Bóc tách cấu trúc số liệu định lượng (Scope 1/2/3, Targets, Baseline, TRIR, Renewable Energy) kèm Unit Normalization.
+- **Số lượng ca kiểm chuẩn chất lượng câu trả lời (Answer Eval Cases)**: 10 kịch bản đo lường chuyên sâu (`data/evaluation/answer_eval_cases.json`, SHA256: `0CB18F2F4383...`).
 
 ---
 
@@ -65,15 +65,14 @@ Tài liệu này công bố minh bạch quy trình xây dựng tập dữ liệu
 
 * **nDCG@K (Normalized Discounted Cumulative Gain)**: Đánh giá chất lượng xếp hạng có trọng số vị trí, ưu tiên đưa bằng chứng quan trọng nhất lên đầu:
   $$\text{DCG}@K = \sum_{i=1}^K \frac{2^{rel_i} - 1}{\log_2(i + 1)}, \quad \text{nDCG}@K = \frac{\text{DCG}@K}{\text{IDCG}@K}$$
-  *(Trong đó $rel_i = 1$ nếu chunk thứ $i$ trúng đúng trang ground truth, ngược lại $rel_i = 0$).*
 
-### B. Tầng 2: Chỉ số Bóc tách Số liệu Có cấu trúc (Extraction Metrics)
+### B. Tầng 2: Chỉ số Bóc tách Số liệu Có cấu trúc & Chuẩn hóa Đơn vị (Extraction Metrics)
 
-Đối với mỗi chỉ tiêu ESG (Scope 1, Scope 2, Scope 3, Net-Zero Year, Baseline Year, TRIR):
-* **Precision**: Tỷ lệ các số liệu trích xuất thực sự trùng khớp với ground truth về giá trị và đơn vị.
-* **Recall**: Tỷ lệ các số liệu có mặt trong văn bản được trích xuất thành công.
-* **F1-Score**: Trung bình điều hòa giữa Precision và Recall:
-  $$F_1 = 2 \cdot \frac{\text{Precision} \cdot \text{Recall}}{\text{Precision} + \text{Recall}}$$
+Đối với mỗi chỉ tiêu ESG (Scope 1, Scope 2, Scope 3, Net-Zero Target, Baseline Year, TRIR, Renewable Capacity):
+* **Exact Match**: Tỷ lệ các số liệu trích xuất trùng khớp hoàn toàn với ground truth về giá trị, chỉ tiêu và năm báo cáo.
+* **Numeric Tolerance Accuracy (5%)**: Tỷ lệ số liệu trích xuất nằm trong khoảng dung sai $\pm 5\%$ so với giá trị thực tế.
+* **Unit Normalization Rate**: Tỷ lệ các đơn vị phát thải khác nhau (ktCO2e, MtCO2e) được quy đổi thành công về đơn vị chuẩn `tCO2e`, và năng lượng về `MWh`.
+* **Year Disambiguation**: Độ chính xác phân định giữa năm cơ sở (Baseline Year) và năm báo cáo (Reporting Year) bằng thuật toán quét cửa sổ cục bộ.
 
 ### C. Tầng 3: Chất lượng Câu trả lời & Kiểm soát Ảo giác (Answer Quality & RAG Triad)
 
@@ -88,7 +87,8 @@ Tài liệu này công bố minh bạch quy trình xây dựng tập dữ liệu
 
 ### D. Tầng 4: Độ phủ Chuẩn mực & Sàng lọc Greenwashing
 
-* **Disclosure Coverage %**: Tỷ lệ tiêu chí GRI/SASB được công bố có bằng chứng xác thực trong tổng số tiêu chí chuẩn mực kiểm toán.
+* **Disclosure Coverage %**: Tỷ lệ tiêu chí GRI/SASB được công bố có bằng chứng xác thực trong tổng số tiêu chí chuẩn mực kiểm toán, tính theo công thức:
+  $$\text{Coverage} = \frac{N_{\text{found}} + 0.5 \times N_{\text{partial}}}{N_{\text{total\_criteria}}} \times 100\%$$
 * **Greenwashing Risk Level**: Tổng hợp điểm cảnh báo đa tín hiệu theo ngưỡng:
   - `LOW`: $0 - 1$ điểm cảnh báo (Đầy đủ số liệu, có năm cơ sở, có kiểm toán độc lập).
   - `MEDIUM`: $2 - 4$ điểm cảnh báo (Thiếu năm cơ sở hoặc thiếu bảo đảm độc lập).
@@ -111,6 +111,6 @@ python -m app.cli evaluate-answer --top-k 5
 # 4. Chạy Quality Gate kiểm tra hồi quy trong CI/CD pipeline
 python -m app.cli evaluate --top-k 5 --min-recall 0.8 --min-mrr 0.8
 
-# 5. Chạy toàn bộ 43 bài kiểm thử tự động
+# 5. Chạy toàn bộ 52 bài kiểm thử tự động Pytest
 python -m pytest
 ```
