@@ -3,7 +3,7 @@ import sqlite3
 from pathlib import Path
 from typing import Any, Protocol, runtime_checkable
 
-from app.chunking import chunk_pages
+from app.chunking import chunk_layout_blocks, chunk_pages
 from app.config import settings
 from app.embeddings import embedding_engine
 from app.reranker import reranker
@@ -160,6 +160,7 @@ class Store:
         text_page_count: int | None = None,
         extraction_quality: float | None = None,
         status: str = "indexed",
+        layout_blocks: list[Any] | None = None,
     ) -> None:
         """Thêm mới hoặc cập nhật báo cáo cùng toàn bộ chunk của nó trong một database transaction duy nhất."""
         with self.connect() as db:
@@ -183,7 +184,12 @@ class Store:
             # Xóa các chunk cũ của tài liệu này để tránh trùng lặp khi re-index
             db.execute("DELETE FROM chunks WHERE document_id=?", (doc_id,))
             inserted_chunks = []
-            for chunk in chunk_pages(pages, company=company, year=year):
+            chunk_iter = (
+                chunk_layout_blocks(layout_blocks, company=company, year=year)
+                if layout_blocks
+                else chunk_pages(pages, company=company, year=year)
+            )
+            for chunk in chunk_iter:
                 cur = db.execute(
                     "INSERT INTO chunks(document_id, page, text, section_title, block_type, block_id, pillar) "
                     "VALUES(?,?,?,?,?,?,?)",
@@ -468,20 +474,19 @@ class Store:
     def _diversify_results(candidates: list[dict[str, Any]], limit: int) -> list[dict[str, Any]]:
         """Khử trùng lặp ngữ nghĩa (Evidence Diversification):
 
-        Ưu tiên các đoạn từ các trang khác nhau hoặc phần nội dung khác nhau,
-        tránh việc top-K bị chiếm toàn bộ bởi các chunk trùng lặp từ 1 trang duy nhất.
+        Ưu tiên tối đa 2 chunk / trang, tránh top-K bị chiếm bởi nhiều đoạn trùng từ 1 trang.
         """
         if len(candidates) <= limit:
             return candidates
 
         selected: list[dict[str, Any]] = []
-        seen_signatures: set[tuple[str, int]] = set()
+        page_counts: dict[tuple[str, int], int] = {}
         overflow: list[dict[str, Any]] = []
 
         for item in candidates:
             sig = (item["document_id"], item["page"])
-            if sig not in seen_signatures:
-                seen_signatures.add(sig)
+            if page_counts.get(sig, 0) < 2:
+                page_counts[sig] = page_counts.get(sig, 0) + 1
                 selected.append(item)
             else:
                 overflow.append(item)
@@ -489,7 +494,6 @@ class Store:
             if len(selected) == limit:
                 break
 
-        # Nếu còn thiếu chỗ thì lấy tiếp từ overflow
         if len(selected) < limit:
             selected.extend(overflow[: limit - len(selected)])
 

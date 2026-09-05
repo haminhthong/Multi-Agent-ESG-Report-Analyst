@@ -157,6 +157,39 @@ def test_criterion_required_fields_completeness():
     assert "scope_1_value" in res.matched_fields
 
 
+def test_criterion_aggregates_across_citations():
+    """Scope 1 và Scope 2 ở hai trang khác nhau phải gộp thành found (không dừng ở citation đầu)."""
+    crit = RubricCriterion(
+        id="E_GHG_SCOPE_1_2",
+        pillar="E",
+        name="Scope 1 & 2",
+        description="Emissions",
+        retrieval_keywords=["scope 1", "scope 2", "emissions"],
+        required_fields=["scope_1_value", "scope_2_value", "unit", "reporting_year"],
+        metric_units=["tCO2e"],
+    )
+    cite_s1 = Citation(
+        chunk_id=1,
+        document_id="d1",
+        document_name="Doc.pdf",
+        page=4,
+        excerpt="In 2023, Scope 1 emissions were 250,000 tCO2e.",
+    )
+    cite_s2 = Citation(
+        chunk_id=2,
+        document_id="d1",
+        document_name="Doc.pdf",
+        page=5,
+        excerpt="In 2023, Scope 2 emissions were 180,000 tCO2e.",
+    )
+    agent = ESGAuditAgent()
+    res = agent._evaluate_criterion(crit, [cite_s1, cite_s2])
+    assert res.status == "found"
+    assert not res.missing_fields
+    assert "scope_1_value" in res.matched_fields
+    assert "scope_2_value" in res.matched_fields
+
+
 def test_evidence_completeness_gate(tmp_path: Path):
     """P1: Evidence Completeness Gate ghi nhận các trường thiếu vào limitations."""
     store = Store(tmp_path / "test_gate.db")

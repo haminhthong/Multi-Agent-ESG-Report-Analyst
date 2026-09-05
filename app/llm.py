@@ -181,17 +181,69 @@ class LLMClient:
         )
 
 
+def _normalize_number_token(token: str) -> str:
+    return token.replace(",", "").replace(" ", "")
+
+
 def validate_answer_grounding(
     answer: str, valid_citations: list[dict[str, Any]]
-) -> tuple[bool, list[int]]:
-    """Kiểm tra xem toàn bộ các số trang xuất hiện trong câu trả lời có thuộc tập citation đã truy xuất không."""
+) -> tuple[bool, list[str]]:
+    """Kiểm tra grounding: [Cn], số trang, và số liệu định lượng phải neo vào citation đã truy xuất.
+
+    Trả về `(is_valid, issues)` với issues dạng chuỗi ngắn phục vụ fallback/observability.
+    """
     if not answer:
         return True, []
 
-    valid_pages = {int(c.get("page", 0)) for c in valid_citations if c.get("page")}
+    issues: list[str] = []
+
+    valid_cids: set[int] = set()
+    for i, cite in enumerate(valid_citations, start=1):
+        cid_raw = str(cite.get("cid") or f"C{i}")
+        match = re.search(r"C(\d+)", cid_raw, re.IGNORECASE)
+        valid_cids.add(int(match.group(1)) if match else i)
+
+    cited_cids = [int(m.group(1)) for m in re.finditer(r"\[C(\d+)\]", answer, re.IGNORECASE)]
+    bad_cids = sorted({c for c in cited_cids if c not in valid_cids})
+    if bad_cids:
+        issues.append(f"hallucinated_cids={bad_cids}")
+
+    valid_pages = {int(c["page"]) for c in valid_citations if c.get("page")}
     cited_pages = [
-        int(m.group(1)) for m in re.finditer(r"(?:trang|page)\s*(\d+)", answer, re.IGNORECASE)
+        int(m.group(1))
+        for m in re.finditer(r"(?:trang|page)\s*(\d+)", answer, re.IGNORECASE)
     ]
-    hallucinated = [p for p in cited_pages if p not in valid_pages]
-    is_valid = len(hallucinated) == 0
-    return is_valid, hallucinated
+    # Dạng [Document, page 5] / [Document, trang 5]
+    cited_pages.extend(
+        int(m.group(1))
+        for m in re.finditer(r"\[\s*[^,\]]+,\s*(?:trang|page)\s*(\d+)\s*\]", answer, re.IGNORECASE)
+    )
+    bad_pages = sorted({p for p in cited_pages if p not in valid_pages})
+    if bad_pages:
+        issues.append(f"hallucinated_pages={bad_pages}")
+
+    excerpt_numbers: set[str] = set()
+    for cite in valid_citations:
+        for num in re.findall(r"\b\d+(?:[.,]\d+)?\b", cite.get("excerpt") or ""):
+            excerpt_numbers.add(_normalize_number_token(num))
+        if cite.get("page") is not None:
+            excerpt_numbers.add(str(int(cite["page"])))
+
+    cited_cid_set = set(cited_cids)
+    unsupported: list[str] = []
+    for num in re.findall(r"\b\d+(?:[.,]\d+)?\b", answer):
+        norm = _normalize_number_token(num)
+        # Bỏ qua chỉ số citation ngắn (1, 2, …) khi đã có [Cn]
+        if norm.isdigit() and int(norm) in cited_cid_set and len(norm) <= 2:
+            continue
+        # Chỉ kiểm tra số liệu substantive (>=3 chữ số hoặc thập phân)
+        if len(norm.replace(".", "")) < 3 and "." not in norm:
+            continue
+        if norm in excerpt_numbers:
+            continue
+        unsupported.append(num)
+    if unsupported:
+        issues.append(f"unsupported_numbers={unsupported}")
+
+    is_valid = not bad_cids and not bad_pages and not unsupported
+    return is_valid, issues

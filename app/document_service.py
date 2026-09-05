@@ -1,7 +1,8 @@
 import hashlib
 
 from app.agents import DocumentAgent, DocumentIntelligenceAgent
-from app.models import DocumentIngestResponse
+from app.chunking import pages_from_layout_blocks
+from app.models import DocumentIngestResponse, LayoutBlock
 from app.store import Store
 
 # Dung lượng tệp PDF tối đa cho phép tải lên (75 MB)
@@ -78,11 +79,23 @@ class DocumentIngestionService:
                 status="already_indexed",
             )
 
-        # Step 3: Trích xuất danh sách trang
+        # Step 3: Document Intelligence — ưu tiên LayoutBlock, fallback page text
+        layout_blocks: list[LayoutBlock] = []
         try:
-            pages = DocumentAgent.extract_pdf(content)
-        except Exception as exc:
-            raise DocumentExtractionError(f"Không thể trích xuất PDF: {exc}") from exc
+            layout_blocks = DocumentAgent.extract_pdf_blocks(content, document_id=document_id)
+        except Exception:
+            layout_blocks = []
+
+        if layout_blocks:
+            pages = pages_from_layout_blocks(layout_blocks)
+        else:
+            try:
+                pages = DocumentAgent.extract_pdf(content)
+            except Exception as exc:
+                raise DocumentExtractionError(f"Không thể trích xuất PDF: {exc}") from exc
+
+        if not pages and not layout_blocks:
+            raise DocumentExtractionError("Không thể trích xuất PDF: không có nội dung")
 
         # Step 4: Kiểm tra chất lượng văn bản trích xuất
         text_pages, quality = self._measure_quality(pages)
@@ -91,7 +104,7 @@ class DocumentIngestionService:
                 "PDF có quá ít trang chứa văn bản; cần chạy OCR trước khi lập chỉ mục"
             )
 
-        # Step 5: Lưu trữ vào database và chia chunk đa tầng
+        # Step 5: Lưu trữ vào database và chia chunk (layout-aware khi có blocks)
         self.store.add_document(
             document_id,
             filename,
@@ -101,6 +114,7 @@ class DocumentIngestionService:
             year=year,
             text_page_count=text_pages,
             extraction_quality=quality,
+            layout_blocks=layout_blocks or None,
         )
         return DocumentIngestResponse(
             id=document_id,
@@ -118,14 +132,17 @@ class DocumentIngestionService:
         is_pdf = content_type == "application/pdf" or filename.lower().endswith(".pdf")
         if not is_pdf or not content.startswith(b"%PDF-"):
             raise UnsupportedDocumentError("Chỉ hỗ trợ tệp PDF hợp lệ")
+
         if len(content) > MAX_PDF_SIZE_BYTES:
-            raise DocumentTooLargeError("Tệp PDF vượt quá giới hạn 75 MB")
+            raise DocumentTooLargeError(
+                f"Kích thước tệp vượt quá giới hạn tối đa ({MAX_PDF_SIZE_BYTES // (1024 * 1024)}MB)"
+            )
 
     @staticmethod
     def _measure_quality(pages: list[tuple[int, str]]) -> tuple[int, float]:
-        """Tính toán tỷ lệ số trang chứa văn bản đọc được so với tổng số trang PDF."""
-
+        """Đếm số trang có text và tỷ lệ chất lượng trích xuất."""
         if not pages:
             return 0, 0.0
-        text_pages = sum(len(" ".join(text.split())) >= MIN_TEXT_CHARACTERS for _, text in pages)
-        return text_pages, round(text_pages / len(pages), 4)
+        text_pages = sum(1 for _, text in pages if len((text or "").strip()) >= MIN_TEXT_CHARACTERS)
+        quality = round(text_pages / len(pages), 4)
+        return text_pages, quality

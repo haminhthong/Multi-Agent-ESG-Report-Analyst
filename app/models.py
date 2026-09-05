@@ -228,6 +228,7 @@ class AnalysisRequest(BaseModel):
     document_ids: list[str] | None = Field(default=None, max_length=20)
     top_k: int = Field(default=8, ge=1, le=25)
     mode: Literal["qa", "audit"] = Field(default="qa")
+    focus_pillars: list[Literal["E", "S", "G"]] | None = None
 
 
 class SearchRequest(BaseModel):

@@ -52,3 +52,53 @@ def test_ingest_rejects_oversized_file(service, monkeypatch):
     monkeypatch.setattr(service_module, "MAX_PDF_SIZE_BYTES", 8)
     with pytest.raises(DocumentTooLargeError):
         service.ingest(b"%PDF-too-large", "large.pdf", "application/pdf")
+
+
+def test_ingest_uses_layout_blocks(service, monkeypatch):
+    from app.models import LayoutBlock
+
+    blocks = [
+        LayoutBlock(
+            document_id="demo",
+            page=1,
+            block_id="demo_p1_b1",
+            block_type="heading",
+            section="Climate",
+            text="CLIMATE METRICS",
+        ),
+        LayoutBlock(
+            document_id="demo",
+            page=1,
+            block_id="demo_p1_b2",
+            block_type="text",
+            section="Climate",
+            text="a" * 50 + " Scope 1 emissions were 100 tCO2e.",
+        ),
+        LayoutBlock(
+            document_id="demo",
+            page=2,
+            block_id="demo_p2_b1",
+            block_type="table",
+            section="Climate",
+            text="Metric | Value\nScope 2 | 80 tCO2e",
+        ),
+    ]
+    monkeypatch.setattr(
+        DocumentAgent,
+        "extract_pdf_blocks",
+        classmethod(lambda cls, source, document_id="doc": blocks),
+    )
+
+    result = service.ingest(b"%PDF-demo-blocks", "Blocks.pdf", "application/pdf", "ACME")
+    assert result.status == "indexed"
+    assert result.pages == 2
+
+    with service.store.connect() as db:
+        rows = db.execute(
+            "SELECT block_id, block_type, section_title FROM chunks WHERE document_id=?",
+            (result.id,),
+        ).fetchall()
+    assert rows
+    block_ids = {r["block_id"] for r in rows}
+    assert "demo_p1_b1" in block_ids or any("demo_p" in (b or "") for b in block_ids)
+    assert any(r["block_type"] == "table" for r in rows)

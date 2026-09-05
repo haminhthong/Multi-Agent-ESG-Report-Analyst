@@ -1,4 +1,5 @@
 import re
+from datetime import datetime
 
 from app.models import Citation, ESGFact, EvidenceConflict
 from app.rubric import (
@@ -6,6 +7,9 @@ from app.rubric import (
     YEAR_PATTERN,
     normalize_number,
 )
+
+# Năm báo cáo tối đa hợp lệ (cho phép trễ 1 năm so với lịch hiện tại; năm xa hơn thường là target).
+_MAX_REPORTING_YEAR = datetime.now().year + 1
 
 # Các mẫu bóc tách số liệu chuyên sâu theo từng chỉ tiêu ESG
 FACT_PATTERNS = {
@@ -149,8 +153,10 @@ def extract_year_for_span(
     # Tìm tất cả năm 4 chữ số trong cửa sổ cục bộ
     all_years = [int(m.group(0)) for m in re.finditer(r"\b20[1234]\d\b", window)]
 
-    # Loại bỏ năm cơ sở và các năm xa trong tương lai (> 2026 thường là target year)
-    reporting_candidates = [y for y in all_years if y != baseline_year and y <= 2026]
+    # Loại bỏ năm cơ sở và các năm xa trong tương lai (thường là target year)
+    reporting_candidates = [
+        y for y in all_years if y != baseline_year and y <= _MAX_REPORTING_YEAR
+    ]
 
     if reporting_candidates:
         metric_mid = (span_start + span_end) // 2
@@ -167,7 +173,7 @@ def extract_year_for_span(
     global_years = [
         int(m.group(0))
         for m in re.finditer(r"\b20[1234]\d\b", text)
-        if int(m.group(0)) != baseline_year and int(m.group(0)) <= 2026
+        if int(m.group(0)) != baseline_year and int(m.group(0)) <= _MAX_REPORTING_YEAR
     ]
     reporting_year = global_years[0] if global_years else None
     return reporting_year, baseline_year

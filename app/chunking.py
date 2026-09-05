@@ -1,5 +1,6 @@
 import re
 from dataclasses import dataclass
+from typing import Any
 
 # Biểu thức chính quy nhận diện tiêu đề (Heading) dựa trên định dạng IN HOA hoặc cấu trúc chỉ mục (VD: 1.2 Climate Risk)
 HEADING = re.compile(
@@ -247,6 +248,141 @@ def chunk_pages(
             )
 
     return chunks
+
+
+def chunk_layout_blocks(
+    blocks: list[Any],
+    max_words: int = 260,
+    overlap_words: int = 45,
+    company: str | None = None,
+    year: int | None = None,
+) -> list[TextChunk]:
+    """Chunk từ LayoutBlock (Document Intelligence): bảo toàn block_id, block_type, section.
+
+    - heading / table: giữ nguyên khối, không cắt đôi.
+    - text: cửa sổ trượt theo max_words với overlap.
+    """
+    if max_words <= 0:
+        raise ValueError("max_words phải lớn hơn 0")
+    if not 0 <= overlap_words < max_words:
+        raise ValueError("overlap_words phải nằm trong khoảng [0, max_words)")
+    if not blocks:
+        return []
+
+    from collections import defaultdict
+
+    by_page: dict[int, list[Any]] = defaultdict(list)
+    for block in blocks:
+        page = int(getattr(block, "page", 0) or 0)
+        if page >= 1:
+            by_page[page].append(block)
+
+    chunks: list[TextChunk] = []
+    step = max_words - overlap_words
+    current_section: str | None = None
+    chunk_index = 0
+
+    for page in sorted(by_page):
+        buffer: list[str] = []
+        buffer_block_id: str | None = None
+
+        def flush_buffer(page_no: int = page) -> None:
+            nonlocal chunk_index, buffer, buffer_block_id
+            if not buffer:
+                return
+            chunk_index = _append_windows_with_meta(
+                chunks=chunks,
+                page=page_no,
+                words=buffer,
+                max_words=max_words,
+                step=step,
+                section_title=current_section,
+                company=company,
+                year=year,
+                chunk_index=chunk_index,
+            )
+            # Ghi đè block_id của chunk vừa tạo nếu còn metadata gốc
+            if buffer_block_id and chunks:
+                last = chunks[-1]
+                chunks[-1] = TextChunk(
+                    page=last.page,
+                    text=last.text,
+                    section_title=last.section_title,
+                    block_type=last.block_type,
+                    block_id=buffer_block_id,
+                    company=last.company,
+                    year=last.year,
+                    pillar=last.pillar,
+                )
+            buffer = []
+            buffer_block_id = None
+
+        for block in by_page[page]:
+            text = normalize_text(getattr(block, "text", "") or "")
+            if not text:
+                continue
+            b_type = getattr(block, "block_type", "text") or "text"
+            b_id = getattr(block, "block_id", None)
+            b_section = getattr(block, "section", None)
+            if b_section:
+                current_section = str(b_section)[:120]
+
+            if b_type == "heading":
+                flush_buffer()
+                current_section = text[:120]
+                chunk_index += 1
+                chunks.append(
+                    TextChunk(
+                        page=page,
+                        text=text,
+                        section_title=current_section,
+                        block_type="heading",
+                        block_id=b_id or f"p{page}_b{chunk_index}",
+                        company=company,
+                        year=year,
+                        pillar=detect_pillar(text),
+                    )
+                )
+            elif b_type == "table":
+                flush_buffer()
+                chunk_index += 1
+                chunks.append(
+                    TextChunk(
+                        page=page,
+                        text=text,
+                        section_title=current_section,
+                        block_type="table",
+                        block_id=b_id or f"p{page}_b{chunk_index}",
+                        company=company,
+                        year=year,
+                        pillar=detect_pillar(text),
+                    )
+                )
+            else:
+                words = text.split()
+                if len(buffer) + len(words) > max_words and buffer:
+                    overlap = buffer[-overlap_words:] if overlap_words else []
+                    flush_buffer()
+                    buffer = overlap
+                buffer.extend(words)
+                buffer_block_id = b_id or buffer_block_id
+
+        flush_buffer()
+
+    return chunks
+
+
+def pages_from_layout_blocks(blocks: list[Any]) -> list[tuple[int, str]]:
+    """Gộp LayoutBlock theo trang thành danh sách (page, text) phục vụ quality gate."""
+    from collections import defaultdict
+
+    by_page: dict[int, list[str]] = defaultdict(list)
+    for block in blocks:
+        page = int(getattr(block, "page", 0) or 0)
+        text = (getattr(block, "text", "") or "").strip()
+        if page >= 1 and text:
+            by_page[page].append(text)
+    return [(page, "\n\n".join(parts)) for page, parts in sorted(by_page.items())]
 
 
 def _append_windows_with_meta(

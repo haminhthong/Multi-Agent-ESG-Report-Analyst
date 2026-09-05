@@ -6,7 +6,7 @@ from typing import Any, BinaryIO, Literal
 from app.chunking import HEADING, is_table_content
 from app.config import settings
 from app.evidence_extractor import EvidenceExtractionAgent
-from app.llm import LLMClient
+from app.llm import LLMClient, validate_answer_grounding
 from app.models import (
     AgentTraceStep,
     AnalysisResponse,
@@ -42,6 +42,102 @@ from app.rubric import (
 )
 from app.store import Store
 from app.tools import AgentTools
+
+# Alias map: token required_evidence từ planner ↔ metric keys / từ khóa trong excerpt
+_EVIDENCE_TOKEN_ALIASES: dict[str, list[str]] = {
+    "scope_1_2": [
+        "scope_1_emissions",
+        "scope_2_emissions",
+        "scope 1",
+        "scope 2",
+        "scope1",
+        "scope2",
+    ],
+    "scope_1": ["scope_1_emissions", "scope 1", "scope1"],
+    "scope_2": ["scope_2_emissions", "scope 2", "scope2"],
+    "scope_3": ["scope_3_emissions", "scope 3", "scope3"],
+    "yearly_metrics": [
+        "scope_1_emissions",
+        "scope_2_emissions",
+        "scope_3_emissions",
+        "emissions",
+        "tco2e",
+        "202",
+    ],
+    "progress": ["reduction", "progress", "decrease", "trajectory", "reduced", "%"],
+    "targets": ["net_zero_target", "target", "net zero", "net-zero", "goal"],
+    "target": ["net_zero_target", "target", "net zero", "net-zero", "goal"],
+    "baseline": ["baseline", "base year", "baseline_year"],
+    "assurance": ["assurance", "assured", "independent auditor", "external assurance", "verified"],
+    "emissions": [
+        "scope_1_emissions",
+        "scope_2_emissions",
+        "scope_3_emissions",
+        "emission",
+        "tco2e",
+        "greenhouse",
+    ],
+    "metrics": ["scope_1_emissions", "scope_2_emissions", "tco2e", "mwh", "trir", "%"],
+    "safety": ["work_safety", "trir", "injury", "safety", "fatalit"],
+    "governance": ["board", "ethics", "compliance", "governance", "oversight"],
+}
+
+
+def _requirement_satisfied(
+    req: str, facts: list[ESGFact], citations: list[Citation]
+) -> bool:
+    """Kiểm tra một yêu cầu bằng chứng đã được thỏa qua facts hoặc citations (có alias)."""
+    req_l = req.lower().strip()
+    aliases = _EVIDENCE_TOKEN_ALIASES.get(req_l, [req_l])
+    tokens = list(dict.fromkeys([req_l, *aliases]))
+
+    for token in tokens:
+        t = token.lower()
+        for f in facts:
+            metric_l = f.metric.lower()
+            unit_l = (f.unit or "").lower()
+            if (
+                t in metric_l
+                or metric_l in t
+                or (unit_l and t in unit_l)
+                or (t in ("year", "reporting_year") and f.year is not None)
+                or (t == "baseline_year" and f.baseline_year is not None)
+                or (t in ("target", "targets", "net_zero_target") and "target" in metric_l)
+            ):
+                return True
+        for c in citations:
+            if t in c.excerpt.lower():
+                return True
+    return False
+
+
+def _field_matched_in_text(
+    rf: str, text: str, criterion: RubricCriterion, value: str | None, year: int | None
+) -> bool:
+    """Kiểm tra một required_field có mặt trong một đoạn text hay không."""
+    rf_l = rf.lower()
+    if "year" in rf_l:
+        return year is not None
+    if "unit" in rf_l:
+        return any(u.lower() in text for u in criterion.metric_units)
+    if "scope_1" in rf_l:
+        return "scope 1" in text and value is not None
+    if "scope_2" in rf_l:
+        return "scope 2" in text and value is not None
+    if "scope_3" in rf_l:
+        return "scope 3" in text and value is not None
+    if any(k in rf_l for k in ("value", "rate", "percentage", "count")):
+        return value is not None
+    if "target" in rf_l:
+        return bool(
+            TARGET_PATTERN.search(text)
+            or any(t in text for t in ("net zero", "net-zero", "target", "goal"))
+        )
+    if "baseline" in rf_l:
+        return bool(BASELINE_PATTERN.search(text) and not NEGATED_BASELINE_PATTERN.search(text))
+    if "assurance" in rf_l:
+        return bool(ASSURANCE_PATTERN.search(text) and not NEGATED_ASSURANCE_PATTERN.search(text))
+    return any(term in text for term in rf_l.split("_") if term)
 
 
 # ==============================================================================
@@ -166,7 +262,7 @@ class QueryPlanningAgent:
                 f"{question} net zero target baseline year",
                 f"{question} external assurance independent auditor",
             ]
-            req = ["scope_1_2", "targets", "assurance"]
+            req = ["scope_1_emissions", "scope_2_emissions", "net_zero_target", "assurance"]
 
         elif any(
             w in lowered
@@ -186,7 +282,7 @@ class QueryPlanningAgent:
                 f"{question} baseline year reduction progress",
                 f"{question} year over year historical metrics",
             ]
-            req = ["yearly_metrics", "baseline", "progress"]
+            req = ["scope_1_emissions", "baseline", "progress"]
 
         elif any(
             w in lowered
@@ -199,7 +295,7 @@ class QueryPlanningAgent:
                 f"{question} independent external assurance report",
                 f"{question} interim target reduction pathway 2030",
             ]
-            req = ["target", "baseline", "metrics", "assurance"]
+            req = ["net_zero_target", "baseline", "scope_1_emissions", "assurance"]
 
         elif mode == "audit" or any(
             w in lowered
@@ -213,7 +309,7 @@ class QueryPlanningAgent:
                 f"{question} board oversight ethics anti-corruption compliance",
                 f"{question} independent external limited assurance",
             ]
-            req = ["emissions", "targets", "safety", "governance", "assurance"]
+            req = ["emissions", "net_zero_target", "safety", "governance", "assurance"]
 
         else:
             intent = "fact_lookup"
@@ -353,23 +449,25 @@ class RetrievalAgent:
         # Sắp xếp toàn cục theo điểm RRF fusion
         scored_candidates.sort(key=lambda c: c.score, reverse=True)
 
-        # Đa dạng hóa theo trang (Page Diversification)
+        # Đa dạng hóa theo trang (Page Diversification): tối đa 2 chunk / trang
         diversified: list[Citation] = []
         page_counts: dict[tuple[str, int], int] = {}
+        overflow: list[Citation] = []
         for c in scored_candidates:
             pk = (c.document_id, c.page)
-            if (
-                page_counts.get(pk, 0) >= 2
-                and len(diversified) + (len(scored_candidates) - len(diversified)) > top_k
-            ):
-                continue
-            page_counts[pk] = page_counts.get(pk, 0) + 1
-            diversified.append(c)
+            if page_counts.get(pk, 0) < 2:
+                page_counts[pk] = page_counts.get(pk, 0) + 1
+                diversified.append(c)
+            else:
+                overflow.append(c)
+            if len(diversified) >= top_k:
+                break
 
         if len(diversified) < top_k:
-            for c in scored_candidates:
-                if c not in diversified:
-                    diversified.append(c)
+            for c in overflow:
+                diversified.append(c)
+                if len(diversified) >= top_k:
+                    break
 
         validated = EvidenceVerificationAgent.validate(diversified)
         return validated[:top_k]
@@ -541,151 +639,117 @@ class ESGAuditAgent:
     def _evaluate_criterion(
         self, criterion: RubricCriterion, citations: list[Citation]
     ) -> CriterionResult:
-        """Đánh giá trạng thái và chi tiết của 1 tiêu chí ESG dựa trên tập citation theo độ đầy đủ required_fields."""
+        """Đánh giá 1 tiêu chí bằng cách gộp bằng chứng từ nhiều citation (không dừng ở đoạn đầu)."""
+        keywords = criterion.retrieval_keywords or criterion.required_evidence
+        relevant: list[Citation] = []
         for cite in citations:
             text = cite.excerpt.lower()
-            keywords = criterion.retrieval_keywords or criterion.required_evidence
-
             matched_keywords = [req for req in keywords if req in text] or [
                 unit for unit in criterion.metric_units if unit.lower() in text
             ]
-
             if matched_keywords:
-                # Nếu tiêu chí là External Assurance nhưng phát hiện mẫu câu phủ định
-                if criterion.id == "G_EXTERNAL_ASSURANCE" and NEGATED_ASSURANCE_PATTERN.search(
-                    text
-                ):
-                    return CriterionResult(
-                        criterion_id=criterion.id,
-                        status="contradicts",
-                        citation=CriterionCitationRef(
-                            document=cite.document_name,
-                            page=cite.page,
-                            excerpt=cite.excerpt[:200],
-                            section=cite.section,
-                        ),
-                        confidence=0.85,
-                        missing_fields=list(criterion.required_fields),
-                    )
+                relevant.append(cite)
 
-                if NEGATED_PERFORMANCE_PATTERN.search(text):
-                    return CriterionResult(
-                        criterion_id=criterion.id,
-                        status="contradicts",
-                        citation=CriterionCitationRef(
-                            document=cite.document_name,
-                            page=cite.page,
-                            excerpt=cite.excerpt[:200],
-                            section=cite.section,
-                        ),
-                        confidence=0.8,
-                        missing_fields=list(criterion.required_fields),
-                    )
+        if not relevant:
+            return CriterionResult(
+                criterion_id=criterion.id,
+                status="missing",
+                confidence=0.0,
+                missing_fields=list(criterion.required_fields),
+            )
 
-                metric_match = METRIC_PATTERN.search(text)
-                value = metric_match.group(0) if metric_match else None
-                year_match = YEAR_PATTERN.search(text)
-                year = int(year_match.group(0)) if year_match else None
-                unit = criterion.metric_units[0] if criterion.metric_units else None
-
-                # Đánh giá độ đầy đủ của required_fields
-                matched_fields: list[str] = []
-                missing_fields: list[str] = []
-
-                for rf in criterion.required_fields:
-                    rf_l = rf.lower()
-                    if "year" in rf_l:
-                        if year is not None:
-                            matched_fields.append(rf)
-                        else:
-                            missing_fields.append(rf)
-                    elif "unit" in rf_l:
-                        if any(u.lower() in text for u in criterion.metric_units):
-                            matched_fields.append(rf)
-                        else:
-                            missing_fields.append(rf)
-                    elif "scope_1" in rf_l:
-                        if "scope 1" in text and value is not None:
-                            matched_fields.append(rf)
-                        else:
-                            missing_fields.append(rf)
-                    elif "scope_2" in rf_l:
-                        if "scope 2" in text and value is not None:
-                            matched_fields.append(rf)
-                        else:
-                            missing_fields.append(rf)
-                    elif "scope_3" in rf_l:
-                        if "scope 3" in text and value is not None:
-                            matched_fields.append(rf)
-                        else:
-                            missing_fields.append(rf)
-                    elif any(k in rf_l for k in ("value", "rate", "percentage", "count")):
-                        if value is not None:
-                            matched_fields.append(rf)
-                        else:
-                            missing_fields.append(rf)
-                    elif "target" in rf_l:
-                        if TARGET_PATTERN.search(text) or any(
-                            t in text for t in ("net zero", "net-zero", "target", "goal")
-                        ):
-                            matched_fields.append(rf)
-                        else:
-                            missing_fields.append(rf)
-                    elif "baseline" in rf_l:
-                        if BASELINE_PATTERN.search(text) and not NEGATED_BASELINE_PATTERN.search(
-                            text
-                        ):
-                            matched_fields.append(rf)
-                        else:
-                            missing_fields.append(rf)
-                    elif "assurance" in rf_l:
-                        if ASSURANCE_PATTERN.search(text) and not NEGATED_ASSURANCE_PATTERN.search(
-                            text
-                        ):
-                            matched_fields.append(rf)
-                        else:
-                            missing_fields.append(rf)
-                    else:
-                        if any(term in text for term in rf_l.split("_")):
-                            matched_fields.append(rf)
-                        else:
-                            missing_fields.append(rf)
-
-                # Xác định status theo độ đầy đủ required_fields
-                if not missing_fields and matched_fields:
-                    status: Literal[
-                        "found", "partial", "not_found", "missing", "contradicts", "unclear"
-                    ] = "found"
-                    confidence = 0.95
-                elif matched_fields:
-                    status = "partial"
-                    confidence = 0.75
-                else:
-                    status = "partial" if value or year else "unclear"
-                    confidence = 0.50
-
+        # Ưu tiên phát hiện mâu thuẫn trên bất kỳ đoạn liên quan nào
+        for cite in relevant:
+            text = cite.excerpt.lower()
+            if criterion.id == "G_EXTERNAL_ASSURANCE" and NEGATED_ASSURANCE_PATTERN.search(text):
                 return CriterionResult(
                     criterion_id=criterion.id,
-                    status=status,
-                    value=value,
-                    unit=unit,
-                    reporting_year=year,
+                    status="contradicts",
                     citation=CriterionCitationRef(
                         document=cite.document_name,
                         page=cite.page,
                         excerpt=cite.excerpt[:200],
                         section=cite.section,
                     ),
-                    confidence=confidence,
-                    matched_fields=matched_fields,
-                    missing_fields=missing_fields,
+                    confidence=0.85,
+                    missing_fields=list(criterion.required_fields),
                 )
+            if NEGATED_PERFORMANCE_PATTERN.search(text):
+                return CriterionResult(
+                    criterion_id=criterion.id,
+                    status="contradicts",
+                    citation=CriterionCitationRef(
+                        document=cite.document_name,
+                        page=cite.page,
+                        excerpt=cite.excerpt[:200],
+                        section=cite.section,
+                    ),
+                    confidence=0.8,
+                    missing_fields=list(criterion.required_fields),
+                )
+
+        matched_fields: list[str] = []
+        missing_fields: list[str] = []
+        best_cite = relevant[0]
+        value: str | None = None
+        year: int | None = None
+        unit = criterion.metric_units[0] if criterion.metric_units else None
+
+        for rf in criterion.required_fields:
+            field_ok = False
+            for cite in relevant:
+                text = cite.excerpt.lower()
+                metric_match = METRIC_PATTERN.search(text)
+                cite_value = metric_match.group(0) if metric_match else None
+                year_match = YEAR_PATTERN.search(text)
+                cite_year = int(year_match.group(0)) if year_match else None
+                if _field_matched_in_text(rf, text, criterion, cite_value, cite_year):
+                    field_ok = True
+                    best_cite = cite
+                    if cite_value:
+                        value = cite_value
+                    if cite_year is not None:
+                        year = cite_year
+                    break
+            if field_ok:
+                matched_fields.append(rf)
+            else:
+                missing_fields.append(rf)
+
+        if not value:
+            metric_match = METRIC_PATTERN.search(best_cite.excerpt.lower())
+            value = metric_match.group(0) if metric_match else None
+        if year is None:
+            year_match = YEAR_PATTERN.search(best_cite.excerpt.lower())
+            year = int(year_match.group(0)) if year_match else None
+
+        if not missing_fields and matched_fields:
+            status: Literal[
+                "found", "partial", "not_found", "missing", "contradicts", "unclear"
+            ] = "found"
+            confidence = 0.95
+        elif matched_fields:
+            status = "partial"
+            confidence = 0.75
+        else:
+            status = "partial" if value or year else "unclear"
+            confidence = 0.50
 
         return CriterionResult(
             criterion_id=criterion.id,
-            status="missing",
-            confidence=0.0,
-            missing_fields=list(criterion.required_fields),
+            status=status,
+            value=value,
+            unit=unit,
+            reporting_year=year,
+            citation=CriterionCitationRef(
+                document=best_cite.document_name,
+                page=best_cite.page,
+                excerpt=best_cite.excerpt[:200],
+                section=best_cite.section,
+            ),
+            confidence=confidence,
+            matched_fields=matched_fields,
+            missing_fields=missing_fields,
         )
 
     def build_evidence_matrix(
@@ -693,7 +757,11 @@ class ESGAuditAgent:
     ) -> list[EvidenceMatrixRow]:
         """Xây dựng ma trận kiểm toán bằng chứng đầy đủ cho toàn bộ tiêu chí chuẩn mực."""
         matrix: list[EvidenceMatrixRow] = []
-        fact_by_metric = {f.metric: f for f in facts}
+        fact_by_metric: dict[str, ESGFact] = {}
+        for f in facts:
+            prev = fact_by_metric.get(f.metric)
+            if prev is None or (f.confidence or 0) >= (prev.confidence or 0):
+                fact_by_metric[f.metric] = f
 
         for criterion in CRITERIA_DEFINITIONS:
             eval_res = self._evaluate_criterion(criterion, citations)
@@ -746,6 +814,8 @@ class ESGAuditAgent:
         """Sàng lọc rủi ro Greenwashing đa chiều (Target Credibility, Evidence Quality, Narrative Risk)."""
         text = " ".join(item.excerpt.lower() for item in citations)
         metrics = len(METRIC_PATTERN.findall(text))
+        fact_metric_count = sum(1 for f in facts if f.value is not None)
+        metrics = max(metrics, fact_metric_count)
 
         target_signals: list[str] = []
         evidence_signals: list[str] = []
@@ -753,10 +823,12 @@ class ESGAuditAgent:
         warning_score = 0
 
         # 1. Target Credibility
-        has_target = bool(TARGET_PATTERN.search(text))
-        has_baseline = bool(BASELINE_PATTERN.search(text)) and not bool(
-            NEGATED_BASELINE_PATTERN.search(text)
+        has_target = bool(TARGET_PATTERN.search(text)) or any(
+            "target" in f.metric.lower() for f in facts
         )
+        has_baseline = (
+            bool(BASELINE_PATTERN.search(text)) and not bool(NEGATED_BASELINE_PATTERN.search(text))
+        ) or any(f.baseline_year is not None for f in facts)
         has_interim = bool(re.search(r"\b(?:2025|2030|interim|milestone)\b", text))
 
         if has_target:
@@ -790,6 +862,10 @@ class ESGAuditAgent:
             evidence_signals.append(
                 f"✓ Ghi nhận {metrics} số liệu định lượng có kèm đơn vị đo lường cụ thể."
             )
+            if any("scope" in f.metric.lower() for f in facts):
+                evidence_signals.append(
+                    "✓ Trích xuất được số liệu Scope phát thải có cấu trúc từ bằng chứng."
+                )
         else:
             evidence_signals.append(
                 "⚠ Toàn bộ báo cáo mới ở mức mô tả định tính, hoàn toàn thiếu số liệu đo lường."
@@ -1054,15 +1130,10 @@ class ExplanationAgent:
                 rubric_summary=rubric_summary,
             )
             if llm_answer and len(llm_answer.strip()) > 20:
-                # Post-Generation Citation Validation
-                valid_pages = {c.page for c in citations}
-                cited_pages = [
-                    int(m.group(1))
-                    for m in re.finditer(r"(?:trang|page)\s*(\d+)", llm_answer, re.IGNORECASE)
-                ]
-                hallucinated_pages = [p for p in cited_pages if p not in valid_pages]
-                if not hallucinated_pages:
+                is_grounded, _issues = validate_answer_grounding(llm_answer, citation_payload)
+                if is_grounded:
                     return llm_answer
+                # Fallback deterministic khi grounding thất bại (hallucinated page/C-id/số liệu)
 
         sources = (
             ", ".join(f"[{item.document_name}, trang {item.page}]" for item in citations[:6])
@@ -1131,6 +1202,197 @@ class SupervisorAgent:
         self.analysis = self.audit
         self.explanation = ExplanationAgent(llm_client=self.llm)
         self.retrieval_mode = retrieval_mode or settings.retrieval_mode
+        self.last_response: AnalysisResponse | None = None
+
+    def _execute_llm_plan_steps(
+        self,
+        llm_plan: list[dict[str, Any]],
+        question: str,
+        document_ids: list[str] | None,
+        top_k: int,
+    ) -> tuple[list[Citation], list[str], int]:
+        """Thực thi subset an toàn các tool từ LLM plan; trả (citations phụ, logs, số bước đã chạy)."""
+        extra_citations: list[Citation] = []
+        logs: list[str] = []
+        executed = 0
+
+        for step in llm_plan[:6]:
+            if not isinstance(step, dict):
+                continue
+            tool = step.get("tool")
+            args = step.get("args") if isinstance(step.get("args"), dict) else {}
+            try:
+                if tool == "search_document":
+                    query = str(args.get("query") or question)
+                    limit = int(args.get("top_k") or args.get("limit") or top_k)
+                    hits = self.tools.search_document(
+                        query=query,
+                        limit=max(1, min(limit, 15)),
+                        document_ids=document_ids,
+                    )
+                    extra_citations.extend(hits)
+                    executed += 1
+                    logs.append(f"Tool search_document: {len(hits)} hits for '{query[:80]}'")
+                elif tool == "retrieve_evidence":
+                    chunk_ids = args.get("chunk_ids") or []
+                    if isinstance(chunk_ids, list) and chunk_ids:
+                        rows = self.tools.retrieve_evidence([int(x) for x in chunk_ids[:20]])
+                        for row in rows:
+                            extra_citations.append(
+                                Citation(
+                                    chunk_id=row["chunk_id"],
+                                    document_id=row["document_id"],
+                                    document_name=row.get("name") or row["document_id"],
+                                    page=row["page"],
+                                    excerpt=" ".join((row.get("text") or "").split())[:700],
+                                    section=row.get("section_title"),
+                                    block_id=row.get("block_id"),
+                                    block_type=row.get("block_type", "text"),
+                                )
+                            )
+                        executed += 1
+                        logs.append(f"Tool retrieve_evidence: {len(rows)} chunks")
+                elif tool == "extract_metric":
+                    text = str(args.get("text") or "")
+                    if text:
+                        result = AgentTools.extract_metric(text)
+                        executed += 1
+                        logs.append(
+                            f"Tool extract_metric: metrics={len(result.get('metrics', []))}, "
+                            f"years={result.get('years')}"
+                        )
+                elif tool == "score_rubric":
+                    pillar = str(args.get("pillar") or "E").upper()
+                    if pillar not in ("E", "S", "G"):
+                        pillar = "E"
+                    texts = args.get("evidence_texts") or []
+                    if not isinstance(texts, list):
+                        texts = []
+                    result = AgentTools.score_rubric(pillar, [str(t) for t in texts])
+                    executed += 1
+                    logs.append(
+                        f"Tool score_rubric({pillar}): coverage={result.get('disclosure_coverage')}%"
+                    )
+                elif tool == "verify_claim":
+                    claim = str(args.get("claim") or "")
+                    excerpt = str(args.get("excerpt") or "")
+                    if claim and excerpt:
+                        result = AgentTools.verify_claim(claim, excerpt)
+                        executed += 1
+                        logs.append(
+                            f"Tool verify_claim: supported={result.get('supported')} "
+                            f"overlap={result.get('keyword_overlap')}"
+                        )
+                else:
+                    logs.append(f"Tool skipped (unsupported): {tool}")
+            except Exception as exc:
+                logs.append(f"Tool {tool} failed: {exc}")
+
+        return extra_citations, logs, executed
+
+    @staticmethod
+    def _merge_citations(
+        primary: list[Citation], extra: list[Citation], limit: int
+    ) -> list[Citation]:
+        """Gộp citation từ DAG retrieval và tool plan, khử trùng theo (document_id, page, excerpt)."""
+        merged: list[Citation] = []
+        seen: set[tuple[str, int, str]] = set()
+        for cite in primary + extra:
+            key = (
+                cite.document_id,
+                cite.page,
+                re.sub(r"\W+", " ", cite.excerpt.lower()).strip()[:120],
+            )
+            if key in seen:
+                continue
+            seen.add(key)
+            merged.append(cite)
+            if len(merged) >= limit:
+                break
+        return merged
+
+    def _resolve_companies(
+        self, question: str, document_ids: list[str] | None
+    ) -> list[str]:
+        """Suy ra danh sách công ty để so sánh từ document_ids, câu hỏi, hoặc metadata corpus."""
+        companies: list[str] = []
+        seen: set[str] = set()
+
+        def add(name: str | None) -> None:
+            if not name:
+                return
+            cleaned = name.strip()
+            key = cleaned.lower()
+            if cleaned and key not in seen:
+                seen.add(key)
+                companies.append(cleaned)
+
+        if document_ids:
+            for did in document_ids:
+                doc = self.store.get_document(did)
+                if doc:
+                    add(doc.get("company"))
+
+        for doc in self.store.documents():
+            company = doc.get("company")
+            if company and company.lower() in question.lower():
+                add(company)
+
+        vs_match = re.search(
+            r"(.+?)\s+(?:vs\.?|versus|so sánh với|đối chiếu với)\s+(.+)",
+            question,
+            re.IGNORECASE,
+        )
+        if vs_match:
+            for part in (vs_match.group(1), vs_match.group(2)):
+                token = re.sub(
+                    r"\b(?:compare|so sánh|đối chiếu|emissions?|esg|report)\b",
+                    "",
+                    part,
+                    flags=re.IGNORECASE,
+                ).strip(" ,.")
+                if token and len(token.split()) <= 4:
+                    add(token)
+
+        and_match = re.search(
+            r"(?:compare|so sánh|đối chiếu)\s+(.+?)\s+(?:and|và|&)\s+(.+)",
+            question,
+            re.IGNORECASE,
+        )
+        if and_match:
+            for part in (and_match.group(1), and_match.group(2)):
+                token = part.strip(" ,.")
+                if token and len(token.split()) <= 4:
+                    add(token)
+
+        return companies[:10]
+
+    @staticmethod
+    def _build_audit_claims(
+        facts: list[ESGFact], pillars: list[PillarResult]
+    ) -> list[str]:
+        """Tạo claim có số liệu để đối soát (tránh meta-finding tiếng Việt vô nghĩa)."""
+        claims: list[str] = []
+        for fact in facts:
+            if fact.value is None:
+                continue
+            unit = f" {fact.unit}" if fact.unit else ""
+            year = f" in {fact.year}" if fact.year else ""
+            claims.append(f"{fact.metric}: {fact.value}{unit}{year}")
+            if len(claims) >= 8:
+                break
+
+        if len(claims) < 4:
+            for pillar in pillars:
+                for cr in pillar.criteria_results:
+                    if cr.status in ("found", "partial") and cr.value:
+                        claims.append(f"{cr.criterion_id}: {cr.value}")
+                    if len(claims) >= 8:
+                        break
+                if len(claims) >= 8:
+                    break
+
+        return claims
 
     def run(
         self,
@@ -1138,27 +1400,53 @@ class SupervisorAgent:
         top_k: int = 6,
         document_ids: list[str] | None = None,
         mode: Literal["qa", "audit"] = "qa",
+        focus_pillars: list[Literal["E", "S", "G"]] | None = None,
     ) -> AnalysisResponse:
         """Thực thi luồng phân tích toàn diện có căn cứ bằng chứng kèm đo lường vết thực thi (Tracing)."""
         is_llm_active = self.llm.is_available()
-        agent_mode: Literal["llm_agentic", "deterministic_fallback"] = (
-            "llm_agentic" if is_llm_active else "deterministic_fallback"
+        agent_mode: Literal["llm_agentic", "deterministic_fallback", "agent_orchestrated"] = (
+            "deterministic_fallback"
         )
 
         trace_steps: list[AgentTraceStep] = []
         trace_logs: list[str] = [
-            f"Supervisor: Khởi tạo phân tích ở chế độ '{mode.upper()}' | Engine: {agent_mode.upper()}"
+            f"Supervisor: Khởi tạo phân tích ở chế độ '{mode.upper()}'"
         ]
+        plan_extra_citations: list[Citation] = []
+        llm_tools_executed = 0
+
         if is_llm_active:
-            trace_logs.append("Supervisor: Gọi LLM Structured Planning để lập kế hoạch tool calls")
+            agent_mode = "llm_agentic"
+            trace_logs.append(
+                "Supervisor: LLM Structured Planning — sinh và thực thi tool plan (nếu có)"
+            )
             llm_plan = self.llm.generate_plan(question, mode=mode)
             if llm_plan:
+                plan_extra_citations, tool_logs, llm_tools_executed = self._execute_llm_plan_steps(
+                    llm_plan, question, document_ids, top_k
+                )
                 trace_logs.append(
                     f"Supervisor: LLM đã sinh kế hoạch gồm {len(llm_plan)} bước hành động"
                 )
+                trace_logs.extend(tool_logs)
+                if llm_tools_executed > 0:
+                    agent_mode = "agent_orchestrated"
+                    trace_logs.append(
+                        f"Supervisor: Đã thực thi {llm_tools_executed} tool từ LLM plan"
+                    )
+                else:
+                    trace_logs.append(
+                        "Supervisor: LLM plan không có tool thực thi được; tiếp tục DAG deterministic"
+                    )
+            trace_logs[0] = (
+                f"Supervisor: Khởi tạo phân tích ở chế độ '{mode.upper()}' | Engine: {agent_mode.upper()}"
+            )
         else:
             trace_logs.append(
                 "Supervisor: Chạy chế độ Deterministic Heuristic Engine ($0 API Cost Fallback)"
+            )
+            trace_logs[0] = (
+                f"Supervisor: Khởi tạo phân tích ở chế độ '{mode.upper()}' | Engine: {agent_mode.upper()}"
             )
 
         # Step 1: Query Planning
@@ -1198,8 +1486,19 @@ class SupervisorAgent:
                 document_scope=document_ids,
             )
             raw_citations = self.retrieval.run_plan(audit_plan, top_k=max(top_k, 12))
+            merge_limit = max(top_k, 12) + 6
         else:
             raw_citations = self.retrieval.run_plan(plan, top_k=top_k)
+            merge_limit = top_k + 6
+
+        if plan_extra_citations:
+            raw_citations = self._merge_citations(
+                raw_citations, plan_extra_citations, limit=merge_limit
+            )
+            trace_logs.append(
+                f"Supervisor: Gộp {len(plan_extra_citations)} citation từ LLM tools vào retrieval"
+            )
+
         retrieval_lat = round((time.perf_counter() - t0) * 1000, 2)
         trace_steps.append(
             AgentTraceStep(
@@ -1257,6 +1556,17 @@ class SupervisorAgent:
         pillars, overall_coverage, _ = self.audit.run(validated_citations)
         evidence_matrix = self.audit.build_evidence_matrix(validated_citations, facts)
         screening_res = self.audit.screen_greenwashing_signals(validated_citations, facts)
+
+        if focus_pillars:
+            focus_set = set(focus_pillars)
+            pillars = [p for p in pillars if p.pillar in focus_set]
+            evidence_matrix = [row for row in evidence_matrix if row.pillar in focus_set]
+            overall_coverage = (
+                round(sum(p.disclosure_coverage for p in pillars) / len(pillars), 1)
+                if pillars
+                else 0.0
+            )
+
         audit_lat = round((time.perf_counter() - t0) * 1000, 2)
         trace_steps.append(
             AgentTraceStep(
@@ -1268,6 +1578,7 @@ class SupervisorAgent:
                     "coverage": overall_coverage,
                     "risk_level": screening_res.risk_level,
                     "matrix_rows": len(evidence_matrix),
+                    "focus_pillars": focus_pillars or ["E", "S", "G"],
                 },
             )
         )
@@ -1275,7 +1586,7 @@ class SupervisorAgent:
             f"ESG Audit Agent: Coverage {overall_coverage}%, Greenwashing Risk: {screening_res.risk_level} ({audit_lat} ms)"
         )
 
-        # Step 5b: Evidence Completeness Gate
+        # Step 5b: Evidence Completeness Gate (alias-aware)
         completeness_details: dict[str, Any] = {
             "required": plan.required_evidence,
             "satisfied": [],
@@ -1283,17 +1594,7 @@ class SupervisorAgent:
             "status": "complete",
         }
         for req in plan.required_evidence:
-            req_l = req.lower()
-            has_fact = any(
-                req_l in f.metric.lower()
-                or (f.unit and req_l in f.unit.lower())
-                or (req_l == "year" and f.year is not None)
-                or (req_l == "baseline_year" and f.baseline_year is not None)
-                or (req_l == "target" and "target" in f.metric.lower())
-                for f in facts
-            )
-            has_cite = any(req_l in c.excerpt.lower() for c in validated_citations)
-            if has_fact or has_cite:
+            if _requirement_satisfied(req, facts, validated_citations):
                 completeness_details["satisfied"].append(req)
             else:
                 completeness_details["missing"].append(req)
@@ -1325,9 +1626,21 @@ class SupervisorAgent:
             temporal_analysis = self.audit.run_temporal_analysis(
                 company_hint, self.store, document_ids=document_ids
             )
+        elif plan.intent == "cross_document_compare":
+            companies = self._resolve_companies(question, document_ids)
+            if len(companies) >= 2:
+                comparison_res = self.audit.run_comparison(companies, self.store)
+                trace_logs.append(
+                    f"ESG Audit Agent: Cross-document comparison for {', '.join(companies)}"
+                )
+            else:
+                trace_logs.append(
+                    "ESG Audit Agent: Intent so sánh nhưng chưa đủ >=2 công ty "
+                    "(cần document_ids/metadata company hoặc nêu tên trong câu hỏi)"
+                )
 
-        # Step 7: Claim Auditing
-        claims_to_audit = [f for p in pillars for f in p.findings[:2]]
+        # Step 7: Claim Auditing — đối soát số liệu trích xuất, không dùng meta-finding
+        claims_to_audit = self._build_audit_claims(facts, pillars)
         verification_summary = self.verifier.audit_claims(claims_to_audit, validated_citations)
 
         # Step 8: Explanation Synthesis
@@ -1340,6 +1653,13 @@ class SupervisorAgent:
             question,
             screening_result=screening_res,
         )
+        if comparison_res:
+            answer = (
+                f"{answer}\n\nSo sánh công bố giữa {', '.join(comparison_res.companies)}: "
+                + "; ".join(
+                    f"{c}: {cov}%" for c, cov in comparison_res.coverage_summary.items()
+                )
+            )
         synth_lat = round((time.perf_counter() - t0) * 1000, 2)
         trace_steps.append(
             AgentTraceStep(
@@ -1361,6 +1681,11 @@ class SupervisorAgent:
                 "[MISSING_EVIDENCE] Tài liệu chưa cung cấp đủ bằng chứng đối chứng cho các trường yêu cầu: "
                 + ", ".join(completeness_details["missing"])
             )
+        if plan.intent == "cross_document_compare" and comparison_res is None:
+            limitations.append(
+                "[COMPARE_SKIPPED] Chưa đủ thông tin công ty để so sánh chéo "
+                "(cần >=2 company trong metadata hoặc câu hỏi)."
+            )
         if mode == "audit":
             limitations.extend(
                 [
@@ -1371,7 +1696,7 @@ class SupervisorAgent:
 
         avg_quality, avg_completeness, avg_conf = _aggregate_pillar_metrics(pillars)
 
-        return AnalysisResponse(
+        response = AnalysisResponse(
             mode=mode,
             agent_mode=agent_mode,
             answer=answer,
@@ -1395,6 +1720,8 @@ class SupervisorAgent:
             evidence_completeness=completeness_details,
             trace_steps=trace_steps,
         )
+        self.last_response = response
+        return response
 
 
 def _aggregate_pillar_metrics(pillars: list[PillarResult]) -> tuple[float, float, float]:

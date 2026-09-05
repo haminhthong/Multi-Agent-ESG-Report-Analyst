@@ -177,6 +177,7 @@ def analyze(request: AnalysisRequest) -> AnalysisResponse:
         top_k=request.top_k,
         document_ids=request.document_ids,
         mode=request.mode,
+        focus_pillars=request.focus_pillars,
     )
 
 
@@ -195,6 +196,7 @@ def query_endpoint(request: AnalysisRequest) -> AnalysisResponse:
         top_k=request.top_k,
         document_ids=request.document_ids,
         mode="qa",
+        focus_pillars=request.focus_pillars,
     )
 
 
@@ -210,6 +212,7 @@ def audit_endpoint(request: AuditRequest) -> AnalysisResponse:
         top_k=request.top_k,
         document_ids=request.document_ids,
         mode="audit",
+        focus_pillars=request.focus_pillars,
     )
 
 
@@ -291,8 +294,25 @@ def document_audit_matrix(document_id: str) -> list[EvidenceMatrixRow]:
 )
 def recent_trace() -> dict[str, Any]:
     """Trả về thông tin trace chi tiết và latency waterfall phục vụ observability."""
+    last = supervisor.last_response
+    if last is None:
+        return {
+            "status": "empty",
+            "message": "Chưa có lần phân tích nào trong phiên hiện tại.",
+            "retrieval_mode": settings.retrieval_mode,
+            "embedding_model": settings.embedding_model,
+            "reranker_model": settings.reranker_model,
+        }
+
     return {
-        "status": "active",
+        "status": "ok",
+        "mode": last.mode,
+        "agent_mode": last.agent_mode,
+        "intent": last.plan.intent if last.plan else None,
+        "trace": last.trace,
+        "trace_steps": [step.model_dump() for step in last.trace_steps],
+        "evidence_completeness": last.evidence_completeness,
+        "disclosure_coverage": last.disclosure_coverage,
         "retrieval_mode": settings.retrieval_mode,
         "embedding_model": settings.embedding_model,
         "reranker_model": settings.reranker_model,
