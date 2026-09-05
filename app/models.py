@@ -110,6 +110,7 @@ class AnalysisResponse(BaseModel):
     """Schema kết quả tổng hợp hoàn chỉnh do Supervisor Agent trả về."""
 
     mode: Literal["qa", "audit"] = "qa"
+    agent_mode: Literal["llm_agentic", "deterministic_fallback"] = "deterministic_fallback"
     answer: str
     disclosure_coverage: float = Field(ge=0.0, le=100.0, default=0.0)
     evidence_quality: float = Field(ge=0.0, le=100.0, default=0.0)
@@ -118,6 +119,7 @@ class AnalysisResponse(BaseModel):
     screening_signals: list[str] = Field(default_factory=list)
     pillars: list[PillarResult] = Field(default_factory=list)
     citations: list[Citation] = Field(default_factory=list)
+    verification_summary: dict = Field(default_factory=dict)
     trace: list[str] = Field(default_factory=list)
     limitations: list[str] = Field(default_factory=list)
 
@@ -134,4 +136,3 @@ class APIErrorResponse(BaseModel):
     """Response chứa thông tin lỗi chuẩn hóa."""
 
     error: ErrorDetail
-

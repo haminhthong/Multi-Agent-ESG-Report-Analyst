@@ -1,6 +1,7 @@
 import json
 from collections.abc import Iterable
 from pathlib import Path
+from typing import Any
 
 from pydantic import BaseModel, Field
 
@@ -51,6 +52,34 @@ class RetrievalEvaluationReport(BaseModel):
     mrr: float
     precision_at_k: float
     details: list[EvaluationCaseResult]
+
+
+class AblationSystemResult(BaseModel):
+    """Kết quả đo lường cho một hệ thống trong nghiên cứu thực nghiệm bóc tách (Ablation Study)."""
+
+    system: str
+    recall_at_k: float
+    mrr: float
+    precision_at_k: float
+
+
+class RetrievalAblationReport(BaseModel):
+    """Báo cáo tổng hợp Ablation Study so sánh BM25, Dense, Hybrid và Hybrid + Reranker."""
+
+    cases: int
+    top_k: int
+    systems: list[AblationSystemResult]
+
+    def to_markdown_table(self) -> str:
+        """Xuất bảng định dạng Markdown chuẩn đẹp cho tài liệu nghiên cứu và Portfolio CV."""
+        headers = (
+            f"| System | Recall@{self.top_k} | MRR | Precision@{self.top_k} |\n|---|---:|---:|---:|"
+        )
+        rows = [
+            f"| {s.system} | **{s.recall_at_k:.2f}** | **{s.mrr:.2f}** | **{s.precision_at_k:.2f}** |"
+            for s in self.systems
+        ]
+        return "\n".join([headers, *rows])
 
 
 def load_evaluation_cases(path: Path) -> list[RetrievalEvalCase]:
@@ -109,6 +138,37 @@ def _evaluate_case(
         retrieved=len(retrieved),
     )
 
+
+def evaluate_retrieval_ablation(
+    store: Any,
+    cases: list[RetrievalEvalCase],
+    top_k: int = 5,
+) -> RetrievalAblationReport:
+    """Chạy thực nghiệm bóc tách (Ablation Study) 4 cấu hình Retrieval:
+    1. BM25 (SQLite FTS5 Full-Text)
+    2. Dense (Sentence-Transformers MiniLM Cosine)
+    3. Hybrid (BM25 + Dense RRF Fusion)
+    4. Hybrid + Reranker (Cross-Encoder Re-ranking)
+    """
+    systems_config = [
+        ("BM25", "bm25"),
+        ("Dense", "dense"),
+        ("Hybrid", "hybrid"),
+        ("Hybrid + Reranker", "hybrid_rerank"),
+    ]
+    systems_results: list[AblationSystemResult] = []
+    for label, mode in systems_config:
+        agent = RetrievalAgent(store, mode=mode)
+        rep = evaluate_retrieval(agent, cases, top_k=top_k)
+        systems_results.append(
+            AblationSystemResult(
+                system=label,
+                recall_at_k=rep.recall_at_k,
+                mrr=rep.mrr,
+                precision_at_k=rep.precision_at_k,
+            )
+        )
+    return RetrievalAblationReport(cases=len(cases), top_k=top_k, systems=systems_results)
 
 
 def _average(values: Iterable[float]) -> float:

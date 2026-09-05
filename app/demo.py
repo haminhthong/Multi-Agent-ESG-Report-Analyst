@@ -2,30 +2,59 @@ from pathlib import Path
 
 from app.store import Store
 
-DEMO_PATH = Path("data/demo/boeing_excerpt.txt")
-DEMO_SOURCE_URL = "https://drive.google.com/file/d/1ZwngPi5jIGP6HGwTXj8UVTRyRBIVNLr0"
+DEMO_REPORTS = [
+    {
+        "id": "boeing-demo",
+        "name": "Boeing 2025 Sustainability Report (excerpt)",
+        "company": "Boeing",
+        "sector": "Industrials",
+        "year": 2025,
+        "path": Path("data/demo/boeing_excerpt.txt"),
+        "source_url": "https://drive.google.com/file/d/1ZwngPi5jIGP6HGwTXj8UVTRyRBIVNLr0",
+    },
+    {
+        "id": "nextera-demo",
+        "name": "NextEra Energy 2024 Sustainability Report (excerpt)",
+        "company": "NextEra Energy",
+        "sector": "Energy",
+        "year": 2024,
+        "path": Path("data/demo/nextera_energy_excerpt.txt"),
+        "source_url": "https://www.nexteraenergy.com/sustainability.html",
+    },
+    {
+        "id": "alcoa-demo",
+        "name": "Alcoa 2024 Sustainability Report (excerpt)",
+        "company": "Alcoa",
+        "sector": "Materials",
+        "year": 2024,
+        "path": Path("data/demo/alcoa_materials_excerpt.txt"),
+        "source_url": "https://www.alcoa.com/sustainability",
+    },
+]
 
 
-def seed_demo(store: Store) -> None:
-    """Tự động khởi tạo và nạp dữ liệu báo cáo bền vững mẫu Boeing 2025 (Excerpt) khi cơ sở dữ liệu còn trống.
+def seed_demo(store: Store, force: bool = False) -> None:
+    """Tự động khởi tạo và nạp dữ liệu đa báo cáo đa ngành (Industrials, Energy, Materials).
 
-    Đảm bảo người dùng mở ứng dụng lần đầu tiên có ngay dữ liệu để trải nghiệm tìm kiếm và chạy 5 Agent.
+    Đảm bảo kiểm thử Retrieval có môi trường đối sánh thực tế với nhiều văn bản gây nhiễu (distractors).
     """
-
-    if store.documents() or not DEMO_PATH.exists():
-        return
-    pages = _load_demo_pages(DEMO_PATH)
-    store.add_document(
-        "boeing-demo",
-        "Boeing 2025 Sustainability Report (excerpt)",
-        pages,
-        "Boeing",
-        "Industrials",
-        2025,
-        DEMO_SOURCE_URL,
-        text_page_count=len(pages),
-        extraction_quality=1.0,
-    )
+    existing_docs = {d["id"] for d in store.documents()}
+    for item in DEMO_REPORTS:
+        p: Path = item["path"]
+        if (item["id"] in existing_docs and not force) or not p.exists():
+            continue
+        pages = _load_demo_pages(p)
+        store.add_document(
+            item["id"],
+            item["name"],
+            pages,
+            company=item["company"],
+            sector=item["sector"],
+            year=item["year"],
+            source_url=item["source_url"],
+            text_page_count=len(pages),
+            extraction_quality=1.0,
+        )
 
 
 def _load_demo_pages(path: Path) -> list[tuple[int, str]]:

@@ -169,4 +169,3 @@ def analyze(request: AnalysisRequest) -> AnalysisResponse:
         document_ids=request.document_ids,
         mode=request.mode,
     )
-

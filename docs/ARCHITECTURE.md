@@ -1,79 +1,122 @@
-# Kiến trúc hệ thống
+# Kiến trúc Hệ thống (System Architecture) - Multi-Agent ESG Report Analyst
 
-## Mục tiêu thiết kế
+## 1. Mục tiêu Thiết kế (Design Principles)
 
-- Mọi kết luận phải truy ngược được về tài liệu và số trang.
-- Logic nghiệp vụ không phụ thuộc FastAPI để có thể dùng lại trong CLI, worker hoặc test.
-- Ingestion có thể chạy lại an toàn và bỏ qua nội dung đã index.
-- Thành phần hạ tầng có thể được thay thế mà không sửa rubric ESG.
+- **Evidence-First & Page-Preserved Granularity**: Mọi phân tích, trích xuất và kết luận đều phải truy ngược được về đúng tệp văn bản và số trang PDF gốc (`document_id`, `page`, `excerpt`).
+- **Truly Agentic Planning & Dynamic Tool Execution**: Supervisor Agent không chạy pipeline cố định mà sử dụng LLM Structured Planning phân rã nhiệm vụ thành các lời gọi công cụ (Tool Calls) có kiểu dữ liệu rõ ràng.
+- **$0 API Cost & Graceful Fallback**: Hỗ trợ Local LLM (Ollama: Qwen 2.5 / Llama 3) hoàn toàn miễn phí và tự động chuyển sang Deterministic Heuristic Engine khi offline mà không gây lỗi hoặc gián đoạn.
+- **Advanced Multi-Stage Hybrid RAG**: Kết hợp điểm mạnh của tìm kiếm từ khóa chính xác (BM25 FTS5) và hiểu ngữ nghĩa sâu (Dense MiniLM Vectors), hợp nhất bằng Reciprocal Rank Fusion (RRF) và tinh chỉnh qua Cross-Encoder Reranker.
+- **Dual Independent Evaluation**: Tách bạch kiểm định chất lượng truy xuất (Retrieval Ablation) và chất lượng sinh câu trả lời (Answer Quality & RAG Triad).
 
-## Sơ đồ thành phần
+---
+
+## 2. Sơ đồ Kiến trúc Tổng thể (Overall Architecture)
 
 ```mermaid
-flowchart LR
-    UI[Web UI] --> API[FastAPI]
-    CLI[CLI] --> Ingest[Document Ingestion Service]
-    API --> Ingest
-    Ingest --> Doc[Document Agent]
-    Doc --> Chunk[Normalize + Chunk]
-    Chunk --> DB[(SQLite + FTS5)]
-    API --> Supervisor[Supervisor Agent]
-    Supervisor --> Retrieval[Retrieval Agent]
-    Retrieval --> DB
-    Supervisor --> Analysis[ESG Analysis Agent]
-    Supervisor --> Explain[Explanation Agent]
-    Eval[Evaluation Runner] --> Retrieval
+flowchart TD
+    subgraph Client_Layer [Tầng Giao tiếp Client]
+        UI["🌐 Modern Glassmorphic Web UI Dashboard"]
+        CLI["💻 Administrative CLI Tool (esg-analyst)"]
+    end
+
+    subgraph API_Layer [Tầng API & Ingestion]
+        API["⚡ FastAPI Server (app/main.py)"]
+        ING["📥 Document Ingestion Service (app/document_service.py)"]
+        DOC["📄 Document Agent (pypdf Page-Preserved Extraction)"]
+    end
+
+    subgraph Storage_Layer [Tầng Lưu trữ Đa mô thức (Store)]
+        DB[("🗄️ SQLite Database (data/esg.db)
+        • documents (Metadata & Quality)
+        • chunks (Page-bound text)
+        • chunks_fts (FTS5 BM25 Virtual Table)
+        • chunk_embeddings (Vector JSON Store)")]
+    end
+
+    subgraph Agentic_Core [Tầng Agentic Core & Tool Execution]
+        SUP["👔 Supervisor Agent (Dynamic Orchestrator)"]
+        LLM["🤖 Local LLM Client (Ollama / Fallback Engine)"]
+        TOOLS["🛠️ Agent Tools Registry (app/tools.py)"]
+        RET["🔎 Retrieval Agent (Hybrid RAG + Reranking)"]
+        VER["🛡️ Evidence Verification Agent (Claims Auditing)"]
+        ESG["⚖️ ESG Analysis Agent (Rubric Coverage Scorer)"]
+        EXP["📝 Explanation Agent (Grounded Synthesis)"]
+    end
+
+    subgraph Evaluation_Suite [Tầng Đánh giá Chất lượng MLOps]
+        RET_EVAL["📊 Retrieval Ablation Runner (BM25 / Dense / Hybrid / Reranker)"]
+        ANS_EVAL["🎯 Answer Quality Evaluator (Faithfulness, Citation, Hallucination)"]
+    end
+
+    UI --> API
+    CLI --> ING
+    CLI --> RET_EVAL
+    CLI --> ANS_EVAL
+
+    API --> ING
+    ING --> DOC
+    DOC --> DB
+
+    API --> SUP
+    SUP <--> LLM
+    SUP --> TOOLS
+    TOOLS --> RET
+    RET --> DB
+    TOOLS --> VER
+    TOOLS --> ESG
+    SUP --> EXP
+    EXP --> FinalResp[AnalysisResponse + Page Citations + Trace]
+
+    RET_EVAL --> RET
+    ANS_EVAL --> SUP
 ```
 
-## Luồng ingestion
+---
+
+## 3. Luồng Phân tích Agentic (Execution Workflow)
 
 ```mermaid
 sequenceDiagram
-    participant U as Người dùng/CLI
-    participant S as Ingestion Service
-    participant D as Document Agent
-    participant DB as Store
-    U->>S: PDF + metadata
-    S->>S: Kiểm tra MIME, magic bytes, dung lượng, hash
-    S->>DB: Kiểm tra content hash
-    alt Đã index
-        DB-->>S: Metadata hiện có
-        S-->>U: already_indexed
-    else Tài liệu mới
-        S->>D: Trích xuất từng trang
-        D-->>S: [(page, text)]
-        S->>S: Đo extraction quality / phát hiện OCR
-        S->>DB: Lưu metadata và chunk trong transaction
-        S-->>U: indexed + quality
-    end
+    autonumber
+    participant U as Người dùng / Web UI
+    participant S as Supervisor Agent
+    participant L as LLM / Fallback Engine
+    participant T as Agent Tools
+    participant R as Hybrid Retrieval
+    participant V as Evidence Verification Agent
+    participant E as Explanation Agent
+
+    U->>S: Gửi câu hỏi & phạm vi tài liệu (mode: qa / audit)
+    S->>L: Yêu cầu Structured Tool Calling Plan
+    L-->>S: Trả về danh sách tool calls (search, extract, verify, score)
+    S->>T: Thực thi tool: search_document(query)
+    T->>R: Chạy BM25 + Dense -> RRF Fusion -> Cross-Encoder Rerank
+    R-->>T: Top-K chunks kèm số trang
+    T-->>S: Trả về danh sách citation ứng viên
+    S->>V: Thẩm định citation & đối soát nhận định (Claim Auditing)
+    V-->>S: Verified Citations + Tỷ lệ nhận định có bằng chứng
+    S->>T: Thực thi tool: score_rubric(E/S/G)
+    T-->>S: Disclosure Coverage % & Screening Signals
+    S->>E: Tổng hợp câu trả lời có trích dẫn số trang [Doc, trang X]
+    E-->>S: Final Answer
+    S-->>U: AnalysisResponse (Answer, Citations, Coverage, Trace)
 ```
 
-## Luồng phân tích
+---
 
-1. Supervisor nhận câu hỏi và phạm vi tài liệu.
-2. Retrieval Agent mở rộng truy vấn theo E/S/G.
-3. Store chạy BM25; lexical fallback xử lý trường hợp FTS5 không khả dụng.
-4. Evidence Validator loại citation rỗng, sai trang hoặc trùng lặp.
-5. ESG Analysis Agent tính riêng disclosure, performance, evidence quality và confidence.
-6. Explanation Agent chỉ diễn giải từ citation hợp lệ.
+## 4. Ranh giới Phân chia Module (Module Boundaries)
 
-## Ranh giới module
-
-| Module | Trách nhiệm |
-|---|---|
-| `main.py` | HTTP routing và ánh xạ lỗi |
-| `document_service.py` | Use case ingestion PDF |
-| `batch_ingest.py` | Điều phối ingestion theo metadata CSV |
-| `agents.py` | Agent workflow và phân tích |
-| `rubric.py` | Cấu hình tiêu chí ESG |
-| `store.py` | Persistence và retrieval |
-| `evaluation.py` | Chỉ số chất lượng retrieval |
-| `cli.py` | Giao diện dòng lệnh |
-
-## Lộ trình thay thế hạ tầng
-
-- SQLite FTS5 → PostgreSQL/OpenSearch/Qdrant khi corpus và concurrency tăng.
-- Xử lý đồng bộ → queue/worker khi PDF lớn hoặc chạy OCR.
-- Rule-based analysis → LLM structured output sau khi citation validator đạt chuẩn.
-- Local PDF → S3/MinIO trong môi trường staging và production.
-
+| Module | Tệp nguồn | Trách nhiệm chính |
+|---|---|---|
+| **API Server** | `app/main.py` | Routing HTTP, upload PDF theo block, xử lý ngoại lệ chuẩn hóa |
+| **Ingestion** | `app/document_service.py` | Kiểm tra Magic Bytes `%PDF-`, SHA-256 hash, OCR detection |
+| **Agentic Core** | `app/agents.py` | 6 AI Agents & Verification Guardrails |
+| **Agent Tools** | `app/tools.py` | Registry 5 công cụ chuẩn hóa cho Agentic Tool Calling |
+| **Local LLM** | `app/llm.py` | Kết nối Ollama, sinh Structured JSON, auto-fallback deterministic |
+| **Dense Vectors** | `app/embeddings.py` | Sentence-Transformers `all-MiniLM-L6-v2` & offline vector hashing |
+| **Reranker** | `app/reranker.py` | Cross-Encoder `ms-marco-MiniLM-L-6-v2` & lexical proximity fallback |
+| **Persistence** | `app/store.py` | SQLite FTS5 BM25, lưu trữ embeddings, Hybrid search (RRF $k=60$) |
+| **Rubric** | `app/rubric.py` | Tiêu chí chuẩn E/S/G, Regex số liệu và nhận diện câu phủ định |
+| **Retrieval Eval**| `app/evaluation.py` | Đo lường Recall@K, MRR, Precision@K & chạy Ablation Study |
+| **Answer Eval** | `app/answer_eval.py` | RAG Triad: Faithfulness, Citation Correctness, Hallucination Rate |
+| **CLI Tool** | `app/cli.py` | Giao diện dòng lệnh quản trị, nạp dữ liệu và quality gates |

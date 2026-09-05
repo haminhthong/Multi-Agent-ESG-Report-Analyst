@@ -43,4 +43,3 @@ def test_greenwashing_target_without_baseline(tmp_path: Path):
     )
     result = SupervisorAgent(store).run("Review climate target and greenwashing", 5, mode="audit")
     assert any("năm cơ sở" in signal for signal in result.screening_signals)
-

@@ -10,7 +10,6 @@ from app.rubric import (
 )
 
 
-
 def test_percentage_metric_is_detected():
     text = "Scope 1 emissions dropped by 15.5% and total volume was 124500 tCO2e."
     matches = METRIC_PATTERN.findall(text)

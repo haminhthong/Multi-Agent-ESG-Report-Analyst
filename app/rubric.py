@@ -295,7 +295,6 @@ NEGATED_PERFORMANCE_PATTERN = re.compile(
 )
 
 
-
 def normalize_number(text: str) -> str:
     """Chuẩn hóa dấu định dạng số theo ngữ cảnh (ví dụ: 1,234.5 -> 1234.5 hoặc 1.234,5 -> 1234.5)."""
     # Xử lý định dạng Châu Âu (1.234,5 -> 1234.5)
@@ -305,4 +304,3 @@ def normalize_number(text: str) -> str:
     if re.search(r"\b\d{1,3}(?:,\d{3})+\.\d+\b", text):
         return text.replace(",", "")
     return text
-

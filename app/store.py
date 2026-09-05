@@ -1,7 +1,12 @@
+import json
 import sqlite3
 from pathlib import Path
+from typing import Any
 
 from app.chunking import chunk_pages
+from app.config import settings
+from app.embeddings import embedding_engine
+from app.reranker import reranker
 
 # ==============================================================================
 # SCHEMA KHỞI TẠO CƠ SỞ DỮ LIỆU SQLITE & FTS5 (FULL-TEXT SEARCH)
@@ -30,9 +35,17 @@ CREATE TABLE IF NOT EXISTS chunks(
     text TEXT NOT NULL,
     FOREIGN KEY(document_id) REFERENCES documents(id) ON DELETE CASCADE
 );
+CREATE TABLE IF NOT EXISTS chunk_embeddings(
+    chunk_id INTEGER PRIMARY KEY,
+    vector_json TEXT NOT NULL,
+    FOREIGN KEY(chunk_id) REFERENCES chunks(id) ON DELETE CASCADE
+);
 CREATE VIRTUAL TABLE IF NOT EXISTS chunks_fts USING fts5(text, content='chunks', content_rowid='id');
 CREATE TRIGGER IF NOT EXISTS chunks_ai AFTER INSERT ON chunks BEGIN INSERT INTO chunks_fts(rowid,text) VALUES(new.id,new.text); END;
-CREATE TRIGGER IF NOT EXISTS chunks_ad AFTER DELETE ON chunks BEGIN INSERT INTO chunks_fts(chunks_fts,rowid,text) VALUES('delete',old.id,old.text); END;
+CREATE TRIGGER IF NOT EXISTS chunks_ad AFTER DELETE ON chunks BEGIN
+    INSERT INTO chunks_fts(chunks_fts,rowid,text) VALUES('delete',old.id,old.text);
+    DELETE FROM chunk_embeddings WHERE chunk_id=old.id;
+END;
 CREATE TRIGGER IF NOT EXISTS chunks_au AFTER UPDATE ON chunks BEGIN
     INSERT INTO chunks_fts(chunks_fts,rowid,text) VALUES('delete',old.id,old.text);
     INSERT INTO chunks_fts(rowid,text) VALUES(new.id,new.text);
@@ -114,10 +127,40 @@ class Store:
             )
             # Xóa các chunk cũ của tài liệu này để tránh trùng lặp khi re-index
             db.execute("DELETE FROM chunks WHERE document_id=?", (doc_id,))
+            inserted_chunks = []
             for chunk in chunk_pages(pages):
-                db.execute(
+                cur = db.execute(
                     "INSERT INTO chunks(document_id,page,text) VALUES(?,?,?)",
                     (doc_id, chunk.page, chunk.text),
+                )
+                inserted_chunks.append((cur.lastrowid, chunk.text))
+
+            # Tự động tính toán và lưu trữ vector nhúng cho từng chunk
+            if inserted_chunks:
+                texts = [c[1] for c in inserted_chunks]
+                vectors = embedding_engine.embed_texts(texts)
+                for (cid, _), vec in zip(inserted_chunks, vectors):
+                    db.execute(
+                        "INSERT OR REPLACE INTO chunk_embeddings(chunk_id, vector_json) VALUES(?,?)",
+                        (cid, json.dumps(vec)),
+                    )
+
+    def ensure_embeddings(self) -> None:
+        """Đảm bảo mọi chunk trong cơ sở dữ liệu đều có vector embedding (hỗ trợ migrate/seed cũ)."""
+        with self.connect() as db:
+            rows = db.execute(
+                "SELECT c.id, c.text FROM chunks c "
+                "LEFT JOIN chunk_embeddings ce ON ce.chunk_id = c.id "
+                "WHERE ce.chunk_id IS NULL"
+            ).fetchall()
+            if not rows:
+                return
+            texts = [r["text"] for r in rows]
+            vectors = embedding_engine.embed_texts(texts)
+            for r, vec in zip(rows, vectors):
+                db.execute(
+                    "INSERT OR REPLACE INTO chunk_embeddings(chunk_id, vector_json) VALUES(?,?)",
+                    (r["id"], json.dumps(vec)),
                 )
 
     def documents(self) -> list[dict]:
@@ -142,18 +185,119 @@ class Store:
             return dict(row)
 
     def search(
-        self, query: str, limit: int = 6, document_ids: list[str] | None = None
-    ) -> list[dict]:
-        """Thực thi tìm kiếm đoạn văn bản bằng thuật toán FTS5 BM25.
-
-        Nếu FTS5 không trả về kết quả (do khác biệt từ vựng hoặc lỗi cú pháp FTS),
-        hệ thống tự động chuyển sang thuật toán Lexical Fallback để đảm bảo luôn trả bằng chứng.
+        self,
+        query: str,
+        limit: int = 6,
+        document_ids: list[str] | None = None,
+        mode: str | None = None,
+    ) -> list[dict[str, Any]]:
+        """Thực thi tìm kiếm đoạn văn bản theo các chế độ:
+        - 'bm25': Thuật toán FTS5 BM25 kết hợp Lexical fallback.
+        - 'dense': Tìm kiếm ngữ nghĩa vector Dense Embeddings (Cosine Similarity).
+        - 'hybrid': Kết hợp BM25 + Dense qua Reciprocal Rank Fusion (RRF).
+        - 'hybrid_rerank': Hybrid Retrieval kết hợp Cross-Encoder Reranking.
         """
+        search_mode = mode or settings.retrieval_mode
         terms = [t.lower() for t in query.replace('"', " ").split() if len(t) > 2]
+
         with self.connect() as db:
-            return self._search_fts(db, terms, limit, document_ids) or self._search_lexical(
-                db, terms, limit, document_ids
+            if search_mode == "bm25":
+                results = self._search_fts(db, terms, limit, document_ids) or self._search_lexical(
+                    db, terms, limit, document_ids
+                )
+                for r in results:
+                    r["score"] = round(1 / (1 + abs(r.get("rank", 1.0))), 4)
+                return results
+
+            if search_mode == "dense":
+                return self._search_dense(db, query, limit, document_ids)
+
+            if search_mode == "hybrid":
+                return self._search_hybrid(db, query, limit, document_ids, rrf_k=settings.rrf_k)
+
+            # Chế độ mặc định: hybrid_rerank
+            candidates = self._search_hybrid(
+                db, query, max(limit * 2, 10), document_ids, rrf_k=settings.rrf_k
             )
+            return reranker.rerank(query, candidates, top_k=limit)
+
+    def _search_dense(
+        self,
+        db: sqlite3.Connection,
+        query: str,
+        limit: int,
+        document_ids: list[str] | None,
+    ) -> list[dict[str, Any]]:
+        """Tìm kiếm tương đồng ngữ nghĩa (Dense Semantic Search) bằng Cosine Similarity."""
+        self.ensure_embeddings()
+        q_vec = embedding_engine.embed_query(query)
+        sql = (
+            f"SELECT {SEARCH_COLUMNS}, ce.vector_json "
+            f"FROM chunks c JOIN documents d ON d.id=c.document_id "
+            f"JOIN chunk_embeddings ce ON ce.chunk_id=c.id"
+        )
+        params: list[Any] = []
+        if document_ids:
+            sql += f" WHERE c.document_id IN ({','.join('?' for _ in document_ids)})"
+            params.extend(document_ids)
+
+        rows = db.execute(sql, params).fetchall()
+        scored = []
+        for r in rows:
+            vec = json.loads(r["vector_json"])
+            sim = embedding_engine.cosine_similarity(q_vec, vec)
+            if sim < 0.20:
+                continue
+            item = dict(r)
+            del item["vector_json"]
+            item["score"] = round(sim, 4)
+            item["dense_score"] = round(sim, 4)
+            item["rank"] = -sim
+            scored.append(item)
+
+        scored.sort(key=lambda x: x["dense_score"], reverse=True)
+        return scored[:limit]
+
+    def _search_hybrid(
+        self,
+        db: sqlite3.Connection,
+        query: str,
+        limit: int,
+        document_ids: list[str] | None,
+        rrf_k: int = 60,
+    ) -> list[dict[str, Any]]:
+        """Tìm kiếm Hybrid Fusion kết hợp BM25 và Dense bằng Reciprocal Rank Fusion (RRF)."""
+        candidate_k = max(limit * 3, 20)
+        terms = [t.lower() for t in query.replace('"', " ").split() if len(t) > 2]
+        bm25_results = self._search_fts(
+            db, terms, candidate_k, document_ids
+        ) or self._search_lexical(db, terms, candidate_k, document_ids)
+        dense_results = self._search_dense(db, query, candidate_k, document_ids)
+
+        rrf_scores: dict[int, float] = {}
+        chunks_map: dict[int, dict[str, Any]] = {}
+
+        for rank, item in enumerate(bm25_results, start=1):
+            cid = item["chunk_id"]
+            rrf_scores[cid] = rrf_scores.get(cid, 0.0) + (1.0 / (rrf_k + rank))
+            chunks_map[cid] = item
+
+        for rank, item in enumerate(dense_results, start=1):
+            cid = item["chunk_id"]
+            rrf_scores[cid] = rrf_scores.get(cid, 0.0) + (1.0 / (rrf_k + rank))
+            if cid not in chunks_map:
+                chunks_map[cid] = item
+
+        combined = []
+        for cid, score in rrf_scores.items():
+            item = dict(chunks_map[cid])
+            item["hybrid_score"] = round(score, 5)
+            item["score"] = round(score, 5)
+            item["rank"] = -score
+            combined.append(item)
+
+        combined.sort(key=lambda x: x["hybrid_score"], reverse=True)
+        return combined[:limit]
 
     @staticmethod
     def _search_fts(

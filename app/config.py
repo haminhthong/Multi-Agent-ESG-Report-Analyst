@@ -22,7 +22,19 @@ class Settings(BaseSettings):
     # Giới hạn dung lượng tệp PDF tối đa (75MB)
     max_file_size: int = 75 * 1024 * 1024
 
+    # Cấu hình Local LLM / Ollama / OpenAI-compatible endpoint
+    llm_base_url: str = "http://localhost:11434/v1"
+    llm_model: str = "qwen2.5:7b"
+    llm_api_key: str = "ollama"
+    llm_timeout: float = 3.0
+    use_llm: bool = False
+
+    # Cấu hình Advanced Hybrid Retrieval & Reranker
+    embedding_model: str = "sentence-transformers/all-MiniLM-L6-v2"
+    reranker_model: str = "cross-encoder/ms-marco-MiniLM-L-6-v2"
+    retrieval_mode: str = "hybrid_rerank"  # bm25 | dense | hybrid | hybrid_rerank
+    rrf_k: int = 60
+
 
 # Khởi tạo đối tượng cấu hình singleton sử dụng trong toàn bộ ứng dụng
 settings = Settings()
-

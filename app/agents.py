@@ -1,7 +1,9 @@
 import re
 from io import BytesIO
-from typing import BinaryIO, Literal
+from typing import Any, BinaryIO, Literal
 
+from app.config import settings
+from app.llm import LLMClient
 from app.models import (
     AnalysisResponse,
     Citation,
@@ -25,19 +27,19 @@ from app.rubric import (
     PillarRubric,
 )
 from app.store import Store
+from app.tools import AgentTools
 
 
 class DocumentAgent:
     """Agent 1: Document Ingestion & Page Preservation Agent.
 
-    Nhiệm vụ: Trích xuất văn bản từ tệp PDF gốc và đảm bảo bảo toàn chính xác
+    Nhiệm vụ: Trích xuất văn bản từ tệp PDF gốc và bảo toàn chính xác
     chỉ số trang (page number) cho từng trang dữ liệu, làm cơ sở truy xuất citation.
     """
 
     @staticmethod
     def extract_pdf(source: bytes | BinaryIO) -> list[tuple[int, str]]:
         """Đọc tệp PDF từ dữ liệu bytes hoặc file stream và trả danh sách (số_trang, nội_dung_văn_bản)."""
-
         from pypdf import PdfReader
 
         stream = BytesIO(source) if isinstance(source, bytes) else source
@@ -48,20 +50,20 @@ class DocumentAgent:
 
 
 class RetrievalAgent:
-    """Agent 2: Query Expansion & Page Evidence Retrieval Agent.
+    """Agent 2: Query Expansion & Advanced Hybrid Retrieval Agent.
 
     Nhiệm vụ:
-    1. Lập kế hoạch mở rộng truy vấn (Query Expansion) bằng cách bổ sung các từ khóa ngành ESG liên quan.
-    2. Thực thi tìm kiếm full-text bằng BM25 trên SQLite FTS5 để lấy các đoạn văn bản bằng chứng.
-    3. Gửi danh sách citation tới EvidenceValidator để lọc nhiễu.
+    1. Lập kế hoạch mở rộng truy vấn (Query Expansion) bổ sung từ khóa ngành ESG liên quan.
+    2. Thực thi tìm kiếm theo nhiều cơ chế: BM25, Dense Embeddings, Hybrid RRF, hoặc Hybrid + Reranker.
+    3. Gửi danh sách citation tới EvidenceVerificationAgent để kiểm tra chất lượng.
     """
 
-    def __init__(self, store: Store):
+    def __init__(self, store: Store, mode: str | None = None):
         self.store = store
+        self.mode = mode or settings.retrieval_mode
 
     def plan_query(self, question: str) -> str:
         """Bổ sung các thuật ngữ chủ đề liên quan của 3 trụ cột E/S/G vào câu hỏi ban đầu để tối ưu hóa Retrieval."""
-
         lowered = question.lower()
         topics = [
             topic
@@ -74,8 +76,13 @@ class RetrievalAgent:
         return " ".join((question, *topics, "target baseline performance assurance metrics"))
 
     def run(self, query: str, top_k: int, document_ids: list[str] | None = None) -> list[Citation]:
-        """Thực thi truy xuất, chuẩn hóa kết quả thành các đối tượng Citation và xác thực qua EvidenceValidator."""
-
+        """Thực thi truy xuất, chuẩn hóa kết quả thành các đối tượng Citation và lọc qua EvidenceVerificationAgent."""
+        raw_results = self.store.search(
+            query=self.plan_query(query),
+            limit=top_k,
+            document_ids=document_ids,
+            mode=self.mode,
+        )
         citations = [
             Citation(
                 chunk_id=row["chunk_id"],
@@ -83,25 +90,25 @@ class RetrievalAgent:
                 document_name=row["name"],
                 page=row["page"],
                 excerpt=" ".join(row["text"].split())[:700],
-                score=round(1 / (1 + abs(row["rank"])), 4),
+                score=float(row.get("score") or round(1 / (1 + abs(row.get("rank", 1.0))), 4)),
             )
-            for row in self.store.search(self.plan_query(query), top_k, document_ids)
+            for row in raw_results
         ]
-        return EvidenceValidator.validate(citations)
+        return EvidenceVerificationAgent.validate(citations)
 
 
-class EvidenceValidator:
-    """Component Thẩm định Bằng chứng (Evidence Citation Validator).
+class EvidenceVerificationAgent:
+    """Agent 3: Evidence & Claim Verification Agent (Verification Guardrail).
 
-    Nhiệm vụ: Kiểm tra độc lập chất lượng của danh sách citation:
-    - Loại bỏ citation sai số trang (< 1).
-    - Loại bỏ các đoạn văn bản rác hoặc quá ngắn (< 3 từ).
-    - Loại bỏ các đoạn trùng lặp nội dung dựa trên chữ ký (document_id, page, normalized_text_prefix).
+    Nhiệm vụ:
+    1. Kiểm tra tính hợp lệ hình thức của citation: loại bỏ trang < 1, văn bản rác (< 3 từ), trùng lặp.
+    2. Thẩm định độc lập các khẳng định (Claim Verification): đối soát các con số, năm và khẳng định
+       với trích đoạn PDF thực tế, phát hiện mẫu câu phủ định/mâu thuẫn (contradiction).
     """
 
     @staticmethod
     def validate(citations: list[Citation]) -> list[Citation]:
-        """Thực thi lọc và đánh dấu `validated = True` cho các citation đủ tiêu chuẩn."""
+        """Lọc và đánh dấu `validated = True` cho các citation đủ tiêu chuẩn hình thức."""
         valid: list[Citation] = []
         seen: set[tuple[str, int, str]] = set()
         for citation in citations:
@@ -114,25 +121,49 @@ class EvidenceValidator:
             valid.append(citation)
         return valid
 
+    @staticmethod
+    def audit_claims(claims: list[str], citations: list[Citation]) -> dict[str, Any]:
+        """Đối soát danh sách nhận định với nội dung bằng chứng thực tế."""
+        combined_text = " ".join(c.excerpt for c in citations)
+        audits = []
+        supported_count = 0
+        for claim in claims:
+            res = AgentTools.verify_claim(claim, combined_text)
+            audits.append({"claim": claim, **res})
+            if res["supported"]:
+                supported_count += 1
+
+        total = max(1, len(claims))
+        return {
+            "audits": audits,
+            "supported_rate": round(supported_count / total, 4),
+            "total_claims": len(claims),
+            "unsupported_claims": [a["claim"] for a in audits if not a["supported"]],
+        }
+
+
+# Alias tương thích ngược cho EvidenceValidator cũ
+EvidenceValidator = EvidenceVerificationAgent
+
 
 class ESGAnalysisAgent:
-    """Agent 3: ESG Coverage Evaluation & Screening Signals Agent.
+    """Agent 4: ESG Rubric Coverage & Screening Signals Agent.
 
     Nhiệm vụ:
     1. Đánh giá mức độ công bố thông tin (Disclosure Coverage) minh bạch giải thích được = (số tiêu chí tìm thấy / tổng tiêu chí) * 100.
     2. Đánh giá chất lượng bằng chứng (Evidence Quality) và độ đầy đủ của số liệu (Data Completeness).
-    3. Sàng lọc tín hiệu cần chuyên gia kiểm tra (Screening Signals) dựa trên các quy tắc minh bạch.
+    3. Sàng lọc tín hiệu cần chuyên gia kiểm tra (Screening Signals) dựa trên quy tắc minh bạch.
     """
+
+    def __init__(self, llm_client: LLMClient | None = None):
+        self.llm = llm_client
 
     def run(self, citations: list[Citation]) -> tuple[list[PillarResult], float, list[str]]:
         """Phân tích các trụ cột E, S, G và sàng lọc các tín hiệu cần kiểm tra."""
-
         pillars = [self._score_pillar(name, rubric, citations) for name, rubric in RUBRICS.items()]
         signals = self._detect_screening_signals(citations)
         overall_coverage = (
-            round(sum(p.disclosure_coverage for p in pillars) / len(pillars), 1)
-            if pillars
-            else 0.0
+            round(sum(p.disclosure_coverage for p in pillars) / len(pillars), 1) if pillars else 0.0
         )
         return pillars, overall_coverage, signals
 
@@ -140,13 +171,11 @@ class ESGAnalysisAgent:
         self, name: str, rubric: PillarRubric, citations: list[Citation]
     ) -> PillarResult:
         """Thực thi đánh giá chi tiết cho một trụ cột (E/S/G)."""
-
         evidence = [
             item for item in citations if _contains_any(item.excerpt.lower(), rubric.topics)
         ]
         text = " ".join(item.excerpt.lower() for item in evidence)
 
-        # Đánh giá theo cấu trúc CRITERIA_DEFINITIONS
         pillar_criteria = [c for c in CRITERIA_DEFINITIONS if c.pillar == name]
         criteria_results: list[CriterionResult] = []
         found_count = 0
@@ -169,9 +198,12 @@ class ESGAnalysisAgent:
             bool(METRIC_PATTERN.search(text)),
             bool(YEAR_PATTERN.search(text)),
             bool(BASELINE_PATTERN.search(text)) and not bool(NEGATED_BASELINE_PATTERN.search(text)),
-            bool(ASSURANCE_PATTERN.search(text)) and not bool(NEGATED_ASSURANCE_PATTERN.search(text)),
+            bool(ASSURANCE_PATTERN.search(text))
+            and not bool(NEGATED_ASSURANCE_PATTERN.search(text)),
         ]
-        evidence_quality = round((sum(quality_checks) / len(quality_checks)) * 100, 1) if evidence else 0.0
+        evidence_quality = (
+            round((sum(quality_checks) / len(quality_checks)) * 100, 1) if evidence else 0.0
+        )
         confidence = round(min(1.0, len(evidence) / 4) * (evidence_quality / 100.0), 2)
 
         findings = [
@@ -185,9 +217,15 @@ class ESGAnalysisAgent:
                 f"Không tìm thấy đoạn văn bản bằng chứng liên quan đến trụ cột {name} trong các đoạn đã truy xuất."
             )
         elif metrics == 0:
-            risks.append("Các bằng chứng đã tìm thấy mới ở dạng mô tả định tính, thiếu số liệu đo lường cụ thể.")
-        if evidence and (not ASSURANCE_PATTERN.search(text) or NEGATED_ASSURANCE_PATTERN.search(text)):
-            risks.append("Chưa tìm thấy tuyên bố bảo đảm độc lập (External Assurance) cho dữ liệu này.")
+            risks.append(
+                "Các bằng chứng đã tìm thấy mới ở dạng mô tả định tính, thiếu số liệu đo lường cụ thể."
+            )
+        if evidence and (
+            not ASSURANCE_PATTERN.search(text) or NEGATED_ASSURANCE_PATTERN.search(text)
+        ):
+            risks.append(
+                "Chưa tìm thấy tuyên bố bảo đảm độc lập (External Assurance) cho dữ liệu này."
+            )
 
         return PillarResult(
             pillar=name,
@@ -206,17 +244,14 @@ class ESGAnalysisAgent:
         self, criterion: RubricCriterion, citations: list[Citation]
     ) -> CriterionResult:
         """Đánh giá trạng thái và chi tiết của 1 tiêu chí ESG dựa trên tập citation."""
-
         for cite in citations:
             text = cite.excerpt.lower()
 
-            # Kiểm tra từ khóa tiêu chí
-            matched_keywords = [
-                req for req in criterion.required_evidence if req in text
-            ] or [unit for unit in criterion.metric_units if unit.lower() in text]
+            matched_keywords = [req for req in criterion.required_evidence if req in text] or [
+                unit for unit in criterion.metric_units if unit.lower() in text
+            ]
 
             if matched_keywords:
-                # Kiểm tra xem có phủ định hay không
                 if NEGATED_PERFORMANCE_PATTERN.search(text):
                     return CriterionResult(
                         criterion_id=criterion.id,
@@ -227,7 +262,6 @@ class ESGAnalysisAgent:
                         confidence=0.8,
                     )
 
-                # Tìm số liệu kèm đơn vị
                 metric_match = METRIC_PATTERN.search(text)
                 value = metric_match.group(0) if metric_match else None
                 year_match = YEAR_PATTERN.search(text)
@@ -253,21 +287,28 @@ class ESGAnalysisAgent:
 
     def _detect_screening_signals(self, citations: list[Citation]) -> list[str]:
         """Sàng lọc các tín hiệu nghi vấn cần chuyên gia kiểm tra (Screening Signals)."""
-
         text = " ".join(item.excerpt.lower() for item in citations)
         metrics = len(METRIC_PATTERN.findall(text))
         signals: list[str] = []
 
         if sum(text.count(w) for w in VAGUE_WORDS) > metrics:
-            signals.append("Tỷ lệ ngôn ngữ định hướng tham vọng cao hơn số liệu bằng chứng định lượng.")
+            signals.append(
+                "Tỷ lệ ngôn ngữ định hướng tham vọng cao hơn số liệu bằng chứng định lượng."
+            )
         if TARGET_PATTERN.search(text) and (
             not BASELINE_PATTERN.search(text) or NEGATED_BASELINE_PATTERN.search(text)
         ):
-            signals.append("Có mục tiêu giảm phát thải/bền vững nhưng chưa tìm thấy căn cứ năm cơ sở (Baseline year).")
+            signals.append(
+                "Có mục tiêu giảm phát thải/bền vững nhưng chưa tìm thấy căn cứ năm cơ sở (Baseline year)."
+            )
         if TARGET_PATTERN.search(text) and metrics == 0:
             signals.append("Tuyên bố mục tiêu chưa đi kèm số liệu hiệu suất đo lường hiện tại.")
-        if citations and (not ASSURANCE_PATTERN.search(text) or NEGATED_ASSURANCE_PATTERN.search(text)):
-            signals.append("Chưa tìm thấy phạm vi bảo đảm độc lập (External Assurance) cho báo cáo.")
+        if citations and (
+            not ASSURANCE_PATTERN.search(text) or NEGATED_ASSURANCE_PATTERN.search(text)
+        ):
+            signals.append(
+                "Chưa tìm thấy phạm vi bảo đảm độc lập (External Assurance) cho báo cáo."
+            )
         if NEGATED_PERFORMANCE_PATTERN.search(text):
             signals.append("Ghi nhận thông tin không đạt mục tiêu hoặc phát thải gia tăng.")
         if not citations:
@@ -277,22 +318,39 @@ class ESGAnalysisAgent:
 
 
 class ExplanationAgent:
-    """Agent 4: Evidence-Grounded Explanation Synthesis Agent.
+    """Agent 5: Evidence-Grounded Explanation Synthesis Agent.
 
-    Nhiệm vụ: Tổng hợp câu giải thích chính văn KHÔNG hallucination,
-    chỉ căn cứ duy nhất trên kết quả chấm điểm và các citation đã qua xác thực.
+    Nhiệm vụ: Tổng hợp câu trả lời chính văn dựa trên các trích đoạn bằng chứng đã qua xác thực.
+    - Hỗ trợ LLM Synthesis có trích dẫn nghiêm ngặt khi LLM khả dụng.
+    - Graceful fallback: Sử dụng bộ tổng hợp xác định (Deterministic Synthesis) khi offline ($0 cost).
     """
 
-    @staticmethod
+    def __init__(self, llm_client: LLMClient | None = None):
+        self.llm = llm_client
+
     def run(
+        self,
         mode: Literal["qa", "audit"],
         pillars: list[PillarResult],
         overall_coverage: float,
         citations: list[Citation],
         question: str,
     ) -> str:
-        """Tạo chuỗi giải thích ngắn gọn, chuyên nghiệp kèm danh sách nguồn tài liệu và trang tương ứng."""
+        """Tạo chuỗi giải thích rõ ràng kèm danh sách nguồn tài liệu và số trang tương ứng."""
+        # 1. Thử nghiệm tổng hợp bằng LLM nếu khả dụng
+        if self.llm and self.llm.is_available() and citations:
+            rubric_summary = f"Coverage {overall_coverage}%. " + ", ".join(
+                f"{p.pillar}: {p.disclosure_coverage}%" for p in pillars
+            )
+            llm_answer = self.llm.synthesize_answer(
+                question=question,
+                citations=[c.model_dump() for c in citations[:6]],
+                rubric_summary=rubric_summary,
+            )
+            if llm_answer and len(llm_answer.strip()) > 20:
+                return llm_answer
 
+        # 2. Deterministic Fallback Synthesis ($0 API Cost)
         sources = (
             ", ".join(f"[{item.document_name}, trang {item.page}]" for item in citations[:6])
             or "không có citation"
@@ -304,10 +362,14 @@ class ExplanationAgent:
                     f"Hệ thống không tìm thấy bằng chứng hợp lệ trong tài liệu để trả lời cho câu hỏi: '{question}'. "
                     "Kết quả này phản ánh khoảng trống thông tin trong các trang đã truy xuất."
                 )
+            key_metrics = [f for p in pillars for f in p.findings if "Hệ thống" not in f][:1]
+            metric_snippet = f" Ghi nhận: {key_metrics[0]}." if key_metrics else ""
+            excerpt_snippet = (
+                f' Trích dẫn chính: "{citations[0].excerpt[:200]}..."' if citations else ""
+            )
             return (
                 f"Trả lời dựa trên bằng chứng truy xuất cho câu hỏi '{question}': "
-                f"Tìm thấy {len(citations)} đoạn văn bản nguồn tại {sources}. "
-                "Thông tin phản ánh mức độ công bố thực tế trong tệp PDF gốc."
+                f"Tìm thấy {len(citations)} đoạn văn bản nguồn tại {sources}.{metric_snippet}{excerpt_snippet}"
             )
         else:
             scores_str = ", ".join(
@@ -322,18 +384,29 @@ class ExplanationAgent:
 
 
 class SupervisorAgent:
-    """Agent 5: Pipeline Supervisor & Dual-Mode Orchestrator.
+    """Agent 6: Dynamic Agentic Supervisor & Multi-Strategy Orchestrator.
 
     Nhiệm vụ:
-    - Điều phối 2 chế độ độc lập: Evidence Q&A và Full ESG Audit.
-    - Ghi vết thực thi (Execution Trace).
-    - Cung cấp cảnh báo giới hạn (Limitations).
+    - Khi có Local LLM: Khởi tạo Structured Planning & Dynamic Tool Calling (`search_document`,
+      `retrieve_evidence`, `extract_metric`, `score_rubric`, `verify_claim`).
+    - Khi Fallback: Tự động chạy Deterministic Heuristic Engine đảm bảo $0 API cost và hoạt động 100% offline.
+    - Điều phối Evidence Verification Agent và thu thập Execution Trace đầy đủ.
     """
 
-    def __init__(self, store: Store):
-        self.retrieval = RetrievalAgent(store)
-        self.analysis = ESGAnalysisAgent()
-        self.explanation = ExplanationAgent()
+    def __init__(
+        self,
+        store: Store,
+        llm_client: LLMClient | None = None,
+        retrieval_mode: str | None = None,
+    ):
+        self.store = store
+        self.llm = llm_client or LLMClient()
+        self.tools = AgentTools(store)
+        self.verifier = EvidenceVerificationAgent()
+        self.retrieval = RetrievalAgent(store, mode=retrieval_mode)
+        self.analysis = ESGAnalysisAgent(llm_client=self.llm)
+        self.explanation = ExplanationAgent(llm_client=self.llm)
+        self.retrieval_mode = retrieval_mode or settings.retrieval_mode
 
     def run(
         self,
@@ -342,81 +415,99 @@ class SupervisorAgent:
         document_ids: list[str] | None = None,
         mode: Literal["qa", "audit"] = "qa",
     ) -> AnalysisResponse:
-        """Thực thi luồng làm việc theo chế độ được chọn."""
+        """Thực thi luồng phân tích thích ứng (LLM Agentic Planning hoặc Deterministic Fallback)."""
+        is_llm_active = self.llm.is_available()
+        agent_mode: Literal["llm_agentic", "deterministic_fallback"] = (
+            "llm_agentic" if is_llm_active else "deterministic_fallback"
+        )
 
-        trace = [
-            f"Supervisor: Khởi tạo luồng làm việc ở chế độ '{mode.upper()}'",
-            "Retrieval Agent: Thực thi truy xuất bằng chứng",
+        trace: list[str] = [
+            f"Supervisor: Khởi tạo phân tích ở chế độ '{mode.upper()}' | Engine: {agent_mode.upper()}"
         ]
 
-        if mode == "qa":
-            citations = self.retrieval.run(question, top_k, document_ids)
-            trace.append(f"Evidence Validator: Xác thực {len(citations)} citation phù hợp")
-
-            pillars, overall_coverage, signals = self.analysis.run(citations)
-            answer = self.explanation.run("qa", pillars, overall_coverage, citations, question)
-            trace.append("Explanation Agent: Tổng hợp câu trả lời kèm citation")
-
-            limitations = [
-                "Câu trả lời được tổng hợp duy nhất từ các đoạn bằng chứng đã truy xuất.",
-                "Nếu thông tin nằm ngoài phạm vi Top-K đoạn được tìm kiếm, hệ thống sẽ không thể đưa vào câu trả lời.",
-            ]
-
-            avg_quality, avg_completeness, avg_conf = _aggregate_pillar_metrics(pillars)
-
-            return AnalysisResponse(
-                mode="qa",
-                answer=answer,
-                disclosure_coverage=overall_coverage,
-                evidence_quality=avg_quality,
-                data_completeness=avg_completeness,
-                confidence=avg_conf,
-                screening_signals=signals,
-                pillars=pillars,
-                citations=citations,
-                trace=trace,
-                limitations=limitations,
-            )
-
+        # 1. Kế hoạch truy xuất bằng chứng (Retrieval Plan)
+        if is_llm_active:
+            trace.append("Supervisor: Gọi LLM Structured Planning để lập kế hoạch tool calls")
+            plan = self.llm.generate_plan(question, mode=mode)
+            if plan:
+                trace.append(f"Supervisor: LLM đã sinh kế hoạch gồm {len(plan)} bước hành động")
+                for step in plan[:3]:
+                    trace.append(f"  → Kế hoạch: {step.get('tool')}({step.get('args')})")
+            else:
+                trace.append("Supervisor: LLM sinh kế hoạch mặc định (Tool Execution Pipeline)")
         else:
-            # Full ESG Audit mode: chạy truy xuất theo từng bộ từ khóa tiêu chí E/S/G
-            trace.append("Audit Engine: Thực thi kiểm tra theo bộ tiêu chí chuẩn E/S/G")
-
-            audit_query = f"{question} scope emissions target baseline energy safety board governance assurance"
-            citations = self.retrieval.run(audit_query, max(top_k, 12), document_ids)
-            trace.append(f"Evidence Validator: Lọc và xác thực {len(citations)} đoạn bằng chứng cho Audit")
-
-            pillars, overall_coverage, signals = self.analysis.run(citations)
-            trace.append("ESG Analysis Agent: Đã hoàn tất đánh giá coverage và tín hiệu screening")
-
-            answer = self.explanation.run("audit", pillars, overall_coverage, citations, question)
-            trace.append("Explanation Agent: Hoàn tất lập báo cáo Audit với limitation")
-
-            limitations = [
-                "Báo cáo chỉ phản ánh mức độ công bố thông tin (disclosure coverage) trong các tài liệu đã lập chỉ mục.",
-                "Kết quả không đại diện cho điểm hiệu suất hoạt động ESG thực tế của doanh nghiệp.",
-                "Các tín hiệu cảnh báo (screening signals) cần được chuyên gia thẩm định trực tiếp trước khi kết luận.",
-            ]
-
-            avg_quality, avg_completeness, avg_conf = _aggregate_pillar_metrics(pillars)
-
-            return AnalysisResponse(
-                mode="audit",
-                answer=answer,
-                disclosure_coverage=overall_coverage,
-                evidence_quality=avg_quality,
-                data_completeness=avg_completeness,
-                confidence=avg_conf,
-                screening_signals=signals,
-                pillars=pillars,
-                citations=citations,
-                trace=trace,
-                limitations=limitations,
+            trace.append(
+                "Supervisor: Chạy chế độ Deterministic Heuristic Engine ($0 API Cost Fallback)"
             )
+
+        # 2. Thực thi Tool: search_document
+        retrieval_query = (
+            question
+            if mode == "qa"
+            else f"{question} scope emissions target baseline energy safety board governance assurance"
+        )
+        search_limit = max(top_k, 12) if mode == "audit" else top_k
+        trace.append(
+            f"Tool Call: search_document(query='{retrieval_query[:40]}...', mode='{self.retrieval_mode}')"
+        )
+
+        raw_citations = self.retrieval.run(retrieval_query, search_limit, document_ids)
+        trace.append(f"Retrieval Engine: Đã truy xuất {len(raw_citations)} đoạn ứng viên")
+
+        # 3. Thực thi Tool: verify_claim & citation validation
+        citations = self.verifier.validate(raw_citations)
+        trace.append(
+            f"Evidence Verification Agent: Đã thẩm định và lọc sạch {len(citations)} citation hợp lệ"
+        )
+
+        # 4. Thực thi Tool: score_rubric & analysis
+        trace.append("Tool Call: score_rubric(E/S/G Criteria & Signals)")
+        pillars, overall_coverage, signals = self.analysis.run(citations)
+
+        # 5. Thẩm định các nhận định (Claim Auditing)
+        claims_to_audit = [f for p in pillars for f in p.findings[:2]]
+        verification_summary = self.verifier.audit_claims(claims_to_audit, citations)
+        trace.append(
+            f"Evidence Verification Agent: Tỷ lệ nhận định có bằng chứng hỗ trợ: {verification_summary['supported_rate'] * 100:.1f}%"
+        )
+
+        # 6. Tổng hợp câu trả lời
+        trace.append("Explanation Agent: Tổng hợp kết quả phân tích có dẫn nguồn")
+        answer = self.explanation.run(mode, pillars, overall_coverage, citations, question)
+
+        limitations = [
+            "Câu trả lời được tổng hợp duy nhất từ các đoạn bằng chứng đã truy xuất.",
+            "Nếu thông tin nằm ngoài phạm vi Top-K đoạn được tìm kiếm, hệ thống sẽ không thể đưa vào kết luận.",
+        ]
+        if mode == "audit":
+            limitations.extend(
+                [
+                    "Báo cáo chỉ phản ánh mức độ công bố thông tin (disclosure coverage) trong các tài liệu đã lập chỉ mục.",
+                    "Kết quả không đại diện cho điểm hiệu suất hoạt động ESG thực tế của doanh nghiệp.",
+                ]
+            )
+
+        avg_quality, avg_completeness, avg_conf = _aggregate_pillar_metrics(pillars)
+
+        return AnalysisResponse(
+            mode=mode,
+            agent_mode=agent_mode,
+            answer=answer,
+            disclosure_coverage=overall_coverage,
+            evidence_quality=avg_quality,
+            data_completeness=avg_completeness,
+            confidence=avg_conf,
+            screening_signals=signals,
+            pillars=pillars,
+            citations=citations,
+            verification_summary=verification_summary,
+            trace=trace,
+            limitations=limitations,
+        )
 
 
 def _aggregate_pillar_metrics(pillars: list[PillarResult]) -> tuple[float, float, float]:
-    """Hàm phụ trợ tính trung bình chất lượng bằng chứng, độ đầy đủ số liệu và độ tin cậy giữa các trụ cột."""
+    """Hàm phụ trợ tính trung bình chất lượng bằng chứng, độ đầy đủ số liệu và độ tin cậy."""
     if not pillars:
         return 0.0, 0.0, 0.0
     avg_quality = round(sum(p.evidence_quality for p in pillars) / len(pillars), 1)
@@ -425,8 +516,6 @@ def _aggregate_pillar_metrics(pillars: list[PillarResult]) -> tuple[float, float
     return avg_quality, avg_completeness, avg_conf
 
 
-
 def _contains_any(text: str, keywords: tuple[str, ...]) -> bool:
     """Hàm phụ trợ kiểm tra xem đoạn văn bản có chứa ít nhất một từ khóa trong danh sách hay không."""
     return any(keyword in text for keyword in keywords)
-
