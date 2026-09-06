@@ -19,6 +19,7 @@ from app.capabilities import (
     RetrievalAgent,
 )
 from app.config import settings
+from app.domain.evidence_completeness import EvidenceCompletenessGate
 from app.evidence_extractor import EvidenceExtractionAgent
 from app.llm import LLMClient
 from app.models import (
@@ -27,6 +28,7 @@ from app.models import (
     AnalysisState,
     Citation,
     ESGFact,
+    EvidenceCompletenessResult,
     PillarResult,
     RetrievalPlan,
 )
@@ -95,6 +97,7 @@ class ESGAnalysisPipeline:
         self.audit = audit_service or ESGAuditService(llm_client=self.llm)
         self.analysis = self.audit
         self.explanation = ExplanationAgent(llm_client=self.llm)
+        self.completeness_gate = EvidenceCompletenessGate()
         self.retrieval_mode = retrieval_mode or settings.retrieval_mode
         self.last_response: AnalysisResponse | None = None
 
@@ -376,31 +379,19 @@ class ESGAnalysisPipeline:
     def _check_completeness(self, state: AnalysisState) -> None:
         assert state.plan is not None
         started = time.perf_counter()
-        satisfied: list[str] = []
-        missing: list[str] = []
-        for requirement in state.plan.required_evidence:
-            target = (
-                satisfied
-                if _requirement_satisfied(
-                    requirement,
-                    state.extracted_facts,
-                    state.validated_citations,
-                )
-                else missing
-            )
-            target.append(requirement)
-        state.evidence_completeness = {
-            "required": state.plan.required_evidence,
-            "satisfied": satisfied,
-            "missing": missing,
-            "status": "complete" if not missing else "incomplete",
-        }
+        state.evidence_completeness = self.completeness_gate.check(
+            state.plan.required_evidence,
+            state.extracted_facts,
+            state.validated_citations,
+        )
         self._trace(
             state,
             "EvidenceCompletenessGate",
             "Check required evidence",
             started,
-            details=state.evidence_completeness,
+            details=state.evidence_completeness.model_dump()
+            if hasattr(state.evidence_completeness, "model_dump")
+            else state.evidence_completeness,
         )
 
     def _audit(

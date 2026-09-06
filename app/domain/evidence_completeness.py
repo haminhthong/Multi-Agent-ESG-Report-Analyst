@@ -1,7 +1,12 @@
-import re
-from typing import Any
+from typing import Any, Literal
 
-from app.models import Citation, ESGFact, EvidenceRequirement, EvidenceRequirementResult
+from app.models import (
+    Citation,
+    ESGFact,
+    EvidenceCompletenessResult,
+    EvidenceRequirement,
+    EvidenceRequirementResult,
+)
 from app.rubric import BASELINE_PATTERN, METRIC_PATTERN, YEAR_PATTERN
 
 DEFAULT_REQUIREMENTS: dict[str, EvidenceRequirement] = {
@@ -107,31 +112,37 @@ class EvidenceCompletenessGate:
 
     def evaluate_requirement(
         self,
-        req_name: str,
+        req: str | EvidenceRequirement,
         facts: list[ESGFact],
         citations: list[Citation],
     ) -> EvidenceRequirementResult:
-        req_key = req_name.lower().strip()
-        spec = self.requirements.get(
-            req_key,
-            EvidenceRequirement(
-                name=req_name,
-                fact_types=[req_key],
-                keywords=[req_key, req_key.replace("_", " ")],
-            ),
-        )
+        if isinstance(req, EvidenceRequirement):
+            spec = req
+            req_name = spec.name
+        else:
+            req_name = str(req)
+            req_key = req_name.lower().strip()
+            spec = self.requirements.get(
+                req_key,
+                EvidenceRequirement(
+                    name=req_name,
+                    fact_types=[req_key],
+                    keywords=[req_key, req_key.replace("_", " ")],
+                ),
+            )
 
         matched_fact_ids: list[str] = []
         matched_citation_ids: list[str] = []
         missing_aspects: list[str] = []
 
         has_numeric = False
+        has_unit = False
         has_year = False
         has_baseline = False
 
         # 1. Kiểm tra đối chiếu với danh mục Facts
         for idx, f in enumerate(facts):
-            fact_id = f"fact_{idx}_{f.metric}"
+            fact_id = f.fact_id or f"fact_{idx}_{f.metric}"
             metric_l = f.metric.lower()
 
             fact_type_matched = any(
@@ -143,6 +154,8 @@ class EvidenceCompletenessGate:
                 matched_fact_ids.append(fact_id)
                 if f.value is not None:
                     has_numeric = True
+                if f.unit:
+                    has_unit = True
                 if f.year is not None:
                     has_year = True
                 fact_text = getattr(f, "evidence_text", None) or (f.source.excerpt if f.source else "")
@@ -165,6 +178,8 @@ class EvidenceCompletenessGate:
 
         if spec.requires_numeric_value and not has_numeric:
             missing_aspects.append("numeric_value")
+        if getattr(spec, "requires_unit", False) and not has_unit:
+            missing_aspects.append("unit")
         if spec.requires_year and not has_year:
             missing_aspects.append("year")
         if spec.requires_baseline and not has_baseline:
@@ -218,36 +233,48 @@ class EvidenceCompletenessGate:
 
     def check(
         self,
-        required_evidence: list[str],
+        required_evidence: list[str] | list[EvidenceRequirement],
         facts: list[ESGFact],
         citations: list[Citation],
-    ) -> dict[str, Any]:
+    ) -> EvidenceCompletenessResult:
         """Thực thi kiểm tra toàn diện danh mục yêu cầu bằng chứng."""
         results: list[EvidenceRequirementResult] = []
         satisfied: list[str] = []
         partial: list[str] = []
         missing: list[str] = []
+        req_names: list[str] = []
 
         for req in required_evidence:
+            req_name = req.name if isinstance(req, EvidenceRequirement) else str(req)
+            req_names.append(req_name)
             res = self.evaluate_requirement(req, facts, citations)
             results.append(res)
             if res.status == "satisfied":
-                satisfied.append(req)
+                satisfied.append(req_name)
             elif res.status == "partial":
-                partial.append(req)
+                partial.append(req_name)
             else:
-                missing.append(req)
+                missing.append(req_name)
 
-        status = "complete" if not missing and not partial else "incomplete"
+        status: Literal["complete", "incomplete"] = (
+            "complete" if not missing and not partial else "incomplete"
+        )
+        total = len(req_names)
+        score = round(len(satisfied) / total, 2) if total > 0 else 1.0
 
-        return {
-            "required": required_evidence,
-            "satisfied": satisfied,
-            "partial": partial,
-            "missing": missing,
-            "status": status,
-            "results": [r.model_dump() for r in results],
-        }
+        return EvidenceCompletenessResult(
+            requirements=results,
+            satisfied_count=len(satisfied),
+            partial_count=len(partial),
+            missing_count=len(missing),
+            completeness_score=score,
+            status=status,
+            required=req_names,
+            satisfied=satisfied,
+            partial=partial,
+            missing=missing,
+            results=[r.model_dump() for r in results],
+        )
 
     def is_satisfied(
         self, req_name: str, facts: list[ESGFact], citations: list[Citation]

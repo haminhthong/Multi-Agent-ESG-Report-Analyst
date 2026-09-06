@@ -2,7 +2,7 @@ import hashlib
 
 from app.chunking import pages_from_layout_blocks
 from app.document_intelligence import DocumentAgent, DocumentIntelligenceAgent
-from app.models import DocumentIngestResponse, LayoutBlock
+from app.models import DocumentIngestResponse, ExtractionQualityReport, LayoutBlock
 from app.store import Store
 
 MAX_PDF_SIZE_BYTES = 75 * 1024 * 1024
@@ -105,6 +105,23 @@ class DocumentIngestionService:
             extraction_quality=quality,
             layout_blocks=layout_blocks or None,
         )
+        empty_pages = [
+            page_no
+            for page_no, text in pages
+            if len((text or "").strip()) < MIN_TEXT_CHARACTERS
+        ]
+        table_count = sum(1 for b in layout_blocks if getattr(b, "block_type", "") == "table")
+        report = ExtractionQualityReport(
+            native_text_ratio=quality,
+            ocr_applied_ratio=0.0,
+            table_count=table_count,
+            empty_pages=empty_pages,
+            average_confidence=1.0 if quality >= 0.8 else round(quality, 2),
+            notes=[
+                f"Đã trích xuất {text_pages}/{len(pages)} trang văn bản ({quality * 100:.1f}%)",
+            ],
+        )
+
         return DocumentIngestResponse(
             id=document_id,
             name=filename,
@@ -112,6 +129,7 @@ class DocumentIngestionService:
             text_pages=text_pages,
             extraction_quality=quality,
             status="indexed",
+            extraction_report=report,
         )
 
     @staticmethod

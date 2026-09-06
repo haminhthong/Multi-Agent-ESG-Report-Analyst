@@ -267,3 +267,6 @@ class GreenwashingScreeningService:
             all_signals=all_signals,
             summary=summary,
         )
+
+
+ScreeningService = GreenwashingScreeningService

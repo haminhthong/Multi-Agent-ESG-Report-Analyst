@@ -1,40 +1,39 @@
+"""Temporal analysis service: tracks multi-year ESG metric trajectories from structured facts."""
+
+from __future__ import annotations
+
 from typing import Any
 
 from app.evidence_extractor import EvidenceExtractionAgent
-from app.models import Citation, TemporalAnalysisResult, TemporalTrendPoint
+from app.models import Citation, ESGFact, TemporalAnalysisResult, TemporalTrendPoint
 from app.store import Store
 
 
 class TemporalAnalyzer:
-    """Dịch vụ phân tích diễn biến chuỗi thời gian của các chỉ số ESG qua các năm."""
+    """Analyze multi-year historical trajectories of ESG metrics using structured facts."""
 
-    def run_temporal_analysis(
+    def analyze(
         self,
         company: str,
-        store: Store,
+        facts: list[ESGFact],
         metric: str = "scope_1_emissions",
-        document_ids: list[str] | None = None,
     ) -> TemporalAnalysisResult:
-        query = f"{company} {metric} Scope 1 greenhouse gas emissions"
-        results = store.search(query, limit=12, document_ids=document_ids)
-        citations = [
-            Citation(
-                chunk_id=r["chunk_id"],
-                document_id=r["document_id"],
-                document_name=r["name"],
-                page=r["page"],
-                excerpt=r["text"],
-                score=float(r.get("score") or 0.5),
-            )
-            for r in results
-        ]
-
-        facts = EvidenceExtractionAgent.extract_facts(citations)
+        """Compute multi-year timeline and YoY trends directly from extracted ESGFact records."""
         timeline_points: list[TemporalTrendPoint] = []
         seen_years: set[int] = set()
 
-        for f in facts:
-            if f.year and f.year not in seen_years and f.value is not None:
+        # Filter facts matching the requested metric or related aliases
+        metric_tokens = (metric.lower(), "scope 1" if "scope_1" in metric else metric.lower())
+        relevant_facts = [
+            f
+            for f in facts
+            if any(t in f.metric.lower() for t in metric_tokens)
+            and f.year is not None
+            and f.value is not None
+        ]
+
+        for f in relevant_facts:
+            if f.year not in seen_years:
                 seen_years.add(f.year)
                 timeline_points.append(
                     TemporalTrendPoint(
@@ -85,3 +84,43 @@ class TemporalAnalyzer:
             if len(timeline_points) < 2
             else [],
         )
+
+    def run_temporal_analysis(
+        self,
+        company: str,
+        store: Store | None = None,
+        metric: str = "scope_1_emissions",
+        document_ids: list[str] | None = None,
+        facts: list[ESGFact] | None = None,
+    ) -> TemporalAnalysisResult:
+        """Backward-compatible entry point: uses facts if provided, otherwise retrieves from store."""
+        if facts:
+            return self.analyze(company=company, facts=facts, metric=metric)
+
+        if store is None:
+            return TemporalAnalysisResult(
+                company=company,
+                metric=metric,
+                timeline=[],
+                yoy_changes=[],
+                baseline_to_current_change=None,
+                reporting_consistency="limited_data",
+                consistency_issues=["No facts or store available"],
+            )
+
+        query = f"{company} {metric} Scope 1 greenhouse gas emissions"
+        results = store.search(query, limit=12, document_ids=document_ids)
+        citations = [
+            Citation(
+                chunk_id=r["chunk_id"],
+                document_id=r["document_id"],
+                document_name=r["name"],
+                page=r["page"],
+                excerpt=r["text"],
+                score=float(r.get("score") or 0.5),
+            )
+            for r in results
+        ]
+
+        extracted_facts = EvidenceExtractionAgent.extract_facts(citations)
+        return self.analyze(company=company, facts=extracted_facts, metric=metric)

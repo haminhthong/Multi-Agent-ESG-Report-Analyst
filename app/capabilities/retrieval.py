@@ -2,15 +2,15 @@
 
 from __future__ import annotations
 
-from app.capabilities.verification import EvidenceVerificationAgent
 from app.config import settings
 from app.models import Citation, RetrievalPlan
+from app.reranker import reranker
 from app.rubric import RUBRICS
 from app.store import Store
 
 
 class RetrievalAgent:
-    """Retrieve, fuse, and diversify ESG evidence candidates."""
+    """Retrieve, fuse, and diversify ESG evidence candidates without performing validation."""
 
     def __init__(self, store: Store, mode: str | None = None) -> None:
         self.store = store
@@ -42,18 +42,17 @@ class RetrievalAgent:
             mode=self.mode,
         )
         citations = [self._to_citation(row) for row in rows]
-        return EvidenceVerificationAgent.validate(citations)
+        return self._diversify_pages(citations, top_k)
 
     def run_plan(self, plan: RetrievalPlan, top_k: int) -> list[Citation]:
-        """Fuse candidates across subqueries using global Reciprocal Rank Fusion."""
+        """Two-stage retrieval: RRF candidate pool generation followed by optional Cross-Encoder reranking."""
         if not plan.subqueries:
             return []
 
         sub_limit = max(top_k, 6)
         rrf_k = 60.0
-        rrf_scores: dict[tuple[str, int, str], float] = {}
-        candidates: dict[tuple[str, int, str], dict] = {}
-        rerank_scores: dict[tuple[str, int, str], float] = {}
+        rrf_scores: dict[Any, float] = {}
+        candidates: dict[Any, dict] = {}
 
         for subquery in plan.subqueries:
             rows = self.store.search(
@@ -63,29 +62,61 @@ class RetrievalAgent:
                 mode=self.mode,
             )
             for rank, row in enumerate(rows, start=1):
-                signature = (row["document_id"], row["page"], row["text"][:60])
+                signature = self._extract_signature(row)
                 rrf_scores[signature] = rrf_scores.get(signature, 0.0) + 1.0 / (rrf_k + rank)
                 candidates.setdefault(signature, row)
-                if row.get("rerank_score") is not None:
-                    rerank_scores[signature] = max(
-                        rerank_scores.get(signature, float("-inf")),
-                        float(row["rerank_score"]),
-                    )
 
-        fused: list[Citation] = []
-        for signature, row in candidates.items():
-            score = rrf_scores[signature]
-            rerank_score = rerank_scores.get(signature)
-            if rerank_score is not None:
-                score += rerank_score * 0.1
-            citation = self._to_citation(row)
-            citation.score = round(score, 6)
-            citation.reranker_score = rerank_score
-            fused.append(citation)
+        if not candidates:
+            return []
+
+        ranked_rows = sorted(
+            candidates.values(),
+            key=lambda r: rrf_scores[self._extract_signature(r)],
+            reverse=True,
+        )
+
+        # Stage 2: Cross-Encoder Reranker on Top-20 Candidate Pool (if hybrid_rerank is active)
+        if self.mode == "hybrid_rerank" and len(ranked_rows) > 1:
+            candidate_pool = ranked_rows[:max(top_k * 3, 20)]
+            rerank_query = plan.subqueries[0]
+            reranked_pool = reranker.rerank(
+                query=rerank_query,
+                candidates=candidate_pool,
+                top_k=len(candidate_pool),
+            )
+            fused = []
+            for row in reranked_pool:
+                citation = self._to_citation(row)
+                if row.get("rerank_score") is not None:
+                    citation.score = float(row["rerank_score"])
+                    citation.reranker_score = float(row["rerank_score"])
+                else:
+                    sig = self._extract_signature(row)
+                    citation.score = round(rrf_scores.get(sig, 0.0), 6)
+                fused.append(citation)
+        else:
+            fused = []
+            for row in ranked_rows:
+                sig = self._extract_signature(row)
+                citation = self._to_citation(row)
+                citation.score = round(rrf_scores.get(sig, 0.0), 6)
+                citation.reranker_score = row.get("rerank_score")
+                fused.append(citation)
 
         fused.sort(key=lambda item: item.score, reverse=True)
         diversified = self._diversify_pages(fused, top_k)
-        return EvidenceVerificationAgent.validate(diversified)[:top_k]
+        return diversified[:top_k]
+
+    @staticmethod
+    def _extract_signature(row: dict) -> Any:
+        """Prioritize chunk_id for provenance identity; fallback to document/page/block."""
+        if row.get("chunk_id") is not None:
+            return row["chunk_id"]
+        return (
+            row["document_id"],
+            row["page"],
+            row.get("block_id") or (row.get("text") or "")[:60],
+        )
 
     @staticmethod
     def _diversify_pages(citations: list[Citation], top_k: int) -> list[Citation]:
@@ -122,4 +153,6 @@ class RetrievalAgent:
             block_type=row.get("block_type", "text"),
             retrieval_score=base_score,
             reranker_score=row.get("rerank_score"),
+            validated=False,
+            validation_status="valid",
         )

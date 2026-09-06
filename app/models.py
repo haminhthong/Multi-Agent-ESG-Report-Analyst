@@ -119,7 +119,11 @@ class ESGFact(BaseModel):
     baseline_year: int | None = None
     source: Citation | None = None
     confidence: float = Field(ge=0.0, le=1.0, default=0.0)
-    validation_status: Literal["valid", "conflict", "unverified"] = "valid"
+    fact_id: str = ""
+    target_year: int | None = None
+    extraction_method: Literal["regex", "rule", "llm"] = "rule"
+    verification_status: Literal["validated", "partial", "conflict", "valid", "unverified"] = "valid"
+    validation_status: Literal["validated", "partial", "conflict", "valid", "unverified"] = "valid"
 
     # Lưu vết nguyên bản và chuẩn hóa (Dual Value/Unit Representation)
     raw_value: float | str | None = None
@@ -161,6 +165,7 @@ class EvidenceRequirement(BaseModel):
     requires_numeric_value: bool = False
     requires_year: bool = False
     requires_baseline: bool = False
+    requires_unit: bool = False
 
 
 class EvidenceRequirementResult(BaseModel):
@@ -172,6 +177,51 @@ class EvidenceRequirementResult(BaseModel):
     matched_citation_ids: list[str] = Field(default_factory=list)
     confidence: float = 1.0
     missing_aspects: list[str] = Field(default_factory=list)
+
+
+class EvidenceCompletenessResult(BaseModel):
+    """Kết quả kiểm tra chất lượng bằng chứng (Evidence Completeness Gate)."""
+
+    requirements: list[EvidenceRequirementResult] = Field(default_factory=list)
+    satisfied_count: int = 0
+    partial_count: int = 0
+    missing_count: int = 0
+    completeness_score: float = 0.0
+    status: Literal["complete", "incomplete"] = "complete"
+    required: list[str] = Field(default_factory=list)
+    satisfied: list[str] = Field(default_factory=list)
+    partial: list[str] = Field(default_factory=list)
+    missing: list[str] = Field(default_factory=list)
+    results: list[dict[str, Any]] = Field(default_factory=list)
+
+    def __getitem__(self, item: str) -> Any:
+        return getattr(self, item)
+
+    def get(self, item: str, default: Any = None) -> Any:
+        return getattr(self, item, default)
+
+    def __contains__(self, item: str) -> bool:
+        return hasattr(self, item)
+
+    def keys(self):
+        return self.model_dump().keys()
+
+    def values(self):
+        return self.model_dump().values()
+
+    def items(self):
+        return self.model_dump().items()
+
+
+class ExtractionQualityReport(BaseModel):
+    """Báo cáo chất lượng trích xuất tài liệu (OCR / Text extraction quality)."""
+
+    native_text_ratio: float = Field(ge=0.0, le=1.0, default=1.0)
+    ocr_applied_ratio: float = Field(ge=0.0, le=1.0, default=0.0)
+    table_count: int = 0
+    empty_pages: list[int] = Field(default_factory=list)
+    average_confidence: float = Field(ge=0.0, le=1.0, default=1.0)
+    notes: list[str] = Field(default_factory=list)
 
 
 class GreenwashingScreeningResult(BaseModel):
@@ -307,6 +357,7 @@ class DocumentIngestResponse(BaseModel):
     text_pages: int
     extraction_quality: float = Field(ge=0, le=1)
     status: str
+    extraction_report: ExtractionQualityReport | None = None
 
 
 class AnalysisResponse(BaseModel):
@@ -336,7 +387,9 @@ class AnalysisResponse(BaseModel):
     screening_result: GreenwashingScreeningResult | None = None
     temporal_analysis: TemporalAnalysisResult | None = None
     comparison: CompanyComparisonResult | None = None
-    evidence_completeness: dict[str, Any] = Field(default_factory=dict)
+    evidence_completeness: EvidenceCompletenessResult | dict[str, Any] = Field(
+        default_factory=EvidenceCompletenessResult
+    )
     trace_steps: list[AgentTraceStep] = Field(default_factory=list)
 
 
@@ -361,7 +414,9 @@ class AnalysisState(BaseModel):
     pillars: list[PillarResult] = Field(default_factory=list)
     overall_coverage: float = 0.0
     verification_summary: dict[str, Any] = Field(default_factory=dict)
-    evidence_completeness: dict[str, Any] = Field(default_factory=dict)
+    evidence_completeness: EvidenceCompletenessResult | dict[str, Any] = Field(
+        default_factory=EvidenceCompletenessResult
+    )
     answer: str = ""
     warnings: list[str] = Field(default_factory=list)
     limitations: list[str] = Field(default_factory=list)

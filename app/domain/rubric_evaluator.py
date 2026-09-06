@@ -280,68 +280,7 @@ class PillarEvaluator:
         )
         return pillars, overall_coverage
 
+    evaluate_all_pillars = evaluate_all
 
-class EvidenceMatrixBuilder:
-    """Xây dựng ma trận kiểm toán bằng chứng đầy đủ cho toàn bộ tiêu chí chuẩn mực."""
 
-    def __init__(self, rubric_evaluator: RubricEvaluator | None = None):
-        self.rubric_evaluator = rubric_evaluator or RubricEvaluator()
-
-    def build_evidence_matrix(
-        self,
-        citations: list[Citation],
-        facts: list[ESGFact],
-        criteria_definitions: list[RubricCriterion] | None = None,
-    ) -> list[EvidenceMatrixRow]:
-        matrix: list[EvidenceMatrixRow] = []
-        fact_by_metric: dict[str, ESGFact] = {}
-        for f in facts:
-            prev = fact_by_metric.get(f.metric)
-            if prev is None or (f.confidence or 0) >= (prev.confidence or 0):
-                fact_by_metric[f.metric] = f
-
-        defs = criteria_definitions or CRITERIA_DEFINITIONS
-        for criterion in defs:
-            eval_res = self.rubric_evaluator.evaluate_criterion(criterion, citations)
-            status: Literal[
-                "found", "partial", "missing", "not_found", "contradicts", "unclear"
-            ] = "missing"
-            if eval_res.status in ("found", "partial", "contradicts", "unclear"):
-                status = eval_res.status  # type: ignore[assignment]
-
-            # Tìm xem có fact tương ứng không để bổ sung giá trị số liệu chuẩn xác
-            matched_fact = None
-            if "scope_1" in criterion.id.lower():
-                matched_fact = fact_by_metric.get("scope_1_emissions")
-            elif "scope_3" in criterion.id.lower():
-                matched_fact = fact_by_metric.get("scope_3_emissions")
-            elif "target" in criterion.id.lower():
-                matched_fact = fact_by_metric.get("net_zero_target")
-            elif "safety" in criterion.id.lower():
-                matched_fact = fact_by_metric.get("work_safety")
-
-            display_val = eval_res.value
-            display_unit = eval_res.unit
-            display_year = eval_res.reporting_year
-
-            if matched_fact:
-                display_val = (
-                    str(matched_fact.value) if matched_fact.value is not None else display_val
-                )
-                display_unit = matched_fact.unit or display_unit
-                display_year = matched_fact.year or display_year
-
-            matrix.append(
-                EvidenceMatrixRow(
-                    criterion_id=criterion.id,
-                    criterion_name=criterion.name,
-                    pillar=criterion.pillar,
-                    status=status,
-                    value=display_val,
-                    unit=display_unit,
-                    reporting_year=display_year,
-                    citation=eval_res.citation,
-                    confidence=eval_res.confidence,
-                )
-            )
-        return matrix
+from app.domain.evidence_matrix import EvidenceMatrixBuilder
