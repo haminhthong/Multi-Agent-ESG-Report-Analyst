@@ -121,7 +121,8 @@ def test_document_blocks_do_not_fabricate_bbox(monkeypatch):
             return "CLIMATE\n\nScope 1 emissions were 100 tCO2e in 2024."
 
     class FakeReader:
-        pages = [FakePage()]
+        def __init__(self):
+            self.pages = [FakePage()]
 
     monkeypatch.setattr("pypdf.PdfReader", lambda _stream: FakeReader())
     blocks = DocumentIntelligenceAgent.extract_pdf_blocks(b"%PDF-demo", "doc")
