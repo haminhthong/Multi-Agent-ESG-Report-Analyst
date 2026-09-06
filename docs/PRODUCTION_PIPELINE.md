@@ -1,46 +1,55 @@
-# Production Pipeline
+# Canonical Runtime Pipeline
 
-This document describes the runtime path that should be treated as the canonical system flow.
+This document defines the runtime path that should be treated as authoritative for the project.
 
-## 1. System boundary
+## System boundary
 
-The project is an **evidence-grounded ESG report analysis system**. It is not an autonomous auditor and it does not determine whether a company is legally greenwashing.
+The repository is an **evidence-grounded ESG report analysis and screening system**. It is not an autonomous auditor, ESG rating agency, legal opinion, or greenwashing verdict engine.
 
-The production boundary is split into four layers:
+The architecture is divided into four responsibilities:
 
 1. **Adapters** — FastAPI, CLI, web UI.
-2. **Application workflow** — `app/workflow.py`.
-3. **Domain capabilities** — query planning, retrieval, verification, fact extraction, ESG disclosure scoring, screening, synthesis.
-4. **Infrastructure** — SQLite/FTS store, embeddings/reranker integration, PDF ingestion, model clients.
+2. **Application orchestration** — `app/workflow.py`.
+3. **Bounded capabilities** — planning, retrieval, verification, extraction, disclosure analysis, screening, synthesis.
+4. **Infrastructure** — PDF extraction, SQLite/FTS, embeddings, reranking, model clients.
 
-The key rule is that adapters do not orchestrate domain logic themselves. They call one application pipeline.
+Adapters must not create a second business workflow. They call `ESGAnalysisPipeline`.
 
-## 2. Offline ingestion flow
+## Offline ingestion
 
 ```text
-PDF upload / dataset file
-        |
-        v
+PDF
+ |
+ v
 DocumentIngestionService
-        |
-        +--> file validation
-        +--> size/content checks
-        +--> text extraction
-        +--> OCR-required quality gate
-        +--> page-preserving chunking
-        |
-        v
+ |-- validate PDF signature/type/size
+ |-- SHA-256 document identity
+ v
+DocumentIntelligenceAgent
+ |-- PyPDF native text extraction
+ |-- page preservation
+ |-- heuristic heading/text/table-like blocks
+ |-- bbox=None (no synthetic coordinates)
+ v
+Text quality gate
+ |-- reject OCR-required reports
+ v
+Chunking + metadata
+ v
 Store
-        |
-        +--> document metadata
-        +--> chunks with document_id + page
-        +--> sparse index (FTS5/BM25)
-        +--> optional dense representations
+ |-- document metadata
+ |-- page-aware chunks
+ |-- FTS5/BM25
+ |-- optional dense representations
 ```
 
-Output contract: the online pipeline must receive chunks that preserve `document_id`, page number, and text. Any claim that requires exact geometric provenance must not rely on synthetic coordinates.
+### Provenance contract
 
-## 3. Online analysis flow
+The current parser guarantees document identity, page number, extracted text, block id/type, and section metadata when available.
+
+It does **not** guarantee geometric PDF coordinates. Exact bounding boxes must only be introduced with a parser that returns real source coordinates.
+
+## Online analysis
 
 ```text
 HTTP / CLI request
@@ -48,106 +57,119 @@ HTTP / CLI request
       v
 ESGAnalysisPipeline
       |
-      +--> 0. Validate request + document scope
+      +--> 0. Validate request/document scope
       |
       +--> 1. QueryPlanningAgent
-      |       output: RetrievalPlan
+      |       -> RetrievalPlan
       |
       +--> 2. RetrievalAgent
-      |       BM25 / dense / hybrid / optional rerank
-      |       output: candidate citations
+      |       -> BM25 / dense / hybrid
+      |       -> multi-query RRF fusion
+      |       -> optional reranking
+      |       -> page diversification
       |
       +--> 3. EvidenceVerificationAgent
-      |       metadata/excerpt validation + deduplication
-      |       output: validated citations
+      |       -> citation metadata/excerpt checks
+      |       -> deduplication
       |
       +--> 4. EvidenceExtractionAgent
-      |       structured ESG facts + normalization + conflicts
+      |       -> ESGFact
+      |       -> normalization
+      |       -> conflicts
       |
-      +--> 5. EvidenceCompletenessGate
-      |       required evidence -> satisfied / missing
+      +--> 5. Evidence Completeness Gate
+      |       -> required / satisfied / missing
       |
       +--> 6. ESGAuditAgent
-      |       disclosure rubric matrix
-      |       heuristic greenwashing screening
+      |       -> disclosure evidence matrix
+      |       -> E/S/G evidence coverage
+      |       -> heuristic screening
       |
       +--> 7. Specialized analysis (optional)
-      |       temporal trend OR cross-company comparison
+      |       -> temporal trend or comparison
       |
-      +--> 8. Claim verification
-      |       extracted claims checked against retrieved evidence
+      +--> 8. Claim-support check
+      |       -> support against retrieved excerpts
       |
       +--> 9. ExplanationAgent
-              evidence-grounded response / deterministic fallback
+              -> grounded answer or deterministic fallback
 ```
 
-The pipeline returns one `AnalysisResponse`, including citations, extracted facts, conflicts, evidence completeness, evidence matrix, screening output, limitations, and a latency trace.
+The output is one `AnalysisResponse` containing the answer, citations, structured facts, evidence matrix, conflicts, completeness state, screening output, limitations, and per-stage trace.
 
-## 4. Why this design is more realistic
-
-### One runtime path
-
-Previously, orchestration lived inside a very large `agents.py` file and API/CLI entrypoints directly depended on that supervisor. The application workflow is now explicit, so the same business sequence can be reused by HTTP, CLI, evaluation, and tests.
-
-### Agent means capability, not marketing label
-
-Each agent is treated as a bounded capability with an input/output contract. The application pipeline decides order and data flow. Optional LLM behavior can exist inside capabilities, but it does not control the entire system lifecycle.
-
-### Evidence completeness is first-class
-
-A result may be technically retrievable but still incomplete for the requested ESG question. The pipeline therefore carries `required_evidence`, `satisfied`, and `missing` fields instead of silently producing a confident answer.
-
-### Screening is not a verdict
-
-The greenwashing module produces heuristic analyst-review signals. It must be described as screening, not fraud detection, legal judgment, or an independent audit conclusion.
-
-## 5. Current limitations that must remain visible
-
-- Citation verification validates provenance fields and retrieved text structure; it is not third-party verification of the disclosure itself.
-- PDF extraction is text-centric. Scanned-image reports are rejected when OCR is required unless an OCR path is explicitly enabled later.
-- Geometric page layout should only be claimed when coordinates come from the source parser; synthetic `bbox` values must not be presented as real layout coordinates.
-- The rubric measures **disclosure coverage in indexed evidence**, not real-world ESG performance.
-- Cross-company comparison is meaningful only when document/company scope is correctly resolved.
-- Heuristic fact extraction and rule-based screening need benchmark coverage on a larger, independently annotated dataset before production compliance use.
-
-## 6. Target module split
-
-`app/agents.py` is still too large and should be decomposed incrementally without breaking public interfaces:
+## Current module ownership
 
 ```text
 app/
-  agents/
-    query_planner.py
+  capabilities/
+    planning.py
     retrieval.py
     verification.py
-    audit.py
     explanation.py
-  domain/
-    evidence.py
-    rubric.py
-    screening.py
-  application/
-    workflow.py
-  infrastructure/
-    store.py
-    document_ingestion.py
-    llm.py
+  workflow.py
+  document_intelligence.py
+  document_service.py
+  evidence_extractor.py
+  rubric.py
+  store.py
+  embeddings.py
+  reranker.py
+  llm.py
+  main.py
+  cli.py
+  agents.py          # legacy compatibility during migration
 ```
 
-The current `app/workflow.py` is the compatibility-safe first step toward this split.
+Planning, retrieval, verification, and explanation are now isolated from the legacy `agents.py` module. `ESGAuditAgent` remains in the legacy module temporarily because it still contains a large set of coupled rubric, temporal, comparison, and screening behaviors.
 
-## 7. Definition of done for a portfolio-grade project
+New orchestration logic must be added to `workflow.py`, not `agents.py`.
 
-A change should not be presented as production-ready unless the repository can demonstrate:
+## Evidence verification semantics
 
-- deterministic end-to-end workflow tests;
-- retrieval evaluation with fixed test cases;
-- extraction evaluation against expected values/units/years;
-- grounded-answer evaluation with unsupported-claim tracking;
-- API health and error contracts;
-- reproducible environment through `pyproject.toml` and Docker;
-- CI that executes lint + tests;
-- documented limitations and non-goals;
-- benchmark reports that are regenerated from code rather than manually asserted.
+The current verifier answers a narrow engineering question:
 
-This keeps the project credible for AI Engineer / LLM Systems / Applied AI portfolio review.
+> Is this retrieved citation structurally usable, and does a candidate claim have lexical support in the retrieved excerpts?
+
+It checks metadata, page values, excerpt content, duplicate signatures, and lightweight claim support.
+
+It does not answer:
+
+> Is the issuer's disclosure objectively true in the real world?
+
+That would require independent external sources or assurance evidence.
+
+## Greenwashing screening semantics
+
+Screening uses transparent heuristic signals such as missing baselines, missing interim milestones, weak quantitative evidence, absent assurance evidence, negative performance language, and vague language density.
+
+`LOW / MEDIUM / HIGH` means **review priority**, not innocence/guilt or legal classification.
+
+## Quality gates
+
+A portfolio-grade change should be backed by executable checks:
+
+- deterministic workflow tests;
+- retrieval evaluation on fixed cases;
+- extraction evaluation for metric/value/unit/year;
+- grounding/unsupported-claim evaluation;
+- PDF ingestion and OCR-required tests;
+- provenance test ensuring bbox is not fabricated;
+- API tests;
+- lint/format checks;
+- Docker build;
+- documented limitations.
+
+Snapshot metrics in `reports/` are artifacts. They should be regenerated after material code, dataset, or model changes before being quoted externally.
+
+## Remaining migration work
+
+1. Move `ESGAuditAgent` out of `app/agents.py` into bounded domain/capability modules.
+2. Separate ESG rubric evaluation from greenwashing screening.
+3. Persist analysis runs/traces rather than retaining only the latest response in memory.
+4. Add coordinate-aware PDF parsing before enabling bbox provenance.
+5. Add OCR as an explicit worker/stage.
+6. Expand independently annotated evaluation data.
+7. Add stronger entailment-style claim verification.
+8. Add versioned rubric definitions and analysis-run metadata.
+
+This incremental migration keeps existing API behavior usable while moving the active runtime toward a maintainable application architecture.
