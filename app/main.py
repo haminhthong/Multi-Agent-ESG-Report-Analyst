@@ -19,16 +19,16 @@ from app.document_service import (
 )
 from app.evidence_extractor import EvidenceExtractionAgent
 from app.models import (
-    APIErrorResponse,
     AnalysisRequest,
     AnalysisResponse,
+    APIErrorResponse,
     AuditRequest,
     Citation,
     CompanyComparisonResult,
     ComparisonRequest,
     DocumentIngestResponse,
-    ESGFact,
     ErrorDetail,
+    ESGFact,
     EvidenceMatrixRow,
     SearchRequest,
     TemporalAnalysisResult,
