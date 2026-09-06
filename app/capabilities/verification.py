@@ -11,7 +11,7 @@ import re
 from typing import Any
 
 from app.evidence_extractor import EvidenceExtractionAgent
-from app.models import Citation, EvidenceConflict, ESGFact
+from app.models import Citation, ESGFact, EvidenceConflict
 from app.tools import AgentTools
 
 
