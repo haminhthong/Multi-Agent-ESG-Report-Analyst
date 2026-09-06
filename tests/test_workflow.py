@@ -12,13 +12,17 @@ def test_pipeline_runs_end_to_end_with_trace(tmp_path: Path):
         [
             (
                 5,
-                "Acme reported Scope 1 emissions of 1200 tCO2e in 2024. "
-                "The company targets net zero by 2050 from a 2020 baseline year.",
+                (
+                    "Acme reported Scope 1 emissions of 1200 tCO2e in 2024. "
+                    "The company targets net zero by 2050 from a 2020 baseline year."
+                ),
             ),
             (
                 9,
-                "Worker safety performance included a TRIR of 1.2 in 2024. "
-                "The board oversees climate and ethics compliance.",
+                (
+                    "Worker safety performance included a TRIR of 1.2 in 2024. "
+                    "The board oversees climate and ethics compliance."
+                ),
             ),
         ],
         company="Acme",
