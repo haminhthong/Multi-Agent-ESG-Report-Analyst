@@ -1,49 +1,41 @@
 import hashlib
 
-from app.agents import DocumentAgent, DocumentIntelligenceAgent
 from app.chunking import pages_from_layout_blocks
+from app.document_intelligence import DocumentAgent, DocumentIntelligenceAgent
 from app.models import DocumentIngestResponse, LayoutBlock
 from app.store import Store
 
-# Dung lượng tệp PDF tối đa cho phép tải lên (75 MB)
 MAX_PDF_SIZE_BYTES = 75 * 1024 * 1024
-
-# Số ký tự văn bản tối thiểu trên mỗi trang để coi là có dữ liệu đọc được
 MIN_TEXT_CHARACTERS = 40
-
-# Tỷ lệ trang có văn bản tối thiểu (20%) so với tổng số trang, nếu thấp hơn sẽ yêu cầu OCR
 MIN_TEXT_PAGE_RATIO = 0.2
 
 
 class DocumentIngestError(ValueError):
-    """Ngoại lệ nghiệp vụ gốc cho các lỗi phát sinh trong quá trình tiếp nhận tài liệu."""
+    """Base business exception for document ingestion failures."""
 
 
 class UnsupportedDocumentError(DocumentIngestError):
-    """Ngoại lệ khi tệp đầu vào không phải định dạng PDF hợp lệ hoặc sai Magic Bytes."""
+    """Raised when the upload is not a valid PDF payload."""
 
 
 class DocumentTooLargeError(DocumentIngestError):
-    """Ngoại lệ khi dung lượng tệp PDF vượt quá giới hạn cấu hình (75 MB)."""
+    """Raised when the PDF exceeds the configured upload limit."""
 
 
 class DocumentExtractionError(DocumentIngestError):
-    """Ngoại lệ khi tệp PDF bị hỏng hoặc cấu trúc không thể đọc bởi trình parser."""
+    """Raised when page text cannot be extracted."""
 
 
 class OcrRequiredError(DocumentIngestError):
-    """Ngoại lệ khi tệp PDF chứa chủ yếu là ảnh quét (scanned) và cần xử lý OCR trước."""
+    """Raised when too little native text is available for reliable indexing."""
 
 
 class DocumentIngestionService:
-    """Dịch vụ tiếp nhận, thẩm định, trích xuất thông minh và lập chỉ mục báo cáo PDF.
+    """Validate, extract, quality-check, and index ESG PDF reports.
 
-    Quy trình:
-    1. Thẩm định tính toàn vẹn (Magic Bytes `%PDF-`, MIME type, Size).
-    2. SHA-256 Content Hash (Idempotency).
-    3. Trích xuất khối LayoutBlocks và tính điểm Extraction Quality.
-    4. Cảnh báo OCR_REQUIRED nếu tài liệu chủ yếu là ảnh quét.
-    5. Lưu trữ metadata và lập chỉ mục tìm kiếm Hybrid trong Store.
+    The current implementation preserves document/page identity and heuristic
+    block types. It does not claim exact PDF coordinates because PyPDF text
+    extraction does not provide trustworthy bounding boxes in this pipeline.
     """
 
     def __init__(self, store: Store):
@@ -60,15 +52,10 @@ class DocumentIngestionService:
         year: int | None = None,
         force: bool = False,
     ) -> DocumentIngestResponse:
-        """Thực thi quy trình tiếp nhận và lập chỉ mục một tệp PDF hoàn chỉnh."""
-
-        # Step 1: Kiểm tra tính hợp lệ của tệp
         self._validate_file(content, filename, content_type)
 
-        # Step 2: Tính SHA-256 hash của nội dung để kiểm tra Idempotency
         document_id = hashlib.sha256(content).hexdigest()[:16]
         existing = self.store.get_document(document_id)
-
         if existing and not force and existing["extraction_quality"] is not None:
             return DocumentIngestResponse(
                 id=document_id,
@@ -79,12 +66,15 @@ class DocumentIngestionService:
                 status="already_indexed",
             )
 
-        # Step 3: Document Intelligence — ưu tiên LayoutBlock, fallback page text
         layout_blocks: list[LayoutBlock] = []
+        layout_error: Exception | None = None
         try:
-            layout_blocks = DocumentAgent.extract_pdf_blocks(content, document_id=document_id)
-        except Exception:
-            layout_blocks = []
+            layout_blocks = DocumentAgent.extract_pdf_blocks(
+                content,
+                document_id=document_id,
+            )
+        except Exception as exc:  # noqa: BLE001 - parser fallback boundary
+            layout_error = exc
 
         if layout_blocks:
             pages = pages_from_layout_blocks(layout_blocks)
@@ -92,19 +82,18 @@ class DocumentIngestionService:
             try:
                 pages = DocumentAgent.extract_pdf(content)
             except Exception as exc:
-                raise DocumentExtractionError(f"Không thể trích xuất PDF: {exc}") from exc
+                context = f"; block extraction also failed: {layout_error}" if layout_error else ""
+                raise DocumentExtractionError(f"Không thể trích xuất PDF: {exc}{context}") from exc
 
-        if not pages and not layout_blocks:
+        if not pages:
             raise DocumentExtractionError("Không thể trích xuất PDF: không có nội dung")
 
-        # Step 4: Kiểm tra chất lượng văn bản trích xuất
         text_pages, quality = self._measure_quality(pages)
-        if not pages or quality < MIN_TEXT_PAGE_RATIO:
+        if quality < MIN_TEXT_PAGE_RATIO:
             raise OcrRequiredError(
-                "PDF có quá ít trang chứa văn bản; cần chạy OCR trước khi lập chỉ mục"
+                "PDF có quá ít trang chứa văn bản native; cần OCR trước khi lập chỉ mục"
             )
 
-        # Step 5: Lưu trữ vào database và chia chunk (layout-aware khi có blocks)
         self.store.add_document(
             document_id,
             filename,
@@ -127,8 +116,6 @@ class DocumentIngestionService:
 
     @staticmethod
     def _validate_file(content: bytes, filename: str, content_type: str | None) -> None:
-        """Thẩm định tệp đầu vào dựa trên đuôi file, Content-Type và chữ ký Magic Bytes `%PDF-`."""
-
         is_pdf = content_type == "application/pdf" or filename.lower().endswith(".pdf")
         if not is_pdf or not content.startswith(b"%PDF-"):
             raise UnsupportedDocumentError("Chỉ hỗ trợ tệp PDF hợp lệ")
@@ -140,7 +127,6 @@ class DocumentIngestionService:
 
     @staticmethod
     def _measure_quality(pages: list[tuple[int, str]]) -> tuple[int, float]:
-        """Đếm số trang có text và tỷ lệ chất lượng trích xuất."""
         if not pages:
             return 0, 0.0
         text_pages = sum(1 for _, text in pages if len((text or "").strip()) >= MIN_TEXT_CHARACTERS)

@@ -3,7 +3,7 @@ from pathlib import Path
 import pytest
 
 import app.document_service as service_module
-from app.agents import DocumentAgent
+from app.document_intelligence import DocumentAgent
 from app.document_service import (
     DocumentIngestionService,
     DocumentTooLargeError,
@@ -20,6 +20,7 @@ def service(tmp_path: Path) -> DocumentIngestionService:
 
 def test_ingest_returns_quality_and_persists_document(service, monkeypatch):
     pages = [(1, "a" * 50), (2, "b" * 50), (3, "")]
+    monkeypatch.setattr(DocumentAgent, "extract_pdf_blocks", classmethod(lambda cls, *_a, **_k: []))
     monkeypatch.setattr(DocumentAgent, "extract_pdf", staticmethod(lambda _: pages))
 
     result = service.ingest(b"%PDF-demo", "Report.pdf", "application/pdf", "ACME")
@@ -33,6 +34,7 @@ def test_ingest_returns_quality_and_persists_document(service, monkeypatch):
 
 
 def test_ingest_rejects_pdf_that_needs_ocr(service, monkeypatch):
+    monkeypatch.setattr(DocumentAgent, "extract_pdf_blocks", classmethod(lambda cls, *_a, **_k: []))
     monkeypatch.setattr(
         DocumentAgent,
         "extract_pdf",
@@ -65,6 +67,8 @@ def test_ingest_uses_layout_blocks(service, monkeypatch):
             block_type="heading",
             section="Climate",
             text="CLIMATE METRICS",
+            bbox=None,
+            source_method="pypdf_text",
         ),
         LayoutBlock(
             document_id="demo",
@@ -73,6 +77,8 @@ def test_ingest_uses_layout_blocks(service, monkeypatch):
             block_type="text",
             section="Climate",
             text="a" * 50 + " Scope 1 emissions were 100 tCO2e.",
+            bbox=None,
+            source_method="pypdf_text",
         ),
         LayoutBlock(
             document_id="demo",
@@ -80,7 +86,9 @@ def test_ingest_uses_layout_blocks(service, monkeypatch):
             block_id="demo_p2_b1",
             block_type="table",
             section="Climate",
-            text="Metric | Value\nScope 2 | 80 tCO2e",
+            text="Metric | Value\nScope 2 | 80 tCO2e" + " x" * 30,
+            bbox=None,
+            source_method="pypdf_text",
         ),
     ]
     monkeypatch.setattr(
@@ -99,6 +107,26 @@ def test_ingest_uses_layout_blocks(service, monkeypatch):
             (result.id,),
         ).fetchall()
     assert rows
-    block_ids = {r["block_id"] for r in rows}
-    assert "demo_p1_b1" in block_ids or any("demo_p" in (b or "") for b in block_ids)
-    assert any(r["block_type"] == "table" for r in rows)
+    block_ids = {row["block_id"] for row in rows}
+    assert "demo_p1_b1" in block_ids or any("demo_p" in (block or "") for block in block_ids)
+    assert any(row["block_type"] == "table" for row in rows)
+
+
+def test_document_blocks_do_not_fabricate_bbox(monkeypatch):
+    """Exact coordinates must remain absent until a coordinate-aware parser is used."""
+    from app.document_intelligence import DocumentIntelligenceAgent
+
+    class FakePage:
+        def extract_text(self):
+            return "CLIMATE\n\nScope 1 emissions were 100 tCO2e in 2024."
+
+    class FakeReader:
+        def __init__(self):
+            self.pages = [FakePage()]
+
+    monkeypatch.setattr("pypdf.PdfReader", lambda _stream: FakeReader())
+    blocks = DocumentIntelligenceAgent.extract_pdf_blocks(b"%PDF-demo", "doc")
+
+    assert blocks
+    assert all(block.bbox is None for block in blocks)
+    assert all(block.source_method == "pypdf_text" for block in blocks)

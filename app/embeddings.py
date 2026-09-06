@@ -10,14 +10,12 @@ logger = logging.getLogger(__name__)
 
 
 class DenseEmbeddingEngine:
-    """Công cụ tạo vector nhúng (Dense Embeddings) phục vụ Semantic Search trong RAG.
+    """Create dense embeddings with an offline deterministic fallback.
 
-    Đặc tính:
-    - Sử dụng mô hình Sentence-Transformers (mặc định: `sentence-transformers/all-MiniLM-L6-v2`).
-    - Nạp trễ (Lazy Loading) để tiết kiệm tài nguyên khi khởi động ứng dụng.
-    - Deterministic Fallback: Nếu không thể tải weights từ HuggingFace (do offline),
-      tự động chuyển sang thuật toán nén băm từ vựng (Feature Hashing Vector 384-dim)
-      đảm bảo cosine similarity vẫn hoạt động 100% offline với $0 chi phí.
+    Sentence Transformers is used when the optional ML dependencies are
+    available. Otherwise the engine falls back to deterministic feature hashing.
+    The fallback is lexical rather than truly semantic, so callers can use a
+    lower similarity threshold without pretending it has model-level semantics.
     """
 
     def __init__(self, model_name: str | None = None):
@@ -26,6 +24,11 @@ class DenseEmbeddingEngine:
         self._is_fallback: bool = False
         self.dimension: int = 384
 
+    @property
+    def is_fallback(self) -> bool:
+        """Return whether deterministic feature hashing is currently active."""
+        return self._is_fallback
+
     def _get_model(self) -> Any:
         if self._model is not None or self._is_fallback:
             return self._model
@@ -33,15 +36,14 @@ class DenseEmbeddingEngine:
         try:
             from sentence_transformers import SentenceTransformer
 
-            # Thử nạp mô hình từ cache cục bộ trước để tránh network timeout
             try:
                 self._model = SentenceTransformer(self.model_name, local_files_only=True)
-            except Exception:
+            except Exception:  # noqa: BLE001 - optional model-loading boundary
                 self._model = SentenceTransformer(self.model_name)
             logger.info("Loaded SentenceTransformer model: %s", self.model_name)
-        except Exception as exc:
+        except Exception as exc:  # noqa: BLE001 - optional dependency/model boundary
             logger.warning(
-                "Không thể nạp SentenceTransformer (%s). Sử dụng Deterministic Feature Hashing Fallback.",
+                "Could not load SentenceTransformer (%s); using deterministic feature hashing.",
                 exc,
             )
             self._is_fallback = True
@@ -49,7 +51,7 @@ class DenseEmbeddingEngine:
         return self._model
 
     def embed_texts(self, texts: list[str]) -> list[list[float]]:
-        """Sinh vector nhúng cho danh sách văn bản."""
+        """Create normalized vectors for a list of texts."""
         if not texts:
             return []
 
@@ -58,31 +60,30 @@ class DenseEmbeddingEngine:
             try:
                 embeddings = model.encode(texts, normalize_embeddings=True, show_progress_bar=False)
                 return [arr.tolist() for arr in embeddings]
-            except Exception as exc:
+            except Exception as exc:  # noqa: BLE001 - optional model execution boundary
                 logger.warning(
-                    "Lỗi encode với SentenceTransformer (%s). Chuyển sang fallback.", exc
+                    "SentenceTransformer encoding failed (%s); switching to fallback.",
+                    exc,
                 )
                 self._is_fallback = True
 
-        return [self._fallback_embed(t) for t in texts]
+        return [self._fallback_embed(text) for text in texts]
 
     def embed_query(self, text: str) -> list[float]:
-        """Sinh vector nhúng cho một câu truy vấn."""
         return self.embed_texts([text])[0]
 
     def _fallback_embed(self, text: str) -> list[float]:
-        """Thuật toán Fallback: Feature Hashing 384 chiều chuẩn hóa L2 (100% offline, deterministic)."""
+        """Hash whitespace tokens into a deterministic normalized vector."""
         words = text.lower().split()
         vec = np.zeros(self.dimension, dtype=np.float32)
         if not words:
             return vec.tolist()
 
         for word in words:
-            # Tạo hash ổn định từ chuỗi từ
-            h = int(hashlib.md5(word.encode("utf-8")).hexdigest(), 16)
-            idx = h % self.dimension
-            sign = 1.0 if (h >> 16) % 2 == 0 else -1.0
-            vec[idx] += sign
+            digest = int(hashlib.md5(word.encode("utf-8")).hexdigest(), 16)
+            index = digest % self.dimension
+            sign = 1.0 if (digest >> 16) % 2 == 0 else -1.0
+            vec[index] += sign
 
         norm = np.linalg.norm(vec)
         if norm > 0:
@@ -91,7 +92,6 @@ class DenseEmbeddingEngine:
 
     @staticmethod
     def cosine_similarity(vec1: list[float], vec2: list[float]) -> float:
-        """Tính độ tương đồng Cosine giữa 2 vector."""
         a = np.array(vec1, dtype=np.float32)
         b = np.array(vec2, dtype=np.float32)
         dot = float(np.dot(a, b))
@@ -102,5 +102,4 @@ class DenseEmbeddingEngine:
         return max(-1.0, min(1.0, dot / (norm_a * norm_b)))
 
 
-# Khởi tạo singleton embedding engine dùng chung
 embedding_engine = DenseEmbeddingEngine()
