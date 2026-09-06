@@ -158,9 +158,7 @@ def main() -> None:
 
 
 def _build_parser() -> argparse.ArgumentParser:
-    parser = argparse.ArgumentParser(
-        description="Evidence-grounded ESG report analysis CLI"
-    )
+    parser = argparse.ArgumentParser(description="Evidence-grounded ESG report analysis CLI")
     parser.add_argument("--database", type=Path, default=settings.database_path)
     commands = parser.add_subparsers(dest="command", required=True)
 
