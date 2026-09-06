@@ -83,9 +83,7 @@ class DocumentIngestionService:
                 pages = DocumentAgent.extract_pdf(content)
             except Exception as exc:
                 context = f"; block extraction also failed: {layout_error}" if layout_error else ""
-                raise DocumentExtractionError(
-                    f"Không thể trích xuất PDF: {exc}{context}"
-                ) from exc
+                raise DocumentExtractionError(f"Không thể trích xuất PDF: {exc}{context}") from exc
 
         if not pages:
             raise DocumentExtractionError("Không thể trích xuất PDF: không có nội dung")
@@ -131,10 +129,6 @@ class DocumentIngestionService:
     def _measure_quality(pages: list[tuple[int, str]]) -> tuple[int, float]:
         if not pages:
             return 0, 0.0
-        text_pages = sum(
-            1
-            for _, text in pages
-            if len((text or "").strip()) >= MIN_TEXT_CHARACTERS
-        )
+        text_pages = sum(1 for _, text in pages if len((text or "").strip()) >= MIN_TEXT_CHARACTERS)
         quality = round(text_pages / len(pages), 4)
         return text_pages, quality
