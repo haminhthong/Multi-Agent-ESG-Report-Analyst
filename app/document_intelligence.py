@@ -1,3 +1,13 @@
+"""PDF text extraction and lightweight structural heuristics.
+
+PyPDF exposes page text but this project does not currently extract exact
+bounding boxes. Therefore ``LayoutBlock.bbox`` is intentionally left as
+``None``. Exact layout provenance should only be added when a parser that
+returns real coordinates is integrated.
+"""
+
+from __future__ import annotations
+
 import re
 from io import BytesIO
 from typing import BinaryIO
@@ -7,38 +17,28 @@ from app.models import LayoutBlock
 
 
 class DocumentIntelligenceAgent:
-    """Năng lực Document Intelligence & Thẩm định Cấu trúc Trang (Page Quality Gate).
-
-    Nhiệm vụ:
-    1. Tiếp nhận và giải mã cấu trúc tài liệu PDF đa tầng (Native Text, Table, Scanned, Mixed).
-    2. Phân loại cấu trúc trang (Page Classification Router).
-    3. Trích xuất văn bản theo từng khối LayoutBlock có provenance chuẩn xác, block_type, section và chất lượng.
-    4. Không bịa tọa độ giả lập (bbox=None khi parser văn bản không trả tọa độ thật).
-    5. Bảo toàn tuyệt đối số trang (Page Number) cho toàn bộ pipeline.
-    """
+    """Extract page text and heuristic text blocks while preserving page numbers."""
 
     @staticmethod
-    def classify_page(text: str, image_count: int = 0) -> str:
-        """Phân loại hình thức của một trang PDF."""
+    def classify_page(text: str) -> str:
         clean_text = " ".join(text.split())
         if len(clean_text) < 40:
-            return "scanned_image"
-        has_table = is_table_content(text)
-        has_text_paragraphs = len(re.split(r"\n\s*\n", text.strip())) >= 2
-        if has_table and has_text_paragraphs:
-            return "mixed_page"
-        if has_table:
-            return "table"
+            return "low_text"
+        has_table_like_text = is_table_content(text)
+        has_paragraphs = len(re.split(r"\n\s*\n", text.strip())) >= 2
+        if has_table_like_text and has_paragraphs:
+            return "mixed_text"
+        if has_table_like_text:
+            return "table_like_text"
         return "native_text"
 
     @classmethod
     def extract_pdf_blocks(
-        cls, source: bytes | BinaryIO, document_id: str = "doc"
+        cls,
+        source: bytes | BinaryIO,
+        document_id: str = "doc",
     ) -> list[LayoutBlock]:
-        """Trích xuất PDF thành danh sách các khối LayoutBlock chi tiết.
-
-        Chỉ giữ nguyên page provenance và để bbox=None vì pypdf_text parser thuần không trích xuất bounding box hình học.
-        """
+        """Extract heuristic blocks from PyPDF text without fabricating coordinates."""
         from pypdf import PdfReader
 
         stream = BytesIO(source) if isinstance(source, bytes) else source
@@ -46,37 +46,37 @@ class DocumentIntelligenceAgent:
         blocks: list[LayoutBlock] = []
         current_section = "General Information"
 
-        for page_num, page in enumerate(reader.pages, start=1):
+        for page_number, page in enumerate(reader.pages, start=1):
             raw_text = page.extract_text() or ""
-            page_type = cls.classify_page(raw_text)
+            paragraphs = [
+                paragraph.strip()
+                for paragraph in re.split(r"\n\s*\n", raw_text)
+                if paragraph.strip()
+            ]
 
-            paragraphs = [p.strip() for p in re.split(r"\n\s*\n", raw_text) if p.strip()]
-            for block_idx, p in enumerate(paragraphs, start=1):
-                block_id = f"{document_id}_p{page_num}_b{block_idx}"
-
-                if HEADING.match(p):
-                    current_section = p[:100]
-                    b_type = "heading"
-                elif is_table_content(p):
-                    b_type = "table"
+            for block_index, paragraph in enumerate(paragraphs, start=1):
+                if HEADING.match(paragraph):
+                    current_section = paragraph[:100]
+                    block_type = "heading"
+                elif is_table_content(paragraph):
+                    block_type = "table"
                 else:
-                    b_type = "text"
+                    block_type = "text"
 
-                clean_words = p.split()
-                quality = round(
-                    min(1.0, sum(len(w) >= 2 for w in clean_words) / max(1, len(clean_words))), 2
-                )
+                words = paragraph.split()
+                readable_words = sum(len(word) >= 2 for word in words)
+                quality = round(min(1.0, readable_words / max(1, len(words))), 2)
 
                 blocks.append(
                     LayoutBlock(
                         document_id=document_id,
-                        page=page_num,
-                        block_id=block_id,
-                        block_type=b_type,
+                        page=page_number,
+                        block_id=f"{document_id}_p{page_number}_b{block_index}",
+                        block_type=block_type,
                         section=current_section,
-                        text=p,
-                        bbox=None,  # Real provenance: parser không trả tọa độ hình học
-                        source_method="pypdf_text" if page_type != "scanned_image" else "ocr_candidate",
+                        text=paragraph,
+                        bbox=None,
+                        source_method="pypdf_text",
                         quality_score=quality,
                     )
                 )
@@ -85,7 +85,6 @@ class DocumentIntelligenceAgent:
 
     @staticmethod
     def extract_pdf(source: bytes | BinaryIO) -> list[tuple[int, str]]:
-        """Đọc tệp PDF từ dữ liệu bytes hoặc file stream và trả danh sách (số_trang, nội_dung_văn_bản)."""
         from pypdf import PdfReader
 
         stream = BytesIO(source) if isinstance(source, bytes) else source

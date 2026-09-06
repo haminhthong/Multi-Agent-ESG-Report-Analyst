@@ -1,3 +1,7 @@
+"""Grounded answer synthesis with a deterministic fallback."""
+
+from __future__ import annotations
+
 from typing import Literal
 
 from app.llm import LLMClient, validate_answer_grounding
@@ -5,16 +9,9 @@ from app.models import Citation, GreenwashingScreeningResult, PillarResult
 
 
 class ExplanationAgent:
-    """Năng lực Tổng hợp Giải trình & Thẩm định Trích dẫn (Explanation Synthesis & Grounding).
+    """Synthesize a response only from retrieved evidence and audit outputs."""
 
-    Nhiệm vụ:
-    - Tổng hợp câu trả lời dựa trên trích đoạn bằng chứng đã qua xác thực.
-    - Post-Generation Citation Grounding: Thẩm định nghiêm ngặt rằng mọi trích dẫn (Document, Page)
-      trong câu trả lời do LLM sinh ra đều thuộc tập hợp bằng chứng đã truy xuất hợp lệ.
-    - Deterministic Fallback: Tự động chuyển đổi sang bộ tổng hợp xác định khi offline ($0 cost).
-    """
-
-    def __init__(self, llm_client: LLMClient | None = None):
+    def __init__(self, llm_client: LLMClient | None = None) -> None:
         self.llm = llm_client
 
     def run(
@@ -26,60 +23,68 @@ class ExplanationAgent:
         question: str,
         screening_result: GreenwashingScreeningResult | None = None,
     ) -> str:
-        """Tạo chuỗi giải thích rõ ràng kèm danh sách nguồn tài liệu và số trang tương ứng."""
         if self.llm and self.llm.is_available() and citations:
             rubric_summary = f"Coverage {overall_coverage}%. " + ", ".join(
-                f"{p.pillar}: {p.disclosure_coverage}%" for p in pillars
+                f"{pillar.pillar}: {pillar.disclosure_coverage}%" for pillar in pillars
             )
-            # Chuẩn bị citation kèm citation IDs [C1], [C2]
-            citation_payload = []
-            for idx, c in enumerate(citations[:6], start=1):
-                cd = c.model_dump()
-                cd["cid"] = f"[C{idx}]"
-                citation_payload.append(cd)
+            payload: list[dict] = []
+            for index, citation in enumerate(citations[:6], start=1):
+                item = citation.model_dump()
+                item["cid"] = f"[C{index}]"
+                payload.append(item)
 
-            llm_answer = self.llm.synthesize_answer(
+            answer = self.llm.synthesize_answer(
                 question=question,
-                citations=citation_payload,
+                citations=payload,
                 rubric_summary=rubric_summary,
             )
-            if llm_answer and len(llm_answer.strip()) > 20:
-                is_grounded, _issues = validate_answer_grounding(llm_answer, citation_payload)
-                if is_grounded:
-                    return llm_answer
-                # Fallback deterministic khi grounding thất bại (hallucinated page/C-id/số liệu)
+            if answer and len(answer.strip()) > 20:
+                grounded, _ = validate_answer_grounding(answer, payload)
+                if grounded:
+                    return answer
 
-        sources = (
-            ", ".join(f"[{item.document_name}, trang {item.page}]" for item in citations[:6])
-            or "không có citation"
+        return self._deterministic_answer(
+            mode,
+            pillars,
+            overall_coverage,
+            citations,
+            question,
+            screening_result,
         )
 
-        risk_snippet = (
-            f" [Screening Risk: {screening_result.risk_level}]" if screening_result else ""
+    @staticmethod
+    def _deterministic_answer(
+        mode: Literal["qa", "audit"],
+        pillars: list[PillarResult],
+        overall_coverage: float,
+        citations: list[Citation],
+        question: str,
+        screening_result: GreenwashingScreeningResult | None,
+    ) -> str:
+        if not citations:
+            return (
+                "No validated evidence was retrieved for this request. "
+                "The system therefore does not make an ESG conclusion."
+            )
+
+        sources = ", ".join(
+            f"[{citation.document_name}, p.{citation.page}]" for citation in citations[:6]
         )
+        risk = screening_result.risk_level if screening_result else "not-run"
 
         if mode == "qa":
-            if not citations:
-                return (
-                    f"Hệ thống không tìm thấy bằng chứng hợp lệ trong tài liệu để trả lời cho câu hỏi: '{question}'. "
-                    "Kết quả này phản ánh khoảng trống thông tin trong các trang đã truy xuất."
-                )
-            key_metrics = [f for p in pillars for f in p.findings if "Hệ thống" not in f][:1]
-            metric_snippet = f" Ghi nhận: {key_metrics[0]}." if key_metrics else ""
-            excerpt_snippet = (
-                f' Trích dẫn chính: "{citations[0].excerpt[:200]}..."' if citations else ""
-            )
+            excerpt = citations[0].excerpt[:220].strip()
             return (
-                f"Trả lời dựa trên bằng chứng truy xuất cho câu hỏi '{question}'{risk_snippet}: "
-                f"Tìm thấy {len(citations)} đoạn văn bản nguồn tại {sources}.{metric_snippet}{excerpt_snippet}"
+                f"Evidence-grounded response to '{question}': {excerpt} "
+                f"Sources: {sources}. Screening risk: {risk}."
             )
-        else:
-            scores_str = ", ".join(
-                f"{item.pillar}: coverage {item.disclosure_coverage}% (quality {item.evidence_quality}%)"
-                for item in pillars
-            )
-            return (
-                f"Hệ thống tìm thấy bằng chứng công bố cho {overall_coverage}% tổng số tiêu chí E/S/G kiểm tra{risk_snippet}. "
-                f"Chi tiết từng trụ cột: {scores_str}. Nguồn trích dẫn: {sources}. "
-                "Lưu ý: Kết quả phản ánh mức độ công bố thông tin trong các đoạn đã truy xuất, không phản ánh hiệu suất ESG tổng thể của doanh nghiệp."
-            )
+
+        pillar_summary = ", ".join(
+            f"{pillar.pillar} {pillar.disclosure_coverage}%" for pillar in pillars
+        )
+        return (
+            f"Indexed-evidence disclosure coverage: {overall_coverage}%. "
+            f"Pillars: {pillar_summary}. Screening risk: {risk}. "
+            f"Sources: {sources}. Coverage measures disclosure evidence presence, "
+            "not the company's underlying ESG performance."
+        )

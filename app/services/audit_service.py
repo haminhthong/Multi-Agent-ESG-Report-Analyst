@@ -107,3 +107,7 @@ class ESGAuditService:
         return self.comparison_service.run_comparison(
             companies=companies, store=store, criteria_ids=criteria_ids
         )
+
+
+ESGAuditAgent = ESGAuditService
+ESGAnalysisAgent = ESGAuditService

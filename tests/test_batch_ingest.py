@@ -1,7 +1,7 @@
 from pathlib import Path
 
-from app.agents import DocumentAgent
 from app.batch_ingest import ingest_dataset
+from app.document_intelligence import DocumentAgent
 from app.document_service import DocumentIngestionService
 from app.store import Store
 

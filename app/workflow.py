@@ -1,48 +1,81 @@
+"""Canonical application workflow for evidence-grounded ESG analysis.
+
+HTTP and CLI adapters should call this module instead of assembling agents on
+their own. Orchestration is deterministic and observable; optional LLM usage is
+contained inside bounded capabilities.
+"""
+
+from __future__ import annotations
+
 import re
 import time
+import uuid
 from typing import Any, Literal
 
-from app.capabilities.explanation import ExplanationAgent
-from app.capabilities.planning import QueryPlanningAgent
-from app.capabilities.retrieval import RetrievalAgent
-from app.capabilities.verification import EvidenceVerificationAgent
+from app.capabilities import (
+    EvidenceVerificationAgent,
+    ExplanationAgent,
+    QueryPlanningAgent,
+    RetrievalAgent,
+)
 from app.config import settings
-from app.domain.evidence_completeness import EvidenceCompletenessGate
 from app.evidence_extractor import EvidenceExtractionAgent
 from app.llm import LLMClient
 from app.models import (
     AgentTraceStep,
     AnalysisResponse,
+    AnalysisState,
     Citation,
     ESGFact,
     PillarResult,
     RetrievalPlan,
 )
-from app.services.audit_service import ESGAuditService
+from app.services.audit_service import ESGAuditService, ESGAuditAgent
 from app.store import Store
 from app.tools import AgentTools
 
+AUDIT_SUBQUERIES = [
+    "Scope 1 Scope 2 direct indirect greenhouse gas emissions tCO2e",
+    "Scope 3 value chain supply chain indirect emissions",
+    "net zero reduction target goal baseline year 2030 2050",
+    "renewable electricity wind solar capacity MWh GWh",
+    "worker safety TRIR total recordable incident rate fatalities",
+    "female women gender diversity workforce representation",
+    "supplier social environmental assessment evaluation",
+    "board climate oversight ethics compliance external assurance independent auditor",
+]
 
-def _aggregate_pillar_metrics(pillars: list[PillarResult]) -> tuple[float, float, float]:
-    """Hàm phụ trợ tính trung bình chất lượng bằng chứng, độ đầy đủ số liệu và độ tin cậy."""
-    if not pillars:
-        return 0.0, 0.0, 0.0
-    avg_quality = round(sum(p.evidence_quality for p in pillars) / len(pillars), 1)
-    avg_completeness = round(sum(p.data_completeness for p in pillars) / len(pillars), 1)
-    avg_conf = round(sum(p.confidence for p in pillars) / len(pillars), 2)
-    return avg_quality, avg_completeness, avg_conf
+_EVIDENCE_ALIASES: dict[str, tuple[str, ...]] = {
+    "scope_1_2": ("scope_1_emissions", "scope_2_emissions", "scope 1", "scope 2"),
+    "scope_1": ("scope_1_emissions", "scope 1", "scope1"),
+    "scope_2": ("scope_2_emissions", "scope 2", "scope2"),
+    "scope_3": ("scope_3_emissions", "scope 3", "scope3"),
+    "target": ("net zero", "net-zero", "target", "reduction goal"),
+    "targets": ("net zero", "net-zero", "target", "reduction goal"),
+    "net_zero_target": ("net zero", "net-zero", "target", "carbon neutral"),
+    "baseline": ("baseline", "base year", "baseline year"),
+    "progress": ("reduction", "progress", "historical", "trajectory"),
+    "assurance": ("assurance", "assured", "independent auditor", "verified"),
+    "emissions": (
+        "scope_1_emissions",
+        "scope_2_emissions",
+        "scope_3_emissions",
+        "emission",
+        "tco2e",
+    ),
+    "metrics": ("scope_1_emissions", "scope_2_emissions", "tco2e", "mwh", "trir", "%"),
+    "safety": ("work_safety", "trir", "injury", "safety", "fatalit"),
+    "governance": ("board", "ethics", "compliance", "governance", "oversight"),
+}
 
 
-class SupervisorAgent:
-    """Agent-Orchestrated ESG Audit Workflow & Observability Orchestrator.
+class ESGAnalysisPipeline:
+    """One runtime path for API, CLI, and evaluation adapters.
 
-    Nhiệm vụ:
-    - Điều phối luồng phân tích xác định (Deterministic DAG Workflow):
-      `QueryPlanning` -> `HybridRetrieval` -> `EvidenceVerification` ->
-      `FactExtraction` -> `ESGAudit` -> `EvidenceCompletenessGate` ->
-      `ClaimVerification` -> `ExplanationSynthesis`.
-    - Thẩm định cổng chất lượng bằng chứng (Evidence Completeness Gate).
-    - Đo lường độ trễ chi tiết (latency waterfall ms) cho từng bước phục vụ Observability.
+    Stages:
+    request validation -> query planning -> retrieval -> citation validation ->
+    structured extraction -> evidence completeness -> ESG rubric/screening ->
+    optional specialized analysis -> claim support check -> grounded synthesis.
     """
 
     def __init__(
@@ -50,18 +83,18 @@ class SupervisorAgent:
         store: Store,
         llm_client: LLMClient | None = None,
         retrieval_mode: str | None = None,
-    ):
+        audit_service: ESGAuditService | None = None,
+    ) -> None:
         self.store = store
         self.llm = llm_client or LLMClient()
         self.tools = AgentTools(store)
         self.planner = QueryPlanningAgent()
-        self.verifier = EvidenceVerificationAgent()
         self.retrieval = RetrievalAgent(store, mode=retrieval_mode)
+        self.verifier = EvidenceVerificationAgent()
         self.extractor = EvidenceExtractionAgent()
-        self.audit = ESGAuditService(llm_client=self.llm)
+        self.audit = audit_service or ESGAuditService(llm_client=self.llm)
         self.analysis = self.audit
         self.explanation = ExplanationAgent(llm_client=self.llm)
-        self.completeness_gate = EvidenceCompletenessGate()
         self.retrieval_mode = retrieval_mode or settings.retrieval_mode
         self.last_response: AnalysisResponse | None = None
 
@@ -72,7 +105,7 @@ class SupervisorAgent:
         document_ids: list[str] | None,
         top_k: int,
     ) -> tuple[list[Citation], list[str], int]:
-        """Thực thi subset an toàn các tool từ LLM plan; trả (citations phụ, logs, số bước đã chạy)."""
+        """Execute subset of tools proposed by LLM plan."""
         extra_citations: list[Citation] = []
         logs: list[str] = []
         executed = 0
@@ -151,11 +184,98 @@ class SupervisorAgent:
 
         return extra_citations, logs, executed
 
+    def run(
+        self,
+        question: str,
+        top_k: int = 5,
+        document_ids: list[str] | None = None,
+        mode: Literal["qa", "audit"] = "qa",
+        focus_pillars: list[Literal["E", "S", "G"]] | None = None,
+        agent_mode: str = "orchestrated",
+    ) -> AnalysisResponse:
+        is_llm_active = self.llm.is_available()
+        resolved_agent_mode: Literal["llm_agentic", "deterministic_fallback", "agent_orchestrated"] = (
+            "deterministic_fallback" if not is_llm_active else "agent_orchestrated"
+        )
+
+        state = AnalysisState(
+            request_id=str(uuid.uuid4()),
+            user_question=question,
+            mode=mode,
+            document_ids=document_ids,
+            top_k=top_k,
+        )
+        state.trace.append(
+            f"workflow.start request_id={state.request_id} mode={mode} retrieval={self.retrieval_mode}"
+        )
+
+        plan_extra_citations: list[Citation] = []
+        if not is_llm_active:
+            state.trace.append(
+                "Supervisor: Chạy chế độ Deterministic Heuristic Engine ($0 API Cost Fallback)"
+            )
+        else:
+            state.trace.append(
+                "Supervisor: LLM Structured Planning — sinh và thực thi tool plan (nếu có)"
+            )
+            llm_plan = self.llm.generate_plan(question, mode=mode)
+            if llm_plan:
+                extra_cites, tool_logs, tools_ran = self._execute_llm_plan_steps(
+                    llm_plan, question, document_ids, top_k
+                )
+                plan_extra_citations.extend(extra_cites)
+                state.trace.extend(tool_logs)
+
+        self._validate_scope(state)
+        self._plan(state)
+        self._retrieve(state)
+
+        if plan_extra_citations:
+            state.raw_citations = self._merge_citations(
+                state.raw_citations, plan_extra_citations, limit=max(state.top_k, 12)
+            )
+
+        self._verify(state)
+        self._extract(state)
+        self._check_completeness(state)
+        self._audit(state, focus_pillars)
+        self._run_specialized_analysis(state)
+        self._verify_claims(state)
+        self._synthesize(state)
+        self._build_limitations(state)
+
+        evidence_quality, data_completeness, confidence = _aggregate_pillar_metrics(state.pillars)
+        response = AnalysisResponse(
+            mode=state.mode,
+            agent_mode=resolved_agent_mode,
+            answer=state.answer,
+            disclosure_coverage=state.overall_coverage,
+            evidence_quality=evidence_quality,
+            data_completeness=data_completeness,
+            confidence=confidence,
+            screening_signals=(state.screening_result.all_signals if state.screening_result else []),
+            pillars=state.pillars,
+            citations=state.validated_citations,
+            verification_summary=state.verification_summary,
+            trace=state.trace,
+            limitations=state.limitations,
+            plan=state.plan,
+            evidence_matrix=state.evidence_matrix,
+            extracted_facts=state.extracted_facts,
+            conflicts=state.conflicts,
+            screening_result=state.screening_result,
+            temporal_analysis=state.temporal_analysis,
+            comparison=state.comparison,
+            evidence_completeness=state.evidence_completeness,
+            trace_steps=state.trace_steps,
+        )
+        self.last_response = response
+        return response
+
     @staticmethod
     def _merge_citations(
         primary: list[Citation], extra: list[Citation], limit: int
     ) -> list[Citation]:
-        """Gộp citation từ DAG retrieval và tool plan, khử trùng theo (document_id, page, excerpt)."""
         merged: list[Citation] = []
         seen: set[tuple[str, int, str]] = set()
         for cite in primary + extra:
@@ -167,25 +287,291 @@ class SupervisorAgent:
                 break
         return merged
 
+    def _validate_scope(self, state: AnalysisState) -> None:
+        started = time.perf_counter()
+        if state.document_ids:
+            existing = {doc["id"] for doc in self.store.documents()}
+            unknown = [doc_id for doc_id in state.document_ids if doc_id not in existing]
+            if unknown:
+                state.warnings.append("Unknown document ids: " + ", ".join(unknown))
+                state.document_ids = [doc_id for doc_id in state.document_ids if doc_id in existing]
+        self._trace(
+            state,
+            "Workflow",
+            "Validate request and document scope",
+            started,
+            details={"document_scope": state.document_ids or [], "warnings": state.warnings},
+        )
+
+    def _plan(self, state: AnalysisState) -> None:
+        started = time.perf_counter()
+        state.plan = self.planner.plan(
+            state.user_question,
+            mode=state.mode,
+            document_ids=state.document_ids,
+        )
+        self._trace(
+            state,
+            "QueryPlanningAgent",
+            "Build retrieval plan",
+            started,
+            details={
+                "intent": state.plan.intent,
+                "subqueries": len(state.plan.subqueries),
+                "required_evidence": state.plan.required_evidence,
+            },
+        )
+
+    def _retrieve(self, state: AnalysisState) -> None:
+        assert state.plan is not None
+        started = time.perf_counter()
+        if state.mode == "audit":
+            plan = RetrievalPlan(
+                intent="criterion_audit",
+                subqueries=AUDIT_SUBQUERIES,
+                required_evidence=state.plan.required_evidence,
+                document_scope=state.document_ids,
+            )
+            state.raw_citations = self.retrieval.run_plan(plan, top_k=max(state.top_k, 12))
+        else:
+            state.raw_citations = self.retrieval.run_plan(state.plan, top_k=state.top_k)
+        self._trace(
+            state,
+            "RetrievalAgent",
+            "Retrieve hybrid evidence candidates",
+            started,
+            retrieved_chunks=len(state.raw_citations),
+            details={"mode": self.retrieval_mode, "top_k": state.top_k},
+        )
+
+    def _verify(self, state: AnalysisState) -> None:
+        started = time.perf_counter()
+        state.validated_citations = self.verifier.validate(state.raw_citations)
+        self._trace(
+            state,
+            "EvidenceVerificationAgent",
+            "Validate citation metadata and excerpt shape",
+            started,
+            retrieved_chunks=len(state.validated_citations),
+            details={
+                "accepted": len(state.validated_citations),
+                "rejected": len(state.raw_citations) - len(state.validated_citations),
+                "scope": "retrieved-evidence validation",
+            },
+        )
+
+    def _extract(self, state: AnalysisState) -> None:
+        started = time.perf_counter()
+        state.extracted_facts = self.extractor.extract_facts(state.validated_citations)
+        state.conflicts = self.extractor.detect_conflicts(state.extracted_facts)
+        self._trace(
+            state,
+            "EvidenceExtractionAgent",
+            "Extract structured ESG facts and detect conflicts",
+            started,
+            retrieved_chunks=len(state.extracted_facts),
+            details={"facts": len(state.extracted_facts), "conflicts": len(state.conflicts)},
+        )
+
+    def _check_completeness(self, state: AnalysisState) -> None:
+        assert state.plan is not None
+        started = time.perf_counter()
+        satisfied: list[str] = []
+        missing: list[str] = []
+        for requirement in state.plan.required_evidence:
+            target = (
+                satisfied
+                if _requirement_satisfied(
+                    requirement,
+                    state.extracted_facts,
+                    state.validated_citations,
+                )
+                else missing
+            )
+            target.append(requirement)
+        state.evidence_completeness = {
+            "required": state.plan.required_evidence,
+            "satisfied": satisfied,
+            "missing": missing,
+            "status": "complete" if not missing else "incomplete",
+        }
+        self._trace(
+            state,
+            "EvidenceCompletenessGate",
+            "Check required evidence",
+            started,
+            details=state.evidence_completeness,
+        )
+
+    def _audit(
+        self,
+        state: AnalysisState,
+        focus_pillars: list[Literal["E", "S", "G"]] | None,
+    ) -> None:
+        started = time.perf_counter()
+        pillars, overall_coverage, _ = self.audit.run(state.validated_citations)
+        matrix = self.audit.build_evidence_matrix(
+            state.validated_citations,
+            state.extracted_facts,
+        )
+        screening = self.audit.screen_greenwashing_signals(
+            state.validated_citations,
+            state.extracted_facts,
+        )
+
+        if focus_pillars:
+            selected = set(focus_pillars)
+            pillars = [pillar for pillar in pillars if pillar.pillar in selected]
+            matrix = [row for row in matrix if row.pillar in selected]
+            overall_coverage = (
+                round(sum(p.disclosure_coverage for p in pillars) / len(pillars), 1)
+                if pillars
+                else 0.0
+            )
+
+        state.pillars = pillars
+        state.evidence_matrix = matrix
+        state.screening_result = screening
+        state.overall_coverage = overall_coverage
+        self._trace(
+            state,
+            "ESGAuditAgent",
+            "Evaluate rubric and screen greenwashing risk",
+            started,
+            retrieved_chunks=len(matrix),
+            details={
+                "coverage": overall_coverage,
+                "risk_level": screening.risk_level if screening else "UNKNOWN",
+                "evidence_matrix_rows": len(matrix),
+            },
+        )
+
+    def _run_specialized_analysis(self, state: AnalysisState) -> None:
+        assert state.plan is not None
+        started = time.perf_counter()
+        details: dict[str, Any] = {"executed": False, "analysis": state.plan.intent}
+
+        if state.plan.intent == "temporal_trend":
+            company = self._resolve_primary_company(state)
+            state.temporal_analysis = self.audit.run_temporal_analysis(
+                company,
+                self.store,
+                document_ids=state.document_ids,
+            )
+            details.update({"executed": True, "company": company, "analysis": "temporal"})
+        elif state.plan.intent == "cross_document_compare":
+            companies = self._resolve_companies(state.user_question, state.document_ids)
+            if len(companies) >= 2:
+                state.comparison = self.audit.run_comparison(companies, self.store)
+                details.update(
+                    {"executed": True, "companies": companies, "analysis": "comparison"}
+                )
+            else:
+                state.warnings.append(
+                    "Comparison intent detected but fewer than two companies could be resolved."
+                )
+
+        self._trace(
+            state,
+            "SpecializedAnalysis",
+            "Run intent-specific analysis when required",
+            started,
+            details=details,
+        )
+
+    def _verify_claims(self, state: AnalysisState) -> None:
+        started = time.perf_counter()
+        claims = _build_audit_claims(state.extracted_facts, state.pillars)
+        state.verification_summary = self.verifier.audit_claims(
+            claims,
+            state.validated_citations,
+        )
+        self._trace(
+            state,
+            "EvidenceVerificationAgent",
+            "Check extracted claim support in retrieved excerpts",
+            started,
+            details={
+                "claims": len(claims),
+                "supported_rate": state.verification_summary.get("supported_rate", 0.0),
+            },
+        )
+
+    def _synthesize(self, state: AnalysisState) -> None:
+        started = time.perf_counter()
+        state.answer = self.explanation.run(
+            state.mode,
+            state.pillars,
+            state.overall_coverage,
+            state.validated_citations,
+            state.user_question,
+            screening_result=state.screening_result,
+        )
+        if state.comparison:
+            state.answer += "\n\nComparison: " + "; ".join(
+                f"{company}: {coverage}% disclosure coverage"
+                for company, coverage in state.comparison.coverage_summary.items()
+            )
+        self._trace(
+            state,
+            "ExplanationAgent",
+            "Synthesize evidence-grounded response",
+            started,
+            details={
+                "citations_available": len(state.validated_citations),
+                "llm_available": self.llm.is_available(),
+            },
+        )
+
+    def _build_limitations(self, state: AnalysisState) -> None:
+        state.limitations = [
+            "Analysis is limited to indexed documents and retrieved evidence chunks.",
+            "Citation validation checks metadata and retrieved excerpts; it is not independent third-party verification of the issuer's ESG disclosure.",
+            "Greenwashing output is a heuristic screening signal for analyst review, not a legal or fraud determination.",
+        ]
+        if state.evidence_completeness.get("status") == "incomplete":
+            state.limitations.append(
+                "[MISSING_EVIDENCE] Missing required evidence: "
+                + ", ".join(state.evidence_completeness.get("missing", []))
+            )
+        if state.mode == "audit":
+            state.limitations.append(
+                "Disclosure coverage measures evidence presence in the indexed corpus, not corporate ESG performance."
+            )
+        state.limitations.extend(state.warnings)
+
+    def _resolve_primary_company(self, state: AnalysisState) -> str:
+        if state.document_ids:
+            for document_id in state.document_ids:
+                doc = self.store.get_document(document_id)
+                if doc and doc.get("company"):
+                    return str(doc["company"])
+        for citation in state.validated_citations:
+            doc = self.store.get_document(citation.document_id)
+            if doc and doc.get("company"):
+                return str(doc["company"])
+        return "Company"
+
     def _resolve_companies(
-        self, question: str, document_ids: list[str] | None
+        self,
+        question: str,
+        document_ids: list[str] | None,
     ) -> list[str]:
-        """Suy ra danh sách công ty để so sánh từ document_ids, câu hỏi, hoặc metadata corpus."""
         companies: list[str] = []
         seen: set[str] = set()
 
         def add(name: str | None) -> None:
             if not name:
                 return
-            cleaned = name.strip()
-            key = cleaned.lower()
-            if cleaned and key not in seen:
+            clean = name.strip()
+            key = clean.lower()
+            if clean and key not in seen:
                 seen.add(key)
-                companies.append(cleaned)
+                companies.append(clean)
 
         if document_ids:
-            for did in document_ids:
-                doc = self.store.get_document(did)
+            for document_id in document_ids:
+                doc = self.store.get_document(document_id)
                 if doc:
                     add(doc.get("company"))
 
@@ -194,382 +580,97 @@ class SupervisorAgent:
             if company and company.lower() in question.lower():
                 add(company)
 
-        vs_match = re.search(
+        match = re.search(
             r"(.+?)\s+(?:vs\.?|versus|so sánh với|đối chiếu với)\s+(.+)",
             question,
             re.IGNORECASE,
         )
-        if vs_match:
-            for part in (vs_match.group(1), vs_match.group(2)):
+        if match:
+            for raw in match.groups():
                 token = re.sub(
                     r"\b(?:compare|so sánh|đối chiếu|emissions?|esg|report)\b",
                     "",
-                    part,
+                    raw,
                     flags=re.IGNORECASE,
                 ).strip(" ,.")
                 if token and len(token.split()) <= 4:
                     add(token)
-
-        and_match = re.search(
-            r"(?:compare|so sánh|đối chiếu)\s+(.+?)\s+(?:and|và|&)\s+(.+)",
-            question,
-            re.IGNORECASE,
-        )
-        if and_match:
-            for part in (and_match.group(1), and_match.group(2)):
-                token = part.strip(" ,.")
-                if token and len(token.split()) <= 4:
-                    add(token)
-
         return companies[:10]
 
     @staticmethod
-    def _build_audit_claims(
-        facts: list[ESGFact], pillars: list[PillarResult]
-    ) -> list[str]:
-        """Tạo claim có số liệu để đối soát (tránh meta-finding tiếng Việt vô nghĩa)."""
-        claims: list[str] = []
+    def _trace(
+        state: AnalysisState,
+        agent: str,
+        step: str,
+        started: float,
+        retrieved_chunks: int = 0,
+        details: dict[str, Any] | None = None,
+    ) -> None:
+        latency_ms = round((time.perf_counter() - started) * 1000, 2)
+        state.trace_steps.append(
+            AgentTraceStep(
+                agent=agent,
+                step=step,
+                latency_ms=latency_ms,
+                retrieved_chunks=retrieved_chunks,
+                details=details or {},
+            )
+        )
+        state.trace.append(f"{agent}: {step} ({latency_ms} ms)")
+
+
+SupervisorWorkflow = ESGAnalysisPipeline
+SupervisorAgent = ESGAnalysisPipeline
+AnalysisWorkflow = ESGAnalysisPipeline
+
+
+def _requirement_satisfied(
+    requirement: str,
+    facts: list[ESGFact],
+    citations: list[Citation],
+) -> bool:
+    requirement = requirement.lower().strip()
+    tokens = (requirement, *_EVIDENCE_ALIASES.get(requirement, ()))
+    for token in dict.fromkeys(tokens):
+        lowered = token.lower()
         for fact in facts:
-            if fact.value is None:
-                continue
-            unit = f" {fact.unit}" if fact.unit else ""
-            year = f" in {fact.year}" if fact.year else ""
-            claims.append(f"{fact.metric}: {fact.value}{unit}{year}")
+            metric = fact.metric.lower()
+            unit = (fact.unit or "").lower()
+            if lowered in metric or metric in lowered or (unit and lowered in unit):
+                return True
+            if lowered in ("year", "reporting_year") and fact.year is not None:
+                return True
+            if lowered == "baseline_year" and fact.baseline_year is not None:
+                return True
+        if any(lowered in citation.excerpt.lower() for citation in citations):
+            return True
+    return False
+
+
+def _build_audit_claims(facts: list[ESGFact], pillars: list[PillarResult]) -> list[str]:
+    claims: list[str] = []
+    for fact in facts:
+        if fact.value is None:
+            continue
+        unit = f" {fact.unit}" if fact.unit else ""
+        year = f" in {fact.year}" if fact.year else ""
+        claims.append(f"{fact.metric}: {fact.value}{unit}{year}")
+        if len(claims) >= 8:
+            return claims
+
+    for pillar in pillars:
+        for criterion in pillar.criteria_results:
+            if criterion.status in ("found", "partial") and criterion.value:
+                claims.append(f"{criterion.criterion_id}: {criterion.value}")
             if len(claims) >= 8:
-                break
-
-        if len(claims) < 4:
-            for pillar in pillars:
-                for cr in pillar.criteria_results:
-                    if cr.status in ("found", "partial") and cr.value:
-                        claims.append(f"{cr.criterion_id}: {cr.value}")
-                    if len(claims) >= 8:
-                        break
-                if len(claims) >= 8:
-                    break
-
-        return claims
-
-    def run(
-        self,
-        question: str,
-        top_k: int = 6,
-        document_ids: list[str] | None = None,
-        mode: Literal["qa", "audit"] = "qa",
-        focus_pillars: list[Literal["E", "S", "G"]] | None = None,
-    ) -> AnalysisResponse:
-        """Thực thi luồng phân tích toàn diện có căn cứ bằng chứng kèm đo lường vết thực thi (Tracing)."""
-        is_llm_active = self.llm.is_available()
-        agent_mode: Literal["llm_agentic", "deterministic_fallback", "agent_orchestrated"] = (
-            "deterministic_fallback"
-        )
-
-        trace_steps: list[AgentTraceStep] = []
-        trace_logs: list[str] = [
-            f"Supervisor: Khởi tạo phân tích ở chế độ '{mode.upper()}'"
-        ]
-        plan_extra_citations: list[Citation] = []
-        llm_tools_executed = 0
-
-        if is_llm_active:
-            agent_mode = "llm_agentic"
-            trace_logs.append(
-                "Supervisor: LLM Structured Planning — sinh và thực thi tool plan (nếu có)"
-            )
-            llm_plan = self.llm.generate_plan(question, mode=mode)
-            if llm_plan:
-                plan_extra_citations, tool_logs, llm_tools_executed = self._execute_llm_plan_steps(
-                    llm_plan, question, document_ids, top_k
-                )
-                trace_logs.append(
-                    f"Supervisor: LLM đã sinh kế hoạch gồm {len(llm_plan)} bước hành động"
-                )
-                trace_logs.extend(tool_logs)
-                if llm_tools_executed > 0:
-                    agent_mode = "agent_orchestrated"
-                    trace_logs.append(
-                        f"Supervisor: Đã thực thi {llm_tools_executed} tool từ LLM plan"
-                    )
-                else:
-                    trace_logs.append(
-                        "Supervisor: LLM plan không có tool thực thi được; tiếp tục DAG deterministic"
-                    )
-            trace_logs[0] = (
-                f"Supervisor: Khởi tạo phân tích ở chế độ '{mode.upper()}' | Engine: {agent_mode.upper()}"
-            )
-        else:
-            trace_logs.append(
-                "Supervisor: Chạy chế độ Deterministic Heuristic Engine ($0 API Cost Fallback)"
-            )
-            trace_logs[0] = (
-                f"Supervisor: Khởi tạo phân tích ở chế độ '{mode.upper()}' | Engine: {agent_mode.upper()}"
-            )
-
-        # Step 1: Query Planning
-        t0 = time.perf_counter()
-        plan = self.planner.plan(question, mode=mode, document_ids=document_ids)
-        plan_lat = round((time.perf_counter() - t0) * 1000, 2)
-        trace_steps.append(
-            AgentTraceStep(
-                agent="QueryPlanningAgent",
-                step="Generate Retrieval Plan",
-                latency_ms=plan_lat,
-                retrieved_chunks=0,
-                details={"intent": plan.intent, "subqueries_count": len(plan.subqueries)},
-            )
-        )
-        trace_logs.append(
-            f"Query Planning Agent: Intent '{plan.intent}' với {len(plan.subqueries)} subqueries ({plan_lat} ms)"
-        )
-
-        # Step 2: Hybrid Retrieval (QA vs Targeted Audit Retrieval)
-        t0 = time.perf_counter()
-        if mode == "audit":
-            audit_subqueries = [
-                "Scope 1 Scope 2 direct indirect greenhouse gas emissions tCO2e",
-                "Scope 3 value chain supply chain indirect emissions",
-                "net zero reduction target goal baseline year 2030 2050",
-                "renewable electricity wind solar capacity MWh GWh",
-                "worker safety TRIR total recordable incident rate fatalities",
-                "female women gender diversity workforce representation",
-                "supplier social environmental assessment evaluation",
-                "board climate oversight ethics compliance external assurance independent auditor",
-            ]
-            audit_plan = RetrievalPlan(
-                intent="criterion_audit",
-                subqueries=audit_subqueries,
-                required_evidence=plan.required_evidence,
-                document_scope=document_ids,
-            )
-            raw_citations = self.retrieval.run_plan(audit_plan, top_k=max(top_k, 12))
-            merge_limit = max(top_k, 12) + 6
-        else:
-            raw_citations = self.retrieval.run_plan(plan, top_k=top_k)
-            merge_limit = top_k + 6
-
-        if plan_extra_citations:
-            raw_citations = self._merge_citations(
-                raw_citations, plan_extra_citations, limit=merge_limit
-            )
-            trace_logs.append(
-                f"Supervisor: Gộp {len(plan_extra_citations)} citation từ LLM tools vào retrieval"
-            )
-
-        retrieval_lat = round((time.perf_counter() - t0) * 1000, 2)
-        trace_steps.append(
-            AgentTraceStep(
-                agent="RetrievalAgent",
-                step="Hybrid Dense+BM25 + Cross-Encoder Rerank",
-                latency_ms=retrieval_lat,
-                retrieved_chunks=len(raw_citations),
-                details={"mode": self.retrieval_mode, "top_k": top_k},
-            )
-        )
-        trace_logs.append(
-            f"Retrieval Agent: Đã tìm thấy {len(raw_citations)} đoạn ứng viên qua {self.retrieval_mode} ({retrieval_lat} ms)"
-        )
-
-        # Step 3: Evidence Verification
-        t0 = time.perf_counter()
-        validated_citations = self.verifier.validate(raw_citations)
-        verify_lat = round((time.perf_counter() - t0) * 1000, 2)
-        trace_steps.append(
-            AgentTraceStep(
-                agent="EvidenceVerificationAgent",
-                step="Validate Page Boundaries & Provenance",
-                latency_ms=verify_lat,
-                retrieved_chunks=len(validated_citations),
-                details={
-                    "valid": len(validated_citations),
-                    "rejected": len(raw_citations) - len(validated_citations),
-                },
-            )
-        )
-        trace_logs.append(
-            f"Evidence Verification Agent: Thẩm định {len(validated_citations)} citation hợp lệ ({verify_lat} ms)"
-        )
-
-        # Step 4: Structured ESG Fact Extraction
-        t0 = time.perf_counter()
-        facts = self.extractor.extract_facts(validated_citations)
-        conflicts = self.extractor.detect_conflicts(facts)
-        extract_lat = round((time.perf_counter() - t0) * 1000, 2)
-        trace_steps.append(
-            AgentTraceStep(
-                agent="EvidenceExtractionAgent",
-                step="Extract ESG Facts & Conflict Detection",
-                latency_ms=extract_lat,
-                retrieved_chunks=len(facts),
-                details={"facts": len(facts), "conflicts": len(conflicts)},
-            )
-        )
-        trace_logs.append(
-            f"Evidence Extraction Agent: Trích xuất {len(facts)} facts, phát hiện {len(conflicts)} mâu thuẫn ({extract_lat} ms)"
-        )
-
-        # Step 5: ESG Audit & Rubric Scoring
-        t0 = time.perf_counter()
-        pillars, overall_coverage, _ = self.audit.run(validated_citations)
-        evidence_matrix = self.audit.build_evidence_matrix(validated_citations, facts)
-        screening_res = self.audit.screen_greenwashing_signals(validated_citations, facts)
-
-        if focus_pillars:
-            focus_set = set(focus_pillars)
-            pillars = [p for p in pillars if p.pillar in focus_set]
-            evidence_matrix = [row for row in evidence_matrix if row.pillar in focus_set]
-            overall_coverage = (
-                round(sum(p.disclosure_coverage for p in pillars) / len(pillars), 1)
-                if pillars
-                else 0.0
-            )
-
-        audit_lat = round((time.perf_counter() - t0) * 1000, 2)
-        trace_steps.append(
-            AgentTraceStep(
-                agent="ESGAuditAgent",
-                step="Evaluate Rubric & Greenwashing Screening",
-                latency_ms=audit_lat,
-                retrieved_chunks=len(evidence_matrix),
-                details={
-                    "coverage": overall_coverage,
-                    "risk_level": screening_res.risk_level,
-                    "matrix_rows": len(evidence_matrix),
-                    "focus_pillars": focus_pillars or ["E", "S", "G"],
-                },
-            )
-        )
-        trace_logs.append(
-            f"ESG Audit Agent: Coverage {overall_coverage}%, Greenwashing Risk: {screening_res.risk_level} ({audit_lat} ms)"
-        )
-
-        # Step 5b: Evidence Completeness Gate (Deep Verification)
-        completeness_details = self.completeness_gate.check(
-            plan.required_evidence, facts, validated_citations
-        )
-
-        # Step 6: Temporal / Comparison Analysis nếu cần
-        temporal_analysis = None
-        comparison_res = None
-        if plan.intent == "temporal_trend":
-            company_hint = "Company"
-            if validated_citations:
-                first_doc_id = validated_citations[0].document_id
-                doc_meta = self.store.get_document(first_doc_id)
-                if doc_meta and doc_meta.get("company"):
-                    company_hint = doc_meta["company"]
-                elif validated_citations[0].document_name:
-                    raw_name = validated_citations[0].document_name
-                    clean_name = re.sub(r"^\b20\d\d\b\s*", "", raw_name)
-                    clean_name = re.sub(r"\.pdf$", "", clean_name, flags=re.IGNORECASE)
-                    tokens = [
-                        t
-                        for t in clean_name.split()
-                        if not t.isdigit()
-                        and t.lower() not in ("sustainability", "report", "esg", "annual")
-                    ]
-                    company_hint = tokens[0] if tokens else clean_name.split()[0]
-            temporal_analysis = self.audit.run_temporal_analysis(
-                company_hint, self.store, document_ids=document_ids
-            )
-        elif plan.intent == "cross_document_compare":
-            companies = self._resolve_companies(question, document_ids)
-            if len(companies) >= 2:
-                comparison_res = self.audit.run_comparison(companies, self.store)
-                trace_logs.append(
-                    f"ESG Audit Agent: Cross-document comparison for {', '.join(companies)}"
-                )
-            else:
-                trace_logs.append(
-                    "ESG Audit Agent: Intent so sánh nhưng chưa đủ >=2 công ty "
-                    "(cần document_ids/metadata company hoặc nêu tên trong câu hỏi)"
-                )
-
-        # Step 7: Claim Auditing — đối soát số liệu trích xuất
-        claims_to_audit = self._build_audit_claims(facts, pillars)
-        verification_summary = self.verifier.audit_claims(claims_to_audit, validated_citations)
-
-        # Step 8: Explanation Synthesis
-        t0 = time.perf_counter()
-        answer = self.explanation.run(
-            mode,
-            pillars,
-            overall_coverage,
-            validated_citations,
-            question,
-            screening_result=screening_res,
-        )
-        if comparison_res:
-            answer = (
-                f"{answer}\n\nSo sánh công bố giữa {', '.join(comparison_res.companies)}: "
-                + "; ".join(
-                    f"{c}: {cov}%" for c, cov in comparison_res.coverage_summary.items()
-                )
-            )
-        synth_lat = round((time.perf_counter() - t0) * 1000, 2)
-        trace_steps.append(
-            AgentTraceStep(
-                agent="ExplanationAgent",
-                step="Synthesize Evidence-Grounded Answer",
-                latency_ms=synth_lat,
-                retrieved_chunks=0,
-                details={"citations_used": min(6, len(validated_citations))},
-            )
-        )
-        trace_logs.append(f"Explanation Agent: Hoàn tất tổng hợp câu trả lời ({synth_lat} ms)")
-
-        limitations = [
-            "Câu trả lời được tổng hợp duy nhất từ các đoạn bằng chứng đã truy xuất.",
-            "Nếu thông tin nằm ngoài phạm vi Top-K đoạn được tìm kiếm, hệ thống sẽ không thể đưa vào kết luận.",
-        ]
-        if completeness_details["status"] == "incomplete":
-            missing_items = completeness_details["missing"] + completeness_details.get(
-                "partial", []
-            )
-            limitations.append(
-                "[MISSING_EVIDENCE] Tài liệu chưa cung cấp đủ bằng chứng đối chứng cho các trường yêu cầu: "
-                + ", ".join(missing_items)
-            )
-        if plan.intent == "cross_document_compare" and comparison_res is None:
-            limitations.append(
-                "[COMPARE_SKIPPED] Chưa đủ thông tin công ty để so sánh chéo "
-                "(cần >=2 company trong metadata hoặc câu hỏi)."
-            )
-        if mode == "audit":
-            limitations.extend(
-                [
-                    "Báo cáo chỉ phản ánh mức độ công bố thông tin (disclosure coverage) trong các tài liệu đã lập chỉ mục.",
-                    "Kết quả không đại diện cho điểm hiệu suất hoạt động ESG thực tế của doanh nghiệp.",
-                ]
-            )
-
-        avg_quality, avg_completeness, avg_conf = _aggregate_pillar_metrics(pillars)
-
-        response = AnalysisResponse(
-            mode=mode,
-            agent_mode=agent_mode,
-            answer=answer,
-            disclosure_coverage=overall_coverage,
-            evidence_quality=avg_quality,
-            data_completeness=avg_completeness,
-            confidence=avg_conf,
-            screening_signals=screening_res.all_signals,
-            pillars=pillars,
-            citations=validated_citations,
-            verification_summary=verification_summary,
-            trace=trace_logs,
-            limitations=limitations,
-            plan=plan,
-            evidence_matrix=evidence_matrix,
-            extracted_facts=facts,
-            conflicts=conflicts,
-            screening_result=screening_res,
-            temporal_analysis=temporal_analysis,
-            comparison=comparison_res,
-            evidence_completeness=completeness_details,
-            trace_steps=trace_steps,
-        )
-        self.last_response = response
-        return response
+                return claims
+    return claims
 
 
-AnalysisWorkflow = SupervisorAgent
+def _aggregate_pillar_metrics(pillars: list[PillarResult]) -> tuple[float, float, float]:
+    if not pillars:
+        return 0.0, 0.0, 0.0
+    evidence_quality = round(sum(p.evidence_quality for p in pillars) / len(pillars), 1)
+    completeness = round(sum(p.data_completeness for p in pillars) / len(pillars), 1)
+    confidence = round(sum(p.confidence for p in pillars) / len(pillars), 2)
+    return evidence_quality, completeness, confidence
