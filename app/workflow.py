@@ -1,9 +1,8 @@
-"""Application workflow for ESG analysis.
+"""Canonical application workflow for evidence-grounded ESG analysis.
 
-This module owns orchestration only. Domain capabilities remain in ``app.agents``
-and infrastructure remains in ``app.store`` / ``app.document_service``.
-Keeping orchestration here makes the request lifecycle explicit, testable, and
-independent from the HTTP/CLI adapters.
+HTTP and CLI adapters should call this module instead of assembling agents on
+their own. Orchestration is deterministic and observable; optional LLM usage is
+contained inside bounded capabilities.
 """
 
 from __future__ import annotations
@@ -13,8 +12,8 @@ import time
 import uuid
 from typing import Any, Literal
 
-from app.agents import (
-    ESGAuditAgent,
+from app.agents import ESGAuditAgent
+from app.capabilities import (
     EvidenceVerificationAgent,
     ExplanationAgent,
     QueryPlanningAgent,
@@ -50,13 +49,18 @@ _EVIDENCE_ALIASES: dict[str, tuple[str, ...]] = {
     "scope_1": ("scope_1_emissions", "scope 1", "scope1"),
     "scope_2": ("scope_2_emissions", "scope 2", "scope2"),
     "scope_3": ("scope_3_emissions", "scope 3", "scope3"),
-    "yearly_metrics": ("emissions", "tco2e", "202"),
     "progress": ("reduction", "progress", "decrease", "trajectory", "reduced", "%"),
     "targets": ("net_zero_target", "target", "net zero", "net-zero", "goal"),
     "target": ("net_zero_target", "target", "net zero", "net-zero", "goal"),
     "baseline": ("baseline", "base year", "baseline_year"),
     "assurance": ("assurance", "assured", "independent auditor", "verified"),
-    "emissions": ("scope_1_emissions", "scope_2_emissions", "scope_3_emissions", "emission"),
+    "emissions": (
+        "scope_1_emissions",
+        "scope_2_emissions",
+        "scope_3_emissions",
+        "emission",
+        "tco2e",
+    ),
     "metrics": ("scope_1_emissions", "scope_2_emissions", "tco2e", "mwh", "trir", "%"),
     "safety": ("work_safety", "trir", "injury", "safety", "fatalit"),
     "governance": ("board", "ethics", "compliance", "governance", "oversight"),
@@ -64,23 +68,12 @@ _EVIDENCE_ALIASES: dict[str, tuple[str, ...]] = {
 
 
 class ESGAnalysisPipeline:
-    """Single application-level pipeline used by API, CLI, and evaluation code.
+    """One runtime path for API, CLI, and evaluation adapters.
 
-    The workflow is intentionally deterministic at the orchestration layer:
-
-    1. validate request scope
-    2. plan retrieval
-    3. retrieve candidates
-    4. verify citations
-    5. extract structured facts and conflicts
-    6. check required-evidence completeness
-    7. score the ESG rubric and screening heuristics
-    8. run optional temporal/comparison analysis
-    9. verify extracted claims
-    10. synthesize the grounded response
-
-    LLM usage is optional and isolated inside capability implementations. The
-    pipeline itself remains observable and reproducible.
+    Stages:
+    request validation -> query planning -> retrieval -> citation validation ->
+    structured extraction -> evidence completeness -> ESG rubric/screening ->
+    optional specialized analysis -> claim support check -> grounded synthesis.
     """
 
     def __init__(
@@ -96,7 +89,7 @@ class ESGAnalysisPipeline:
         self.verifier = EvidenceVerificationAgent()
         self.extractor = EvidenceExtractionAgent()
         self.audit = ESGAuditAgent(llm_client=self.llm)
-        self.analysis = self.audit  # compatibility with older callers
+        self.analysis = self.audit
         self.explanation = ExplanationAgent(llm_client=self.llm)
         self.retrieval_mode = retrieval_mode or settings.retrieval_mode
         self.last_response: AnalysisResponse | None = None
@@ -223,12 +216,13 @@ class ESGAnalysisPipeline:
         self._trace(
             state,
             "EvidenceVerificationAgent",
-            "Validate citation shape and provenance fields",
+            "Validate citation metadata and excerpt shape",
             started,
             retrieved_chunks=len(state.validated_citations),
             details={
                 "accepted": len(state.validated_citations),
                 "rejected": len(state.raw_citations) - len(state.validated_citations),
+                "scope": "retrieved-evidence validation",
             },
         )
 
@@ -251,9 +245,15 @@ class ESGAnalysisPipeline:
         satisfied: list[str] = []
         missing: list[str] = []
         for requirement in state.plan.required_evidence:
-            target = satisfied if _requirement_satisfied(
-                requirement, state.extracted_facts, state.validated_citations
-            ) else missing
+            target = (
+                satisfied
+                if _requirement_satisfied(
+                    requirement,
+                    state.extracted_facts,
+                    state.validated_citations,
+                )
+                else missing
+            )
             target.append(requirement)
         state.evidence_completeness = {
             "required": state.plan.required_evidence,
@@ -277,10 +277,12 @@ class ESGAnalysisPipeline:
         started = time.perf_counter()
         pillars, overall_coverage, _ = self.audit.run(state.validated_citations)
         matrix = self.audit.build_evidence_matrix(
-            state.validated_citations, state.extracted_facts
+            state.validated_citations,
+            state.extracted_facts,
         )
         screening = self.audit.screen_greenwashing_signals(
-            state.validated_citations, state.extracted_facts
+            state.validated_citations,
+            state.extracted_facts,
         )
 
         if focus_pillars:
@@ -348,12 +350,13 @@ class ESGAnalysisPipeline:
         started = time.perf_counter()
         claims = _build_audit_claims(state.extracted_facts, state.pillars)
         state.verification_summary = self.verifier.audit_claims(
-            claims, state.validated_citations
+            claims,
+            state.validated_citations,
         )
         self._trace(
             state,
             "EvidenceVerificationAgent",
-            "Verify extracted claims against retrieved evidence",
+            "Check extracted claim support in retrieved excerpts",
             started,
             details={
                 "claims": len(claims),
@@ -389,13 +392,15 @@ class ESGAnalysisPipeline:
 
     def _build_limitations(self, state: AnalysisState) -> None:
         state.limitations = [
-            "The analysis is limited to indexed documents and retrieved evidence chunks.",
-            "Citation validation checks source metadata and excerpt shape; it is not independent third-party verification of the underlying ESG disclosure.",
+            "Analysis is limited to indexed documents and retrieved evidence chunks.",
+            "Citation validation checks metadata and retrieved excerpts; it is not independent third-party verification of the issuer's ESG disclosure.",
             "Greenwashing output is a heuristic screening signal for analyst review, not a legal or fraud determination.",
         ]
         if state.evidence_completeness.get("status") == "incomplete":
-            missing = state.evidence_completeness.get("missing", [])
-            state.limitations.append("Missing required evidence: " + ", ".join(missing))
+            state.limitations.append(
+                "Missing required evidence: "
+                + ", ".join(state.evidence_completeness.get("missing", []))
+            )
         if state.mode == "audit":
             state.limitations.append(
                 "Disclosure coverage measures evidence presence in the indexed corpus, not corporate ESG performance."
@@ -481,7 +486,6 @@ class ESGAnalysisPipeline:
         state.trace.append(f"{agent}: {step} ({latency_ms} ms)")
 
 
-# Backward-compatible name for code that still thinks in terms of a supervisor.
 SupervisorWorkflow = ESGAnalysisPipeline
 
 
