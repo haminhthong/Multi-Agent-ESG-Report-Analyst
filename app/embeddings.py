@@ -26,6 +26,19 @@ class DenseEmbeddingEngine:
         self._is_fallback: bool = False
         self.dimension: int = 384
 
+    @property
+    def backend(self) -> str:
+        """Trả về tên backend embedding hiện tại (sentence_transformer hoặc feature_hashing_fallback)."""
+        model = self._get_model()
+        if model is not None and not self._is_fallback:
+            return "sentence_transformer"
+        return "feature_hashing_fallback"
+
+    @property
+    def is_semantic_loaded(self) -> bool:
+        """Kiểm tra xem mô hình Transformer ngữ nghĩa thực tế có được nạp hay đang chạy fallback."""
+        return self.backend == "sentence_transformer"
+
     def _get_model(self) -> Any:
         if self._model is not None or self._is_fallback:
             return self._model

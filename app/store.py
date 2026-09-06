@@ -344,7 +344,8 @@ class Store:
         for r in rows:
             vec = json.loads(r["vector_json"])
             sim = embedding_engine.cosine_similarity(q_vec, vec)
-            if sim < 0.15:
+            min_thresh = 0.15 if embedding_engine.is_semantic_loaded else 0.05
+            if sim < min_thresh:
                 continue
             item = dict(r)
             del item["vector_json"]

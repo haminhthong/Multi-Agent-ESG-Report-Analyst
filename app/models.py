@@ -128,6 +128,7 @@ class ESGFact(BaseModel):
     normalized_unit: str | None = None
     methodology: str | None = None  # e.g. "market-based", "location-based", "gross", "net"
     organizational_boundary: str | None = None
+    evidence_text: str | None = None
 
 
 class EvidenceConflict(BaseModel):
@@ -140,10 +141,44 @@ class EvidenceConflict(BaseModel):
     description: str = ""
 
 
+class ScreeningSignal(BaseModel):
+    """Tín hiệu sàng lọc rủi ro greenwashing có cấu trúc và có thể giải thích được."""
+
+    code: str
+    category: Literal["target_credibility", "evidence_quality", "narrative_risk"]
+    severity: Literal["low", "medium", "high"]
+    message: str
+    evidence_ids: list[str] = Field(default_factory=list)
+    rule: str = ""
+
+
+class EvidenceRequirement(BaseModel):
+    """Định nghĩa yêu cầu bằng chứng cấu trúc trong kiểm tra chất lượng (Quality Gate)."""
+
+    name: str
+    fact_types: list[str] = Field(default_factory=list)
+    keywords: list[str] = Field(default_factory=list)
+    requires_numeric_value: bool = False
+    requires_year: bool = False
+    requires_baseline: bool = False
+
+
+class EvidenceRequirementResult(BaseModel):
+    """Kết quả đánh giá từng yêu cầu bằng chứng."""
+
+    requirement: str
+    status: Literal["satisfied", "partial", "missing"] = "missing"
+    matched_fact_ids: list[str] = Field(default_factory=list)
+    matched_citation_ids: list[str] = Field(default_factory=list)
+    confidence: float = 1.0
+    missing_aspects: list[str] = Field(default_factory=list)
+
+
 class GreenwashingScreeningResult(BaseModel):
     """Kết quả sàng lọc rủi ro greenwashing đa tín hiệu."""
 
     risk_level: Literal["LOW", "MEDIUM", "HIGH"] = "LOW"
+    signals: list[ScreeningSignal] = Field(default_factory=list)
     target_credibility_signals: list[str] = Field(default_factory=list)
     evidence_quality_signals: list[str] = Field(default_factory=list)
     narrative_risk_signals: list[str] = Field(default_factory=list)
