@@ -73,7 +73,7 @@ class DocumentIngestionService:
                 content,
                 document_id=document_id,
             )
-        except Exception as exc:  # fallback to page-level native text extraction
+        except Exception as exc:  # noqa: BLE001 - parser fallback boundary
             layout_error = exc
 
         if layout_blocks:
@@ -81,7 +81,7 @@ class DocumentIngestionService:
         else:
             try:
                 pages = DocumentAgent.extract_pdf(content)
-            except Exception as exc:
+            except Exception as exc:  # noqa: BLE001 - normalize parser errors at service boundary
                 context = f"; block extraction also failed: {layout_error}" if layout_error else ""
                 raise DocumentExtractionError(f"Không thể trích xuất PDF: {exc}{context}") from exc
 
