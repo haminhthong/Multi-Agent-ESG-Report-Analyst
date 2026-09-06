@@ -1,15 +1,38 @@
 name: CI
-on: [push, pull_request]
+
+on:
+  push:
+  pull_request:
+
 jobs:
   test:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+
       - uses: actions/setup-python@v5
-        with: {python-version: "3.12"}
-      - run: pip install -e ".[dev]"
-      - run: ruff format --check app tests
-      - run: ruff check app tests
-      - run: pytest -q
-      - run: python -m app.cli --database data/ci-eval.db evaluate --min-recall 0.8 --min-mrr 0.8
-      - run: docker build -t esg-report-analyst:${{ github.sha }} .
+        with:
+          python-version: "3.12"
+
+      - name: Install
+        run: pip install -e ".[dev]"
+
+      - name: Format check
+        run: ruff format --check app tests
+
+      - name: Lint
+        run: ruff check app tests
+
+      - name: Unit and integration tests
+        run: pytest -q
+
+      - name: Canonical workflow import smoke test
+        run: python -c "from app.workflow import ESGAnalysisPipeline; from app.main import app; print(app.title, ESGAnalysisPipeline.__name__)"
+
+      - name: Retrieval quality gate
+        run: >-
+          python -m app.cli --database data/ci-eval.db evaluate
+          --mode bm25 --min-recall 0.8 --min-mrr 0.8
+
+      - name: Docker build
+        run: docker build -t esg-report-analyst:${{ github.sha }} .
