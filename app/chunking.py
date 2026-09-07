@@ -1,3 +1,4 @@
+import hashlib
 import re
 from dataclasses import dataclass
 from typing import Any
@@ -6,6 +7,7 @@ from typing import Any
 HEADING = re.compile(
     r"^(?:[A-Z][A-Z\s&/–-]{3,}|\d+(?:\.\d+)*\s+[A-Z].{3,80}|(?:Section|Chapter|Part)\s+\d+.{0,60})$"
 )
+
 
 # Mẫu phát hiện cấu trúc bảng (Table detection pattern): chứa dấu gạch đứng hoặc nhiều cột số phân tách bằng tab/khoảng trắng
 TABLE_ROW_PATTERN = re.compile(
@@ -73,6 +75,8 @@ class TextChunk:
         company (str | None): Tên doanh nghiệp.
         year (int | None): Năm báo cáo.
         pillar (str | None): Trụ cột ESG ("E", "S", "G").
+        stable_chunk_id (str | None): Mã hash SHA-256 định danh ổn định qua các lần re-index.
+        content_hash (str | None): Hash nội dung văn bản hỗ trợ đối chiếu nguồn.
     """
 
     page: int
@@ -83,6 +87,40 @@ class TextChunk:
     company: str | None = None
     year: int | None = None
     pillar: str | None = None
+    stable_chunk_id: str | None = None
+    content_hash: str | None = None
+
+
+def make_chunk(
+    page: int,
+    text: str,
+    section_title: str | None = None,
+    block_type: str = "text",
+    block_id: str | None = None,
+    company: str | None = None,
+    year: int | None = None,
+    pillar: str | None = None,
+    chunk_index: int = 0,
+) -> TextChunk:
+    """Tạo đối tượng TextChunk kèm theo stable_chunk_id và content_hash dựa trên SHA-256."""
+    c_hash = hashlib.sha256(text.encode("utf-8")).hexdigest()[:16]
+    s_id = hashlib.sha256(
+        f"{company or ''}:{year or ''}:{page}:{block_id or ''}:{chunk_index}:{c_hash}".encode(
+            "utf-8"
+        )
+    ).hexdigest()[:16]
+    return TextChunk(
+        page=page,
+        text=text,
+        section_title=section_title,
+        block_type=block_type,
+        block_id=block_id,
+        company=company,
+        year=year,
+        pillar=pillar,
+        stable_chunk_id=s_id,
+        content_hash=c_hash,
+    )
 
 
 def detect_pillar(text: str) -> str | None:
@@ -204,7 +242,7 @@ def chunk_pages(
                 chunk_index += 1
                 pillar = detect_pillar(paragraph)
                 chunks.append(
-                    TextChunk(
+                    make_chunk(
                         page=page,
                         text=paragraph,
                         section_title=current_section,
@@ -213,6 +251,7 @@ def chunk_pages(
                         company=company,
                         year=year,
                         pillar=pillar,
+                        chunk_index=chunk_index,
                     )
                 )
 
@@ -304,7 +343,7 @@ def chunk_layout_blocks(
             # Ghi đè block_id của chunk vừa tạo nếu còn metadata gốc
             if buffer_block_id and chunks:
                 last = chunks[-1]
-                chunks[-1] = TextChunk(
+                chunks[-1] = make_chunk(
                     page=last.page,
                     text=last.text,
                     section_title=last.section_title,
@@ -313,6 +352,7 @@ def chunk_layout_blocks(
                     company=last.company,
                     year=last.year,
                     pillar=last.pillar,
+                    chunk_index=chunk_index,
                 )
             buffer = []
             buffer_block_id = None
@@ -332,7 +372,7 @@ def chunk_layout_blocks(
                 current_section = text[:120]
                 chunk_index += 1
                 chunks.append(
-                    TextChunk(
+                    make_chunk(
                         page=page,
                         text=text,
                         section_title=current_section,
@@ -341,13 +381,14 @@ def chunk_layout_blocks(
                         company=company,
                         year=year,
                         pillar=detect_pillar(text),
+                        chunk_index=chunk_index,
                     )
                 )
             elif b_type == "table":
                 flush_buffer()
                 chunk_index += 1
                 chunks.append(
-                    TextChunk(
+                    make_chunk(
                         page=page,
                         text=text,
                         section_title=current_section,
@@ -356,6 +397,7 @@ def chunk_layout_blocks(
                         company=company,
                         year=year,
                         pillar=detect_pillar(text),
+                        chunk_index=chunk_index,
                     )
                 )
             else:
@@ -405,7 +447,7 @@ def _append_windows_with_meta(
             chunk_text = " ".join(window)
             pillar = detect_pillar(chunk_text)
             chunks.append(
-                TextChunk(
+                make_chunk(
                     page=page,
                     text=chunk_text,
                     section_title=section_title,
@@ -414,6 +456,7 @@ def _append_windows_with_meta(
                     company=company,
                     year=year,
                     pillar=pillar,
+                    chunk_index=chunk_index,
                 )
             )
         if start + max_words >= len(words):

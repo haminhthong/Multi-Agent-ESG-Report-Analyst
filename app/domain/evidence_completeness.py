@@ -1,4 +1,4 @@
-from typing import Any, Literal
+from typing import Literal
 
 from app.models import (
     Citation,
@@ -13,28 +13,37 @@ DEFAULT_REQUIREMENTS: dict[str, EvidenceRequirement] = {
     "scope_1": EvidenceRequirement(
         name="scope_1",
         fact_types=["scope_1_emissions"],
+        all_of=["scope_1_emissions"],
         keywords=["scope 1", "scope1", "direct greenhouse gas"],
         requires_numeric_value=True,
         requires_year=True,
+        required_fields=["value", "year"],
     ),
     "scope_2": EvidenceRequirement(
         name="scope_2",
         fact_types=["scope_2_emissions"],
+        all_of=["scope_2_emissions"],
         keywords=["scope 2", "scope2", "indirect greenhouse gas"],
         requires_numeric_value=True,
         requires_year=True,
+        required_fields=["value", "year"],
     ),
     "scope_3": EvidenceRequirement(
         name="scope_3",
         fact_types=["scope_3_emissions"],
+        all_of=["scope_3_emissions"],
         keywords=["scope 3", "scope3", "value chain emissions"],
         requires_numeric_value=True,
+        required_fields=["value"],
     ),
     "scope_1_2": EvidenceRequirement(
         name="scope_1_2",
         fact_types=["scope_1_emissions", "scope_2_emissions"],
+        all_of=["scope_1_emissions", "scope_2_emissions"],
         keywords=["scope 1", "scope 2", "scope1", "scope2"],
         requires_numeric_value=True,
+        requires_year=True,
+        required_fields=["value", "year"],
     ),
     "yearly_metrics": EvidenceRequirement(
         name="yearly_metrics",
@@ -71,8 +80,10 @@ DEFAULT_REQUIREMENTS: dict[str, EvidenceRequirement] = {
     "safety": EvidenceRequirement(
         name="safety",
         fact_types=["work_safety"],
+        all_of=["work_safety"],
         keywords=["safety", "trir", "injury", "fatalit", "workforce"],
         requires_numeric_value=True,
+        required_fields=["value"],
     ),
     "governance": EvidenceRequirement(
         name="governance",
@@ -102,6 +113,7 @@ class EvidenceCompletenessGate:
 
     Không chỉ dừng lại ở việc so khớp từ khóa đơn thuần (token matching),
     cổng này xác thực có cấu trúc:
+    - Hỗ trợ all_of: tất cả các thành phần phải có mặt đầy đủ (ví dụ Scope 1 và Scope 2).
     - Có số liệu định lượng (numeric value) hay không nếu yêu cầu.
     - Có năm báo cáo (reporting year) rõ ràng hay không.
     - Có năm cơ sở (baseline year) hay không đối với các chỉ tiêu đối sánh.
@@ -135,6 +147,95 @@ class EvidenceCompletenessGate:
         matched_citation_ids: list[str] = []
         missing_aspects: list[str] = []
 
+        # Xử lý trường hợp spec.all_of (bắt buộc toàn bộ các metric/fact con phải hiện diện)
+        if spec.all_of:
+            found_sub_count = 0
+            for req_sub in spec.all_of:
+                sub_matched_fact = None
+                sub_has_numeric = False
+                sub_has_year = False
+                sub_has_unit = False
+
+                for idx, f in enumerate(facts):
+                    fact_id = f.fact_id or f"fact_{idx}_{f.metric}"
+                    metric_l = f.metric.lower()
+                    if req_sub.lower() in metric_l or metric_l in req_sub.lower():
+                        sub_matched_fact = f
+                        if fact_id not in matched_fact_ids:
+                            matched_fact_ids.append(fact_id)
+                        if f.value is not None:
+                            sub_has_numeric = True
+                        if f.year is not None:
+                            sub_has_year = True
+                        if f.unit or f.normalized_unit:
+                            sub_has_unit = True
+                        break
+
+                # Fallback đối chiếu với Citations cho sub_req nếu fact chưa trích xuất
+                if not sub_matched_fact:
+                    sub_kw = [req_sub.lower(), req_sub.lower().replace("_", " ")]
+                    for c in citations:
+                        text = c.excerpt.lower()
+                        if any(kw in text for kw in sub_kw):
+                            cite_id = f"cite_p{c.page}_{c.chunk_id or 0}"
+                            if cite_id not in matched_citation_ids:
+                                matched_citation_ids.append(cite_id)
+                            if METRIC_PATTERN.search(text):
+                                sub_has_numeric = True
+                            if YEAR_PATTERN.search(text):
+                                sub_has_year = True
+                            if any(u in text for u in ["tco2e", "%", "mwh", "tons"]):
+                                sub_has_unit = True
+
+                sub_missing: list[str] = []
+                if spec.requires_numeric_value or "value" in spec.required_fields:
+                    if not sub_has_numeric:
+                        sub_missing.append("numeric_value")
+                if spec.requires_year or "year" in spec.required_fields:
+                    if not sub_has_year:
+                        sub_missing.append("year")
+                if spec.requires_unit or "unit" in spec.required_fields:
+                    if not sub_has_unit:
+                        sub_missing.append("unit")
+
+                if sub_matched_fact or (matched_citation_ids and sub_has_numeric):
+                    found_sub_count += 1
+                    if sub_missing:
+                        for m in sub_missing:
+                            if m not in missing_aspects:
+                                missing_aspects.append(m)
+                            spec_m = f"{req_sub}_{m}"
+                            if spec_m not in missing_aspects:
+                                missing_aspects.append(spec_m)
+                else:
+                    missing_aspects.append(f"missing_{req_sub}")
+
+            if found_sub_count == len(spec.all_of) and not missing_aspects:
+                return EvidenceRequirementResult(
+                    requirement=req_name,
+                    status="satisfied",
+                    matched_fact_ids=matched_fact_ids,
+                    matched_citation_ids=matched_citation_ids,
+                    confidence=0.95,
+                )
+            elif found_sub_count > 0:
+                return EvidenceRequirementResult(
+                    requirement=req_name,
+                    status="partial",
+                    matched_fact_ids=matched_fact_ids,
+                    matched_citation_ids=matched_citation_ids,
+                    confidence=0.70,
+                    missing_aspects=missing_aspects,
+                )
+            else:
+                return EvidenceRequirementResult(
+                    requirement=req_name,
+                    status="missing",
+                    confidence=0.0,
+                    missing_aspects=missing_aspects or ["not_found_in_evidence"],
+                )
+
+        # Xử lý kiểm tra tiêu chuẩn khi không khai báo all_of
         has_numeric = False
         has_unit = False
         has_year = False
@@ -158,7 +259,9 @@ class EvidenceCompletenessGate:
                     has_unit = True
                 if f.year is not None:
                     has_year = True
-                fact_text = getattr(f, "evidence_text", None) or (f.source.excerpt if f.source else "")
+                fact_text = getattr(f, "evidence_text", None) or (
+                    f.source.excerpt if f.source else ""
+                )
                 if f.baseline_year is not None or BASELINE_PATTERN.search(fact_text.lower()):
                     has_baseline = True
 
@@ -276,9 +379,7 @@ class EvidenceCompletenessGate:
             results=[r.model_dump() for r in results],
         )
 
-    def is_satisfied(
-        self, req_name: str, facts: list[ESGFact], citations: list[Citation]
-    ) -> bool:
+    def is_satisfied(self, req_name: str, facts: list[ESGFact], citations: list[Citation]) -> bool:
         """Kiểm tra nhanh tính thỏa mãn (hỗ trợ tương thích ngược)."""
         res = self.evaluate_requirement(req_name, facts, citations)
         return res.status in ("satisfied", "partial")

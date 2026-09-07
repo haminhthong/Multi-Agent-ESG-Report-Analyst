@@ -7,7 +7,7 @@ from typing import Any
 from app.domain.evidence_matrix import EvidenceMatrixBuilder
 from app.domain.rubric_evaluator import RubricEvaluator
 from app.evidence_extractor import EvidenceExtractionAgent
-from app.models import Citation, CompanyComparisonCriterion, CompanyComparisonResult, ESGFact
+from app.models import Citation, CompanyComparisonCriterion, CompanyComparisonResult
 from app.rubric import CRITERIA_DEFINITIONS, RubricCriterion
 from app.store import Store
 
@@ -89,7 +89,8 @@ class CompanyComparisonService:
                 else:
                     cites = []
 
-                eval_res = self.rubric_evaluator.evaluate_criterion(crit, cites)
+                facts_crit = EvidenceExtractionAgent.extract_facts(cites)
+                eval_res = self.rubric_evaluator.evaluate_criterion(crit, cites, facts=facts_crit)
                 row_dict[company] = {
                     "status": eval_res.status,
                     "value": eval_res.value,

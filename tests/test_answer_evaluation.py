@@ -26,6 +26,7 @@ def test_answer_quality_evaluation(tmp_path: Path):
             query_scope=["boeing-demo"],
             expected_topics=["suppliers", "social", "criteria"],
             expected_numbers=["724", "148%"],
+            expected_evidence=[{"document_id": "boeing-demo", "page": 43}],
         )
     ]
 
@@ -35,5 +36,7 @@ def test_answer_quality_evaluation(tmp_path: Path):
     assert 0.0 <= report.citation_correctness <= 1.0
     assert 0.0 <= report.completeness <= 1.0
     assert 0.0 <= report.unsupported_claim_rate <= 1.0
+    assert report.gold_citation_precision is not None
+    assert 0.0 <= report.gold_citation_precision <= 1.0
     assert len(report.details) == 1
     assert report.details[0].id == "test_suppliers"

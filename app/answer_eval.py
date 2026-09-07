@@ -17,6 +17,7 @@ class AnswerEvalCase(BaseModel):
     query_scope: list[str] | None = None
     expected_topics: list[str] = Field(default_factory=list)
     expected_numbers: list[str] = Field(default_factory=list)
+    expected_evidence: list[dict[str, Any]] = Field(default_factory=list)
 
 
 class CaseAnswerMetric(BaseModel):
@@ -29,6 +30,8 @@ class CaseAnswerMetric(BaseModel):
     unsupported_claim_rate: float
     cited_count: int
     unsupported_claims: list[str] = Field(default_factory=list)
+    gold_citation_precision: float | None = None
+    gold_citation_recall: float | None = None
 
 
 class AnswerEvaluationReport(BaseModel):
@@ -39,6 +42,8 @@ class AnswerEvaluationReport(BaseModel):
     citation_correctness: float
     completeness: float
     unsupported_claim_rate: float
+    gold_citation_precision: float | None = None
+    gold_citation_recall: float | None = None
     details: list[CaseAnswerMetric]
 
 
@@ -76,6 +81,16 @@ def evaluate_answer_quality(
         citation_correctness=_average(r.citation_correctness for r in results),
         completeness=_average(r.completeness for r in results),
         unsupported_claim_rate=_average(r.unsupported_claim_rate for r in results),
+        gold_citation_precision=_average(
+            [r.gold_citation_precision for r in results if r.gold_citation_precision is not None]
+        )
+        if any(r.gold_citation_precision is not None for r in results)
+        else None,
+        gold_citation_recall=_average(
+            [r.gold_citation_recall for r in results if r.gold_citation_recall is not None]
+        )
+        if any(r.gold_citation_recall is not None for r in results)
+        else None,
         details=results,
     )
 
@@ -85,12 +100,10 @@ def _evaluate_single_answer(response: Any, case: AnswerEvalCase) -> CaseAnswerMe
     answer_text = response.answer
     citations = response.citations
 
-    # 1. Đo lường Citation Correctness
-    # Trích xuất các trích dẫn dạng [Tên tài liệu, trang X] trong câu trả lời
+    # 1. Đo lường Citation Correctness & Gold Evidence Grounding
     cited_references = re.findall(r"\[([^,]+),\s*trang\s*(\d+)\]", answer_text, re.IGNORECASE)
     valid_citations = 0
     available_pages = {(c.document_name.lower(), c.page) for c in citations}
-    # Thêm fallback theo document_id
     for c in citations:
         available_pages.add((c.document_id.lower(), c.page))
 
@@ -101,11 +114,22 @@ def _evaluate_single_answer(response: Any, case: AnswerEvalCase) -> CaseAnswerMe
                 valid_citations += 1
         citation_corr = round(valid_citations / len(cited_references), 4)
     else:
-        # Nếu câu trả lời nêu rõ không tìm thấy bằng chứng khi không có citation
         citation_corr = 1.0 if not citations else 0.5
 
+    # Gold Citation Metrics (Precision & Recall so với expected_evidence chuẩn vàng)
+    gold_precision: float | None = None
+    gold_recall: float | None = None
+    if case.expected_evidence:
+        expected_set = {
+            (str(e.get("document_id", "")).lower(), int(e.get("page", 0)))
+            for e in case.expected_evidence
+        }
+        retrieved_set = {(str(c.document_id).lower(), c.page) for c in citations}
+        matched = expected_set.intersection(retrieved_set)
+        gold_precision = round(len(matched) / max(1, len(retrieved_set)), 4)
+        gold_recall = round(len(matched) / max(1, len(expected_set)), 4)
+
     # 2. Đo lường Faithfulness & Unsupported Claim Rate
-    # Chia câu trả lời thành các câu độc lập
     sentences = [s.strip() for s in re.split(r"[.\n]+", answer_text) if len(s.strip()) > 15]
     factual_sentences = [
         s for s in sentences if any(char.isdigit() for char in s) or len(s.split()) >= 6
@@ -120,7 +144,6 @@ def _evaluate_single_answer(response: Any, case: AnswerEvalCase) -> CaseAnswerMe
         if res["supported"]:
             supported_count += 1
         else:
-            # Nếu câu giải thích trạng thái hệ thống / template dẫn nguồn
             if any(
                 p in s.lower()
                 for p in (
@@ -158,6 +181,8 @@ def _evaluate_single_answer(response: Any, case: AnswerEvalCase) -> CaseAnswerMe
         unsupported_claim_rate=unsupported_rate,
         cited_count=len(cited_references),
         unsupported_claims=unsupported,
+        gold_citation_precision=gold_precision,
+        gold_citation_recall=gold_recall,
     )
 
 

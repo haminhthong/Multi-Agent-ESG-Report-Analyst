@@ -1,7 +1,5 @@
 """Unit normalizer for quantitative ESG metrics."""
 
-from typing import Any
-
 
 class UnitNormalizer:
     """Bộ chuẩn hóa đơn vị đo lường và giá trị số học cho các chỉ số ESG."""

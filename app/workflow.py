@@ -28,11 +28,10 @@ from app.models import (
     AnalysisState,
     Citation,
     ESGFact,
-    EvidenceCompletenessResult,
     PillarResult,
     RetrievalPlan,
 )
-from app.services.audit_service import ESGAuditService, ESGAuditAgent
+from app.services.audit_service import ESGAuditService
 from app.store import Store
 from app.tools import AgentTools
 
@@ -197,9 +196,9 @@ class ESGAnalysisPipeline:
         agent_mode: str = "orchestrated",
     ) -> AnalysisResponse:
         is_llm_active = self.llm.is_available()
-        resolved_agent_mode: Literal["llm_agentic", "deterministic_fallback", "agent_orchestrated"] = (
-            "deterministic_fallback" if not is_llm_active else "agent_orchestrated"
-        )
+        resolved_agent_mode: Literal[
+            "llm_agentic", "deterministic_fallback", "agent_orchestrated"
+        ] = "deterministic_fallback" if not is_llm_active else "agent_orchestrated"
 
         state = AnalysisState(
             request_id=str(uuid.uuid4()),
@@ -256,7 +255,9 @@ class ESGAnalysisPipeline:
             evidence_quality=evidence_quality,
             data_completeness=data_completeness,
             confidence=confidence,
-            screening_signals=(state.screening_result.all_signals if state.screening_result else []),
+            screening_signals=(
+                state.screening_result.all_signals if state.screening_result else []
+            ),
             pillars=state.pillars,
             citations=state.validated_citations,
             verification_summary=state.verification_summary,
@@ -313,6 +314,8 @@ class ESGAnalysisPipeline:
             mode=state.mode,
             document_ids=state.document_ids,
         )
+        state.plan.original_question = state.user_question
+        state.plan.canonical_query = state.user_question
         self._trace(
             state,
             "QueryPlanningAgent",
@@ -329,22 +332,38 @@ class ESGAnalysisPipeline:
         assert state.plan is not None
         started = time.perf_counter()
         if state.mode == "audit":
+            from app.rubric import CRITERIA_DEFINITIONS
+
+            # Criterion-level audit retrieval: đảm bảo mọi tiêu chí chuẩn mực đều được truy xuất bằng chứng chuyên biệt
+            criterion_cites: list[Citation] = []
+            for crit in CRITERIA_DEFINITIONS:
+                crit_query = f"{crit.name} {' '.join(crit.retrieval_keywords[:3])}"
+                sub_cites = self.retrieval.run(crit_query, top_k=3, document_ids=state.document_ids)
+                criterion_cites.extend(sub_cites)
+
             plan = RetrievalPlan(
                 intent="criterion_audit",
+                original_question=state.user_question,
+                canonical_query=state.user_question,
                 subqueries=AUDIT_SUBQUERIES,
                 required_evidence=state.plan.required_evidence,
                 document_scope=state.document_ids,
             )
-            state.raw_citations = self.retrieval.run_plan(plan, top_k=max(state.top_k, 12))
+            core_cites = self.retrieval.run_plan(plan, top_k=max(state.top_k, 12))
+            state.raw_citations = self._merge_citations(
+                core_cites, criterion_cites, limit=max(state.top_k * 4, 30)
+            )
         else:
             state.raw_citations = self.retrieval.run_plan(state.plan, top_k=state.top_k)
         self._trace(
             state,
             "RetrievalAgent",
-            "Retrieve hybrid evidence candidates",
+            "Retrieve hybrid evidence candidates (criterion-level audit)"
+            if state.mode == "audit"
+            else "Retrieve hybrid evidence candidates",
             started,
             retrieved_chunks=len(state.raw_citations),
-            details={"mode": self.retrieval_mode, "top_k": state.top_k},
+            details={"mode": self.retrieval_mode, "top_k": len(state.raw_citations)},
         )
 
     def _verify(self, state: AnalysisState) -> None:
@@ -367,6 +386,11 @@ class ESGAnalysisPipeline:
         started = time.perf_counter()
         state.extracted_facts = self.extractor.extract_facts(state.validated_citations)
         state.conflicts = self.extractor.detect_conflicts(state.extracted_facts)
+
+        # Lưu trữ facts vào Fact Store để tái sử dụng làm single source of truth
+        if hasattr(self.store, "save_facts") and state.extracted_facts:
+            self.store.save_facts(state.extracted_facts)
+
         self._trace(
             state,
             "EvidenceExtractionAgent",
@@ -374,6 +398,75 @@ class ESGAnalysisPipeline:
             started,
             retrieved_chunks=len(state.extracted_facts),
             details={"facts": len(state.extracted_facts), "conflicts": len(state.conflicts)},
+        )
+
+    def _targeted_retrieval_retry(self, state: AnalysisState) -> None:
+        """Kích hoạt targeted retrieval retry cho các khía cạnh bằng chứng còn thiếu."""
+        if not state.evidence_completeness:
+            return
+
+        missing_reqs = list(state.evidence_completeness.missing) + list(
+            state.evidence_completeness.partial
+        )
+        if not missing_reqs:
+            return
+
+        retry_queries: list[str] = []
+        for req in missing_reqs[:3]:
+            aliases = _EVIDENCE_ALIASES.get(req, (req.replace("_", " "),))
+            retry_queries.append(" ".join(aliases[:3]))
+
+        if not retry_queries:
+            return
+
+        started = time.perf_counter()
+        retry_plan = RetrievalPlan(
+            intent=state.plan.intent if state.plan else "fact_lookup",
+            original_question=state.user_question,
+            canonical_query=" ".join(retry_queries),
+            subqueries=retry_queries,
+            document_scope=state.document_ids,
+        )
+        retry_citations = self.retrieval.run_plan(retry_plan, top_k=4)
+        validated_retry = self.verifier.validate(retry_citations)
+
+        new_cites = [
+            c
+            for c in validated_retry
+            if not any(
+                c.document_id == ex.document_id
+                and c.page == ex.page
+                and c.excerpt[:80] == ex.excerpt[:80]
+                for ex in state.validated_citations
+            )
+        ]
+        if new_cites:
+            state.validated_citations.extend(new_cites)
+            new_facts = self.extractor.extract_facts(new_cites)
+            if new_facts:
+                state.extracted_facts.extend(new_facts)
+                if hasattr(self.store, "save_facts"):
+                    self.store.save_facts(new_facts)
+                state.conflicts = self.extractor.detect_conflicts(state.extracted_facts)
+
+            # Thẩm định lại completeness sau khi thu hồi thêm bằng chứng
+            state.evidence_completeness = self.completeness_gate.check(
+                state.plan.required_evidence if state.plan else [],
+                state.extracted_facts,
+                state.validated_citations,
+            )
+
+        self._trace(
+            state,
+            "EvidenceCompletenessGate",
+            "Targeted retrieval retry for missing evidence",
+            started,
+            retrieved_chunks=len(new_cites),
+            details={
+                "missing_targeted": missing_reqs,
+                "new_citations": len(new_cites),
+                "recheck_status": state.evidence_completeness.status,
+            },
         )
 
     def _check_completeness(self, state: AnalysisState) -> None:
@@ -384,6 +477,13 @@ class ESGAnalysisPipeline:
             state.extracted_facts,
             state.validated_citations,
         )
+
+        # Active Completeness Gate: Tự động chạy targeted retry nếu thiếu bằng chứng
+        if state.evidence_completeness.status == "incomplete" and (
+            state.evidence_completeness.missing or state.evidence_completeness.partial
+        ):
+            self._targeted_retrieval_retry(state)
+
         self._trace(
             state,
             "EvidenceCompletenessGate",
@@ -400,7 +500,9 @@ class ESGAnalysisPipeline:
         focus_pillars: list[Literal["E", "S", "G"]] | None,
     ) -> None:
         started = time.perf_counter()
-        pillars, overall_coverage, _ = self.audit.run(state.validated_citations)
+        pillars, overall_coverage, _ = self.audit.run(
+            state.validated_citations, facts=state.extracted_facts
+        )
         matrix = self.audit.build_evidence_matrix(
             state.validated_citations,
             state.extracted_facts,
@@ -454,9 +556,7 @@ class ESGAnalysisPipeline:
             companies = self._resolve_companies(state.user_question, state.document_ids)
             if len(companies) >= 2:
                 state.comparison = self.audit.run_comparison(companies, self.store)
-                details.update(
-                    {"executed": True, "companies": companies, "analysis": "comparison"}
-                )
+                details.update({"executed": True, "companies": companies, "analysis": "comparison"})
             else:
                 state.warnings.append(
                     "Comparison intent detected but fewer than two companies could be resolved."

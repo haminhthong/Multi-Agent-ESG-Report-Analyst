@@ -1,0 +1,102 @@
+"""Fact Store repository: single source of truth for structured ESG facts."""
+
+from __future__ import annotations
+
+import logging
+from typing import Any
+
+from app.extraction.fact_validator import detect_conflicts
+from app.models import Citation, ESGFact, EvidenceConflict
+from app.store import Store
+
+logger = logging.getLogger(__name__)
+
+
+class FactRepository:
+    """Repository quản lý vòng đời và truy vấn Fact Store chuẩn kiểm toán."""
+
+    def __init__(self, store: Store) -> None:
+        self.store = store
+
+    def save_facts(self, facts: list[ESGFact]) -> int:
+        """Lưu trữ danh sách sự thật ESG có cấu trúc vào Fact Store."""
+        return self.store.save_facts(facts)
+
+    def query_facts(
+        self,
+        company: str | None = None,
+        metric: str | None = None,
+        year: int | None = None,
+        document_id: str | None = None,
+    ) -> list[ESGFact]:
+        """Truy vấn các sự thật ESG từ Fact Store và chuyển đổi về đối tượng ESGFact."""
+        rows = self.store.query_facts(
+            company=company,
+            metric=metric,
+            year=year,
+            document_id=document_id,
+        )
+        return [self._row_to_fact(r) for r in rows]
+
+    def get_temporal_series(self, company: str, metric: str) -> list[ESGFact]:
+        """Truy xuất chuỗi thời gian đa năm của một chỉ số ESG cho một công ty cụ thể."""
+        facts = self.query_facts(company=company, metric=metric)
+        return sorted(facts, key=lambda f: f.reporting_year or f.year or 0)
+
+    def get_cross_company_facts(self, companies: list[str], metric: str) -> list[ESGFact]:
+        """Truy xuất các facts đồng chuẩn của cùng một chỉ tiêu cho nhiều công ty."""
+        all_facts: list[ESGFact] = []
+        for comp in companies:
+            all_facts.extend(self.query_facts(company=comp, metric=metric))
+        return all_facts
+
+    def detect_conflicts_in_store(self, company: str | None = None) -> list[EvidenceConflict]:
+        """Phát hiện mâu thuẫn số liệu công bố đa chiều trong Fact Store."""
+        facts = self.query_facts(company=company)
+        return detect_conflicts(facts)
+
+    @staticmethod
+    def _row_to_fact(row: dict[str, Any]) -> ESGFact:
+        val_raw = row.get("raw_value")
+        val: float | str | None = None
+        if val_raw is not None:
+            try:
+                val = float(val_raw)
+            except ValueError:
+                val = val_raw
+
+        cite = None
+        if row.get("document_id") or row.get("page"):
+            cite = Citation(
+                document_id=row.get("document_id") or "unknown",
+                document_name=row.get("document_id") or "Report",
+                company=row.get("company"),
+                page=row.get("page") or 1,
+                chunk_id=int(row["chunk_id"]) if str(row.get("chunk_id", "")).isdigit() else None,
+                excerpt=f"Fact recorded from page {row.get('page')}",
+            )
+
+        return ESGFact(
+            fact_id=row.get("fact_id", ""),
+            company=row.get("company"),
+            document_id=row.get("document_id"),
+            metric=row["metric"],
+            value=val,
+            unit=row.get("raw_unit"),
+            year=row.get("reporting_year"),
+            reporting_year=row.get("reporting_year"),
+            baseline_year=row.get("baseline_year"),
+            target_year=row.get("target_year"),
+            source=cite,
+            confidence=float(row.get("confidence") or 0.8),
+            raw_value=val,
+            raw_unit=row.get("raw_unit"),
+            normalized_value=float(row["normalized_value"])
+            if row.get("normalized_value") is not None
+            else None,
+            normalized_unit=row.get("normalized_unit"),
+            methodology=row.get("methodology"),
+            organizational_boundary=row.get("organizational_boundary"),
+            validation_status=row.get("validation_status", "valid"),
+            extractor_version=row.get("extractor_version", "esg-extractor-v2"),
+        )

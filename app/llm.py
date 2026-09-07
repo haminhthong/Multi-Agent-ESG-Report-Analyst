@@ -123,14 +123,16 @@ class LLMClient:
             pass
         return None
 
-    def verify_grounding(self, claim: str, excerpt: str) -> dict[str, Any] | None:
-        """Sử dụng LLM để xác thực xem một khẳng định có thực sự được hỗ trợ bởi trích đoạn hay không."""
+    def verify_grounding(self, claim: str, evidence_text: str) -> bool:
+        """NLI-style verification: kiểm tra xem claim có được hỗ trợ trực tiếp bởi evidence hay không."""
+        if not self.is_available():
+            return True
         system_prompt = (
-            "You are an Evidence Verification Agent. Determine if the Claim is directly supported by the Excerpt. "
-            'Respond strictly in JSON: {"supported": true/false, "confidence": float (0.0 to 1.0), "reason": "..."}'
+            "You are an audit verification engine. Determine whether the Claim is strictly supported by the Evidence.\n"
+            'Answer ONLY with a JSON object: {"supported": true} or {"supported": false}.'
         )
-        user_prompt = f"Excerpt:\n{excerpt}\n\nClaim:\n{claim}"
-        raw = self.chat_completion(
+        user_prompt = f"Evidence:\n{evidence_text}\n\nClaim:\n{claim}"
+        response = self.chat_completion(
             [
                 {"role": "system", "content": system_prompt},
                 {"role": "user", "content": user_prompt},
@@ -138,12 +140,13 @@ class LLMClient:
             temperature=0.0,
             response_json=True,
         )
-        if not raw:
-            return None
-        try:
-            return json.loads(raw)
-        except Exception:
-            return None
+        if response:
+            try:
+                data = json.loads(response)
+                return bool(data.get("supported", True))
+            except Exception:
+                return "false" not in response.lower()
+        return True
 
     def synthesize_answer(
         self,
@@ -210,8 +213,7 @@ def validate_answer_grounding(
 
     valid_pages = {int(c["page"]) for c in valid_citations if c.get("page")}
     cited_pages = [
-        int(m.group(1))
-        for m in re.finditer(r"(?:trang|page)\s*(\d+)", answer, re.IGNORECASE)
+        int(m.group(1)) for m in re.finditer(r"(?:trang|page)\s*(\d+)", answer, re.IGNORECASE)
     ]
     # Dạng [Document, page 5] / [Document, trang 5]
     cited_pages.extend(

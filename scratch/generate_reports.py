@@ -32,7 +32,9 @@ def compute_file_hash(filepath: Path) -> str:
 
 def get_git_sha() -> str:
     try:
-        res = subprocess.run(["git", "rev-parse", "HEAD"], capture_output=True, text=True, check=True)
+        res = subprocess.run(
+            ["git", "rev-parse", "HEAD"], capture_output=True, text=True, check=True
+        )
         return res.stdout.strip()
     except Exception:
         return "f7da23acc724ac61fe5b17f2c4020329f3a2a44a"

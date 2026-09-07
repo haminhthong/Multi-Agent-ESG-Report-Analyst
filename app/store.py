@@ -1,3 +1,4 @@
+import hashlib
 import json
 import sqlite3
 from pathlib import Path
@@ -72,12 +73,36 @@ CREATE TABLE IF NOT EXISTS chunks(
     block_type TEXT DEFAULT 'text',
     block_id TEXT,
     pillar TEXT,
+    stable_id TEXT,
+    content_hash TEXT,
     FOREIGN KEY(document_id) REFERENCES documents(id) ON DELETE CASCADE
 );
 CREATE TABLE IF NOT EXISTS chunk_embeddings(
     chunk_id INTEGER PRIMARY KEY,
     vector_json TEXT NOT NULL,
     FOREIGN KEY(chunk_id) REFERENCES chunks(id) ON DELETE CASCADE
+);
+CREATE TABLE IF NOT EXISTS esg_facts(
+    fact_id TEXT PRIMARY KEY,
+    company TEXT,
+    document_id TEXT,
+    metric TEXT NOT NULL,
+    raw_value TEXT,
+    raw_unit TEXT,
+    normalized_value REAL,
+    normalized_unit TEXT,
+    reporting_year INTEGER,
+    baseline_year INTEGER,
+    target_year INTEGER,
+    methodology TEXT,
+    organizational_boundary TEXT,
+    page INTEGER,
+    chunk_id TEXT,
+    confidence REAL,
+    validation_status TEXT DEFAULT 'valid',
+    extractor_version TEXT,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY(document_id) REFERENCES documents(id) ON DELETE CASCADE
 );
 CREATE VIRTUAL TABLE IF NOT EXISTS chunks_fts USING fts5(text, content='chunks', content_rowid='id');
 CREATE TRIGGER IF NOT EXISTS chunks_ai AFTER INSERT ON chunks BEGIN INSERT INTO chunks_fts(rowid,text) VALUES(new.id,new.text); END;
@@ -92,7 +117,7 @@ END;
 """
 
 SEARCH_COLUMNS = (
-    "c.id chunk_id, c.document_id, c.page, c.text, "
+    "c.id chunk_id, c.stable_id, c.content_hash, c.document_id, c.page, c.text, "
     "c.section_title, c.block_type, c.block_id, c.pillar, "
     "d.name, d.company, d.year"
 )
@@ -136,6 +161,8 @@ class Store:
             "block_type": "TEXT DEFAULT 'text'",
             "block_id": "TEXT",
             "pillar": "TEXT",
+            "stable_id": "TEXT",
+            "content_hash": "TEXT",
         }
         for name, definition in columns.items():
             if name not in existing:
@@ -189,10 +216,20 @@ class Store:
                 if layout_blocks
                 else chunk_pages(pages, company=company, year=year)
             )
-            for chunk in chunk_iter:
+            for chunk_idx, chunk in enumerate(chunk_iter, start=1):
+                stable_id = (
+                    getattr(chunk, "stable_chunk_id", None)
+                    or hashlib.sha256(
+                        f"{doc_id}:{chunk.page}:{chunk.block_id or ''}:{chunk_idx}:{chunk.text}".encode()
+                    ).hexdigest()[:16]
+                )
+                content_hash = (
+                    getattr(chunk, "content_hash", None)
+                    or hashlib.sha256(chunk.text.encode()).hexdigest()[:16]
+                )
                 cur = db.execute(
-                    "INSERT INTO chunks(document_id, page, text, section_title, block_type, block_id, pillar) "
-                    "VALUES(?,?,?,?,?,?,?)",
+                    "INSERT INTO chunks(document_id, page, text, section_title, block_type, block_id, pillar, stable_id, content_hash) "
+                    "VALUES(?,?,?,?,?,?,?,?,?)",
                     (
                         doc_id,
                         chunk.page,
@@ -201,6 +238,8 @@ class Store:
                         chunk.block_type,
                         chunk.block_id,
                         chunk.pillar,
+                        stable_id,
+                        content_hash,
                     ),
                 )
                 inserted_chunks.append((cur.lastrowid, chunk.text))
@@ -214,6 +253,114 @@ class Store:
                         "INSERT OR REPLACE INTO chunk_embeddings(chunk_id, vector_json) VALUES(?,?)",
                         (cid, json.dumps(vec)),
                     )
+
+    def save_facts(self, facts: list[Any]) -> int:
+        """Lưu trữ danh sách ESGFact vào bảng esg_facts trong SQLite (Fact Store)."""
+        if not facts:
+            return 0
+        inserted = 0
+        with self.connect() as db:
+            for f in facts:
+                metric = getattr(f, "metric", "")
+                if not metric:
+                    continue
+                source_cite = getattr(f, "source", None)
+                page = getattr(f, "page", None) or (
+                    getattr(source_cite, "page", None) if source_cite else None
+                )
+                chunk_id = (
+                    str(
+                        getattr(f, "chunk_id", None)
+                        or (getattr(source_cite, "chunk_id", "") if source_cite else "")
+                    )
+                    or None
+                )
+                doc_id = getattr(f, "document_id", None) or (
+                    getattr(source_cite, "document_id", None) if source_cite else None
+                )
+                company = getattr(f, "company", None) or (
+                    getattr(source_cite, "company", None) if source_cite else None
+                )
+                rep_year = getattr(f, "reporting_year", None) or getattr(f, "year", None)
+                val_for_hash = (
+                    getattr(f, "normalized_value", None)
+                    if getattr(f, "normalized_value", None) is not None
+                    else (getattr(f, "value", None) or getattr(f, "raw_value", ""))
+                )
+                fact_id = (
+                    getattr(f, "fact_id", None)
+                    or hashlib.sha256(
+                        f"{company or ''}:{doc_id or ''}:{metric}:{rep_year}:{val_for_hash}".encode()
+                    ).hexdigest()[:16]
+                )
+
+                raw_val = str(getattr(f, "raw_value", getattr(f, "value", "")))
+                raw_unit = getattr(f, "raw_unit", getattr(f, "unit", None))
+                norm_val = (
+                    getattr(f, "normalized_value", None)
+                    if isinstance(getattr(f, "normalized_value", None), (int, float))
+                    else (f.value if isinstance(getattr(f, "value", None), (int, float)) else None)
+                )
+                norm_unit = getattr(f, "normalized_unit", None)
+
+                db.execute(
+                    """
+                    INSERT OR REPLACE INTO esg_facts(
+                        fact_id, company, document_id, metric, raw_value, raw_unit,
+                        normalized_value, normalized_unit, reporting_year, baseline_year,
+                        target_year, methodology, organizational_boundary, page, chunk_id,
+                        confidence, validation_status, extractor_version
+                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    """,
+                    (
+                        fact_id,
+                        company,
+                        doc_id,
+                        metric,
+                        raw_val,
+                        raw_unit,
+                        norm_val,
+                        norm_unit,
+                        rep_year,
+                        getattr(f, "baseline_year", None),
+                        getattr(f, "target_year", None),
+                        getattr(f, "methodology", None),
+                        getattr(f, "organizational_boundary", None),
+                        page,
+                        chunk_id,
+                        float(getattr(f, "confidence", 0.0)),
+                        getattr(f, "validation_status", "valid"),
+                        getattr(f, "extractor_version", "esg-extractor-v2"),
+                    ),
+                )
+                inserted += 1
+        return inserted
+
+    def query_facts(
+        self,
+        company: str | None = None,
+        metric: str | None = None,
+        year: int | None = None,
+        document_id: str | None = None,
+    ) -> list[dict[str, Any]]:
+        """Truy vấn các facts ESG có cấu trúc từ Fact Store."""
+        sql = "SELECT * FROM esg_facts WHERE 1=1"
+        params: list[Any] = []
+        if company:
+            sql += " AND LOWER(company) = LOWER(?)"
+            params.append(company)
+        if metric:
+            sql += " AND (metric = ? OR metric LIKE ?)"
+            params.extend([metric, f"%{metric}%"])
+        if year:
+            sql += " AND reporting_year = ?"
+            params.append(year)
+        if document_id:
+            sql += " AND document_id = ?"
+            params.append(document_id)
+        sql += " ORDER BY reporting_year ASC, confidence DESC"
+        with self.connect() as db:
+            return [dict(r) for r in db.execute(sql, params).fetchall()]
 
     def ensure_embeddings(self) -> None:
         """Đảm bảo mọi chunk trong cơ sở dữ liệu đều có vector embedding."""

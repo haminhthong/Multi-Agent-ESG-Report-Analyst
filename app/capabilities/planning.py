@@ -74,7 +74,8 @@ class QueryPlanningAgent:
             ]
             required = ["target", "baseline", "emissions", "assurance"]
         elif mode == "audit" or any(
-            w in lowered for w in ("audit", "kiểm toán", "đánh giá toàn diện", "coverage", "bao phủ")
+            w in lowered
+            for w in ("audit", "kiểm toán", "đánh giá toàn diện", "coverage", "bao phủ")
         ):
             intent = "criterion_audit"
             subqueries = [

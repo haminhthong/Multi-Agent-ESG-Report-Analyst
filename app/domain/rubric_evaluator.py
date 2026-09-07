@@ -5,7 +5,6 @@ from app.models import (
     CriterionCitationRef,
     CriterionResult,
     ESGFact,
-    EvidenceMatrixRow,
     PillarResult,
     RubricCriterion,
 )
@@ -22,6 +21,13 @@ from app.rubric import (
     YEAR_PATTERN,
     PillarRubric,
 )
+from app.domain.evidence_matrix import EvidenceMatrixBuilder
+
+__all__ = [
+    "RubricEvaluator",
+    "PillarEvaluator",
+    "EvidenceMatrixBuilder",
+]
 
 
 def _contains_any(text: str, keywords: tuple[str, ...]) -> bool:
@@ -57,13 +63,27 @@ def _field_matched_in_text(
     return any(term in text for term in rf_l.split("_") if term)
 
 
+CRITERION_FACT_MAP: dict[str, list[str]] = {
+    "E_GHG_SCOPE_1_2": ["scope_1_emissions", "scope_2_emissions"],
+    "E_GHG_SCOPE_3": ["scope_3_emissions"],
+    "E_TARGET_SETTING": ["net_zero_target"],
+    "E_RENEWABLE_ENERGY": ["renewable_energy"],
+    "S_HEALTH_SAFETY": ["work_safety"],
+    "S_DIVERSITY_INCLUSION": ["gender_diversity"],
+    "S_SUPPLY_CHAIN_LABOR": ["supplier_assessment"],
+}
+
+
 class RubricEvaluator:
-    """Đánh giá chi tiết từng tiêu chí ESG dựa trên tập hợp bằng chứng trích dẫn."""
+    """Đánh giá chi tiết từng tiêu chí ESG dựa trên Fact-First (ưu tiên ESGFact) kết hợp Citation provenance."""
 
     def evaluate_criterion(
-        self, criterion: RubricCriterion, citations: list[Citation]
+        self,
+        criterion: RubricCriterion,
+        citations: list[Citation],
+        facts: list[ESGFact] | None = None,
     ) -> CriterionResult:
-        """Đánh giá 1 tiêu chí bằng cách gộp bằng chứng từ nhiều citation."""
+        """Đánh giá 1 tiêu chí: ưu tiên Fact-first rồi mới fallback về quét text regex trên citation."""
         keywords = criterion.retrieval_keywords or criterion.required_evidence
         relevant: list[Citation] = []
         for cite in citations:
@@ -74,7 +94,68 @@ class RubricEvaluator:
             if matched_keywords:
                 relevant.append(cite)
 
-        if not relevant:
+        # 1. Fact-First Evaluation: Kiểm tra trực tiếp trên structured ESGFact
+        matched_fields: list[str] = []
+        missing_fields: list[str] = []
+        value: str | None = None
+        year: int | None = None
+        unit = criterion.metric_units[0] if criterion.metric_units else None
+        best_cite: Citation | None = (
+            relevant[0] if relevant else (citations[0] if citations else None)
+        )
+
+        expected_metric_keys = CRITERION_FACT_MAP.get(criterion.id, [])
+        relevant_facts = [
+            f
+            for f in (facts or [])
+            if any(k in f.metric.lower() for k in expected_metric_keys)
+            or any(kw in f.metric.lower() for kw in keywords)
+        ]
+
+        if relevant_facts:
+            # Fact có độ tin cậy cao nhất
+            top_fact = max(relevant_facts, key=lambda f: f.confidence)
+            if top_fact.source:
+                best_cite = top_fact.source
+            if top_fact.value is not None:
+                value = str(top_fact.value)
+            if top_fact.year is not None:
+                year = top_fact.year
+            if top_fact.unit:
+                unit = top_fact.unit
+
+            for rf in criterion.required_fields:
+                rf_l = rf.lower()
+                field_satisfied = False
+                if "scope_1" in rf_l:
+                    field_satisfied = any(
+                        "scope_1" in f.metric and f.value is not None for f in relevant_facts
+                    )
+                elif "scope_2" in rf_l:
+                    field_satisfied = any(
+                        "scope_2" in f.metric and f.value is not None for f in relevant_facts
+                    )
+                elif "scope_3" in rf_l:
+                    field_satisfied = any(
+                        "scope_3" in f.metric and f.value is not None for f in relevant_facts
+                    )
+                elif any(k in rf_l for k in ("value", "rate", "percentage", "count", "trir")):
+                    field_satisfied = any(f.value is not None for f in relevant_facts)
+                elif "year" in rf_l:
+                    field_satisfied = any(f.year is not None for f in relevant_facts)
+                elif "unit" in rf_l:
+                    field_satisfied = any(bool(f.unit or f.normalized_unit) for f in relevant_facts)
+                elif "target" in rf_l:
+                    field_satisfied = any("target" in f.metric for f in relevant_facts)
+                elif "baseline" in rf_l:
+                    field_satisfied = any(f.baseline_year is not None for f in relevant_facts)
+
+                if field_satisfied:
+                    matched_fields.append(rf)
+                else:
+                    missing_fields.append(rf)
+
+        if not relevant and not relevant_facts:
             return CriterionResult(
                 criterion_id=criterion.id,
                 status="missing",
@@ -82,7 +163,7 @@ class RubricEvaluator:
                 missing_fields=list(criterion.required_fields),
             )
 
-        # Ưu tiên phát hiện mâu thuẫn trên bất kỳ đoạn liên quan nào
+        # 2. Phát hiện mâu thuẫn / phủ định trên các đoạn trích dẫn liên quan
         for cite in relevant:
             text = cite.excerpt.lower()
             if criterion.id == "G_EXTERNAL_ASSURANCE" and NEGATED_ASSURANCE_PATTERN.search(text):
@@ -112,38 +193,38 @@ class RubricEvaluator:
                     missing_fields=list(criterion.required_fields),
                 )
 
-        matched_fields: list[str] = []
-        missing_fields: list[str] = []
-        best_cite = relevant[0]
-        value: str | None = None
-        year: int | None = None
-        unit = criterion.metric_units[0] if criterion.metric_units else None
+        # 3. Fallback: Nếu Fact-first chưa đủ hoặc không có facts, quét regex bổ sung trên citations
+        if missing_fields or not relevant_facts:
+            remaining_missing = (
+                list(missing_fields) if relevant_facts else list(criterion.required_fields)
+            )
+            missing_fields = []
+            for rf in remaining_missing:
+                field_ok = False
+                for cite in relevant:
+                    text = cite.excerpt.lower()
+                    metric_match = METRIC_PATTERN.search(text)
+                    cite_value = metric_match.group(0) if metric_match else None
+                    year_match = YEAR_PATTERN.search(text)
+                    cite_year = int(year_match.group(0)) if year_match else None
+                    if _field_matched_in_text(rf, text, criterion, cite_value, cite_year):
+                        field_ok = True
+                        best_cite = cite
+                        if cite_value and not value:
+                            value = cite_value
+                        if cite_year is not None and year is None:
+                            year = cite_year
+                        break
+                if field_ok:
+                    if rf not in matched_fields:
+                        matched_fields.append(rf)
+                else:
+                    missing_fields.append(rf)
 
-        for rf in criterion.required_fields:
-            field_ok = False
-            for cite in relevant:
-                text = cite.excerpt.lower()
-                metric_match = METRIC_PATTERN.search(text)
-                cite_value = metric_match.group(0) if metric_match else None
-                year_match = YEAR_PATTERN.search(text)
-                cite_year = int(year_match.group(0)) if year_match else None
-                if _field_matched_in_text(rf, text, criterion, cite_value, cite_year):
-                    field_ok = True
-                    best_cite = cite
-                    if cite_value:
-                        value = cite_value
-                    if cite_year is not None:
-                        year = cite_year
-                    break
-            if field_ok:
-                matched_fields.append(rf)
-            else:
-                missing_fields.append(rf)
-
-        if not value:
+        if not value and best_cite:
             metric_match = METRIC_PATTERN.search(best_cite.excerpt.lower())
             value = metric_match.group(0) if metric_match else None
-        if year is None:
+        if year is None and best_cite:
             year_match = YEAR_PATTERN.search(best_cite.excerpt.lower())
             year = int(year_match.group(0)) if year_match else None
 
@@ -159,18 +240,24 @@ class RubricEvaluator:
             status = "partial" if value or year else "unclear"
             confidence = 0.50
 
+        cite_ref = (
+            CriterionCitationRef(
+                document=best_cite.document_name,
+                page=best_cite.page,
+                excerpt=best_cite.excerpt[:200],
+                section=best_cite.section,
+            )
+            if best_cite
+            else None
+        )
+
         return CriterionResult(
             criterion_id=criterion.id,
             status=status,
             value=value,
             unit=unit,
             reporting_year=year,
-            citation=CriterionCitationRef(
-                document=best_cite.document_name,
-                page=best_cite.page,
-                excerpt=best_cite.excerpt[:200],
-                section=best_cite.section,
-            ),
+            citation=cite_ref,
             confidence=confidence,
             matched_fields=matched_fields,
             missing_fields=missing_fields,
@@ -189,6 +276,7 @@ class PillarEvaluator:
         rubric: PillarRubric,
         citations: list[Citation],
         criteria_definitions: list[RubricCriterion] | None = None,
+        facts: list[ESGFact] | None = None,
     ) -> PillarResult:
         evidence = [
             item for item in citations if _contains_any(item.excerpt.lower(), rubric.topics)
@@ -202,7 +290,7 @@ class PillarEvaluator:
         partial_count = 0
 
         for criterion in pillar_criteria:
-            res = self.rubric_evaluator.evaluate_criterion(criterion, evidence)
+            res = self.rubric_evaluator.evaluate_criterion(criterion, evidence, facts=facts)
             criteria_results.append(res)
             if res.status == "found":
                 found_count += 1
@@ -266,14 +354,17 @@ class PillarEvaluator:
         )
 
     def evaluate_all(
-        self, citations: list[Citation]
+        self,
+        citations: list[Citation],
+        facts: list[ESGFact] | None = None,
     ) -> tuple[list[PillarResult], float]:
         """Đánh giá toàn bộ 3 trụ cột E, S, G."""
-        if not citations:
+        if not citations and not facts:
             pillars = [self.evaluate_pillar(name, rubric, []) for name, rubric in RUBRICS.items()]
             return pillars, 0.0
         pillars = [
-            self.evaluate_pillar(name, rubric, citations) for name, rubric in RUBRICS.items()
+            self.evaluate_pillar(name, rubric, citations, facts=facts)
+            for name, rubric in RUBRICS.items()
         ]
         overall_coverage = (
             round(sum(p.disclosure_coverage for p in pillars) / len(pillars), 1) if pillars else 0.0
@@ -281,6 +372,3 @@ class PillarEvaluator:
         return pillars, overall_coverage
 
     evaluate_all_pillars = evaluate_all
-
-
-from app.domain.evidence_matrix import EvidenceMatrixBuilder

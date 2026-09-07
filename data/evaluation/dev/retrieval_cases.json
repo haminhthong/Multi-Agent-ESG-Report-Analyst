@@ -1,0 +1,102 @@
+[
+  {
+    "id": "boeing_environment",
+    "question": "What environmental emissions and energy data does Boeing disclose?",
+    "query_scope": ["boeing-demo"],
+    "category": "table_retrieval",
+    "expected": [
+      {"document_id": "boeing-demo", "page": 34}
+    ]
+  },
+  {
+    "id": "boeing_safety",
+    "question": "How does Boeing address employee safety and training?",
+    "query_scope": ["boeing-demo"],
+    "category": "cross_page",
+    "expected": [
+      {"document_id": "boeing-demo", "page": 18},
+      {"document_id": "boeing-demo", "page": 43}
+    ]
+  },
+  {
+    "id": "boeing_governance",
+    "question": "How does the board oversee climate and enterprise risk?",
+    "query_scope": ["boeing-demo"],
+    "category": "fact_retrieval",
+    "expected": [
+      {"document_id": "boeing-demo", "page": 65}
+    ]
+  },
+  {
+    "id": "boeing_scope_3",
+    "question": "Does the report disclose Scope 3 greenhouse gas emissions?",
+    "query_scope": ["boeing-demo"],
+    "category": "fact_retrieval",
+    "expected": [
+      {"document_id": "boeing-demo", "page": 34}
+    ]
+  },
+  {
+    "id": "boeing_suppliers",
+    "question": "How many suppliers were rated using social criteria?",
+    "query_scope": ["boeing-demo"],
+    "category": "numeric_extraction",
+    "expected": [
+      {"document_id": "boeing-demo", "page": 43}
+    ]
+  },
+  {
+    "id": "boeing_net_zero_target_year",
+    "question": "What target year has Boeing established for net-zero emissions at manufacturing sites?",
+    "query_scope": ["boeing-demo"],
+    "category": "target_baseline",
+    "expected": [
+      {"document_id": "boeing-demo", "page": 6}
+    ]
+  },
+  {
+    "id": "boeing_hard_negative_assurance",
+    "question": "Does Boeing have independent third-party external assurance for its greenhouse gas report?",
+    "query_scope": ["boeing-demo"],
+    "category": "negative_evidence",
+    "expected": [
+      {"document_id": "boeing-demo", "page": 70}
+    ]
+  },
+  {
+    "id": "nextera_renewables",
+    "question": "What is NextEra Energy's total wind and solar renewable generation capacity?",
+    "query_scope": ["nextera-demo"],
+    "category": "numeric_extraction",
+    "expected": [
+      {"document_id": "nextera-demo", "page": 12}
+    ]
+  },
+  {
+    "id": "nextera_scope_1_reduction",
+    "question": "How much has NextEra reduced direct Scope 1 greenhouse gas emissions rate?",
+    "query_scope": ["nextera-demo"],
+    "category": "numeric_extraction",
+    "expected": [
+      {"document_id": "nextera-demo", "page": 28}
+    ]
+  },
+  {
+    "id": "nextera_external_assurance",
+    "question": "Which independent firm provided external assurance over greenhouse gas inventories?",
+    "query_scope": ["nextera-demo"],
+    "category": "fact_retrieval",
+    "expected": [
+      {"document_id": "nextera-demo", "page": 88}
+    ]
+  },
+  {
+    "id": "nextera_biodiversity",
+    "question": "What wildlife and water conservation initiatives are disclosed by NextEra?",
+    "query_scope": ["nextera-demo"],
+    "category": "fact_retrieval",
+    "expected": [
+      {"document_id": "nextera-demo", "page": 45}
+    ]
+  }
+]

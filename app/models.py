@@ -10,8 +10,11 @@ class Citation(BaseModel):
     """
 
     chunk_id: int | None = None
+    stable_chunk_id: str | None = None
     document_id: str
     document_name: str
+    company: str | None = None
+    document_year: int | None = None
     page: int
     excerpt: str
     score: float = 0.0
@@ -37,6 +40,7 @@ class LayoutBlock(BaseModel):
     text: str
     bbox: list[float] | None = None
     source_method: str = "native"
+    extraction_method: str | None = None
     quality_score: float = 1.0
 
 
@@ -103,8 +107,11 @@ class RetrievalPlan(BaseModel):
         "greenwashing_screening",
         "temporal_trend",
     ] = "fact_lookup"
+    original_question: str = ""
+    canonical_query: str = ""
     subqueries: list[str] = Field(default_factory=list)
     required_evidence: list[str] = Field(default_factory=list)
+    evidence_requirements: list[Any] = Field(default_factory=list)
     document_scope: list[str] | None = None
     temporal_scope: str | None = None
 
@@ -116,13 +123,20 @@ class ESGFact(BaseModel):
     value: float | str | None = None
     unit: str | None = None
     year: int | None = None
+    reporting_year: int | None = None
     baseline_year: int | None = None
     source: Citation | None = None
     confidence: float = Field(ge=0.0, le=1.0, default=0.0)
     fact_id: str = ""
+    company: str | None = None
+    document_id: str | None = None
     target_year: int | None = None
+    page: int | None = None
+    chunk_id: str | None = None
     extraction_method: Literal["regex", "rule", "llm"] = "rule"
-    verification_status: Literal["validated", "partial", "conflict", "valid", "unverified"] = "valid"
+    verification_status: Literal["validated", "partial", "conflict", "valid", "unverified"] = (
+        "valid"
+    )
     validation_status: Literal["validated", "partial", "conflict", "valid", "unverified"] = "valid"
 
     # Lưu vết nguyên bản và chuẩn hóa (Dual Value/Unit Representation)
@@ -133,6 +147,7 @@ class ESGFact(BaseModel):
     methodology: str | None = None  # e.g. "market-based", "location-based", "gross", "net"
     organizational_boundary: str | None = None
     evidence_text: str | None = None
+    extractor_version: str = "esg-extractor-v2"
 
 
 class EvidenceConflict(BaseModel):
@@ -161,6 +176,10 @@ class EvidenceRequirement(BaseModel):
 
     name: str
     fact_types: list[str] = Field(default_factory=list)
+    all_of: list[str] = Field(default_factory=list)
+    any_of: list[str] = Field(default_factory=list)
+    min_count: int = 1
+    required_fields: list[str] = Field(default_factory=list)  # e.g. ["value", "unit", "year"]
     keywords: list[str] = Field(default_factory=list)
     requires_numeric_value: bool = False
     requires_year: bool = False

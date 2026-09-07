@@ -42,7 +42,10 @@ def test_supervisor_with_mock_llm(tmp_path: Path):
     mock_llm.is_available.return_value = True
     mock_llm.generate_plan.return_value = [
         {"tool": "search_document", "args": {"query": "emissions", "top_k": 3}},
-        {"tool": "extract_metric", "args": {"text": "Scope 1 direct emissions reached 100 metric tons"}},
+        {
+            "tool": "extract_metric",
+            "args": {"text": "Scope 1 direct emissions reached 100 metric tons"},
+        },
     ]
     mock_llm.synthesize_answer.return_value = (
         "Based on [TestReport.pdf, trang 5], Scope 1 emissions were 100 metric tons in 2024."

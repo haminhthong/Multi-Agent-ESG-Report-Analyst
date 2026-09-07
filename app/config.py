@@ -32,8 +32,12 @@ class Settings(BaseSettings):
     # Cấu hình Advanced Hybrid Retrieval & Reranker
     embedding_model: str = "sentence-transformers/all-MiniLM-L6-v2"
     reranker_model: str = "cross-encoder/ms-marco-MiniLM-L-6-v2"
-    retrieval_mode: str = "hybrid_rerank"  # bm25 | dense | hybrid | hybrid_rerank
+    retrieval_mode: str = (
+        "hybrid"  # bm25 | dense | hybrid | hybrid_rerank (mặc định hybrid theo benchmark MRR/nDCG)
+    )
     rrf_k: int = 60
+    retrieval_pipeline_version: str = "hybrid-rrf-v2"
+    extractor_version: str = "esg-extractor-v2"
 
 
 # Khởi tạo đối tượng cấu hình singleton sử dụng trong toàn bộ ứng dụng

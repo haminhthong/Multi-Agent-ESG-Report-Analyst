@@ -1,7 +1,4 @@
-from app.domain.screening import (
-    SCREENING_RULES,
-    GreenwashingScreeningService,
-)
+from app.domain.screening import GreenwashingScreeningService
 from app.models import Citation, ESGFact
 
 

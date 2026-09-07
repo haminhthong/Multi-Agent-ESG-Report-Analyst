@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from typing import Any
+
 from app.config import settings
 from app.models import Citation, RetrievalPlan
 from app.reranker import reranker
@@ -35,17 +37,20 @@ class RetrievalAgent:
         top_k: int,
         document_ids: list[str] | None = None,
     ) -> list[Citation]:
+        primitive_mode = "hybrid" if self.mode in ("hybrid", "hybrid_rerank") else self.mode
         rows = self.store.search(
             query=self.plan_query(query),
-            limit=top_k,
+            limit=max(top_k * 3, 15) if self.mode == "hybrid_rerank" else top_k,
             document_ids=document_ids,
-            mode=self.mode,
+            mode=primitive_mode,
         )
+        if self.mode == "hybrid_rerank" and len(rows) > 1:
+            rows = reranker.rerank(query=query, candidates=rows, top_k=top_k)
         citations = [self._to_citation(row) for row in rows]
         return self._diversify_pages(citations, top_k)
 
     def run_plan(self, plan: RetrievalPlan, top_k: int) -> list[Citation]:
-        """Two-stage retrieval: RRF candidate pool generation followed by optional Cross-Encoder reranking."""
+        """Two-stage retrieval: RRF candidate pool generation followed by ONE optional Cross-Encoder reranking."""
         if not plan.subqueries:
             return []
 
@@ -54,12 +59,14 @@ class RetrievalAgent:
         rrf_scores: dict[Any, float] = {}
         candidates: dict[Any, dict] = {}
 
+        # Stage 1: Primitive multi-query retrieval (luôn dùng hybrid RRF primitive, không rerank ở store)
+        primitive_mode = "hybrid" if self.mode in ("hybrid", "hybrid_rerank") else self.mode
         for subquery in plan.subqueries:
             rows = self.store.search(
                 query=subquery,
                 limit=sub_limit,
                 document_ids=plan.document_scope,
-                mode=self.mode,
+                mode=primitive_mode,
             )
             for rank, row in enumerate(rows, start=1):
                 signature = self._extract_signature(row)
@@ -75,10 +82,14 @@ class RetrievalAgent:
             reverse=True,
         )
 
-        # Stage 2: Cross-Encoder Reranker on Top-20 Candidate Pool (if hybrid_rerank is active)
+        # Stage 2: Cross-Encoder Reranker đúng 1 LẦN trên Candidate Pool bằng Canonical Query
         if self.mode == "hybrid_rerank" and len(ranked_rows) > 1:
-            candidate_pool = ranked_rows[:max(top_k * 3, 20)]
-            rerank_query = plan.subqueries[0]
+            candidate_pool = ranked_rows[: max(top_k * 3, 20)]
+            rerank_query = (
+                plan.canonical_query.strip()
+                or plan.original_question.strip()
+                or (plan.subqueries[0] if plan.subqueries else "")
+            )
             reranked_pool = reranker.rerank(
                 query=rerank_query,
                 candidates=candidate_pool,
@@ -109,7 +120,9 @@ class RetrievalAgent:
 
     @staticmethod
     def _extract_signature(row: dict) -> Any:
-        """Prioritize chunk_id for provenance identity; fallback to document/page/block."""
+        """Prioritize stable_id or chunk_id for provenance identity; fallback to document/page/block."""
+        if row.get("stable_id") is not None:
+            return row["stable_id"]
         if row.get("chunk_id") is not None:
             return row["chunk_id"]
         return (
@@ -143,8 +156,11 @@ class RetrievalAgent:
         base_score = float(row.get("score") or 0.0)
         return Citation(
             chunk_id=row.get("chunk_id"),
+            stable_chunk_id=row.get("stable_id"),
             document_id=row["document_id"],
             document_name=row.get("name") or row["document_id"],
+            company=row.get("company"),
+            document_year=row.get("year"),
             page=row["page"],
             excerpt=" ".join((row.get("text") or "").split())[:700],
             score=base_score,

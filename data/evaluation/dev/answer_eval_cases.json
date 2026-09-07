@@ -1,0 +1,52 @@
+[
+  {
+    "id": "ans_boeing_suppliers",
+    "question": "How many suppliers were evaluated using social criteria by Boeing?",
+    "query_scope": ["boeing-demo"],
+    "expected_topics": ["suppliers", "social", "criteria"],
+    "expected_numbers": ["724", "148%"],
+    "expected_evidence": [
+      {"document_id": "boeing-demo", "page": 43}
+    ]
+  },
+  {
+    "id": "ans_boeing_netzero",
+    "question": "What is Boeing's net-zero emissions target year?",
+    "query_scope": ["boeing-demo"],
+    "expected_topics": ["net-zero", "emissions", "manufacturing"],
+    "expected_numbers": ["2030"],
+    "expected_evidence": [
+      {"document_id": "boeing-demo", "page": 34}
+    ]
+  },
+  {
+    "id": "ans_nextera_renewables",
+    "question": "What is NextEra Energy's renewable wind and solar capacity and investment?",
+    "query_scope": ["nextera-demo"],
+    "expected_topics": ["wind", "solar", "capacity", "investment"],
+    "expected_numbers": ["34,000", "18"],
+    "expected_evidence": [
+      {"document_id": "nextera-demo", "page": 12}
+    ]
+  },
+  {
+    "id": "ans_nextera_emissions_reduction",
+    "question": "What percentage reduction in Scope 1 emissions rate did NextEra achieve?",
+    "query_scope": ["nextera-demo"],
+    "expected_topics": ["reduction", "Scope 1", "baseline"],
+    "expected_numbers": ["43%", "2005"],
+    "expected_evidence": [
+      {"document_id": "nextera-demo", "page": 12}
+    ]
+  },
+  {
+    "id": "ans_nextera_assurance",
+    "question": "Which firm conducted external assurance for NextEra's GHG emissions?",
+    "query_scope": ["nextera-demo"],
+    "expected_topics": ["ERM CVS", "assurance", "ISO 14064-3"],
+    "expected_numbers": [],
+    "expected_evidence": [
+      {"document_id": "nextera-demo", "page": 12}
+    ]
+  }
+]

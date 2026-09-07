@@ -17,6 +17,7 @@ class EvidenceMatrixBuilder:
     def __init__(self, rubric_evaluator: RubricEvaluator | Any | None = None) -> None:
         if rubric_evaluator is None:
             from app.domain.rubric_evaluator import RubricEvaluator
+
             rubric_evaluator = RubricEvaluator()
         self.rubric_evaluator = rubric_evaluator
 
@@ -36,7 +37,7 @@ class EvidenceMatrixBuilder:
 
         defs = criteria_definitions or CRITERIA_DEFINITIONS
         for criterion in defs:
-            eval_res = self.rubric_evaluator.evaluate_criterion(criterion, citations)
+            eval_res = self.rubric_evaluator.evaluate_criterion(criterion, citations, facts=facts)
             status: Literal[
                 "found", "partial", "missing", "not_found", "contradicts", "unclear"
             ] = "missing"

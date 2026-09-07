@@ -2,6 +2,7 @@ import hashlib
 
 from app.chunking import pages_from_layout_blocks
 from app.document_intelligence import DocumentAgent, DocumentIntelligenceAgent
+from app.ingestion.ocr import OCRProvider, TesseractOCRProvider
 from app.models import DocumentIngestResponse, ExtractionQualityReport, LayoutBlock
 from app.store import Store
 
@@ -33,13 +34,13 @@ class OcrRequiredError(DocumentIngestError):
 class DocumentIngestionService:
     """Validate, extract, quality-check, and index ESG PDF reports.
 
-    The current implementation preserves document/page identity and heuristic
-    block types. It does not claim exact PDF coordinates because PyPDF text
-    extraction does not provide trustworthy bounding boxes in this pipeline.
+    Hỗ trợ cả trích xuất văn bản native qua PyMuPDF (với real bounding boxes)
+    và phục hồi qua OCRProvider (Tesseract) khi trang tài liệu là bản scan.
     """
 
-    def __init__(self, store: Store):
+    def __init__(self, store: Store, ocr_provider: OCRProvider | None = None):
         self.store = store
+        self.ocr_provider = ocr_provider or TesseractOCRProvider()
         self.doc_agent = DocumentIntelligenceAgent
 
     def ingest(
@@ -89,6 +90,39 @@ class DocumentIngestionService:
             raise DocumentExtractionError("Không thể trích xuất PDF: không có nội dung")
 
         text_pages, quality = self._measure_quality(pages)
+        ocr_applied_ratio = 0.0
+
+        # Nếu chất lượng văn bản native thấp, thử phục hồi bằng OCR provider
+        if quality < MIN_TEXT_PAGE_RATIO and self.ocr_provider.is_available():
+            ocr_pages = []
+            ocr_count = 0
+            for page_no, text in pages:
+                if len((text or "").strip()) < MIN_TEXT_CHARACTERS:
+                    recovered = ""
+                    try:
+                        import fitz
+
+                        doc = fitz.open(stream=content, filetype="pdf")
+                        if page_no - 1 < len(doc):
+                            pix = doc[page_no - 1].get_pixmap()
+                            img_bytes = pix.tobytes("png")
+                            recovered = self.ocr_provider.extract_text(img_bytes)
+                        doc.close()
+                    except Exception:
+                        recovered = ""
+
+                    if recovered and len(recovered.strip()) >= MIN_TEXT_CHARACTERS:
+                        ocr_count += 1
+                        ocr_pages.append((page_no, recovered))
+                    else:
+                        ocr_pages.append((page_no, text))
+                else:
+                    ocr_pages.append((page_no, text))
+
+            pages = ocr_pages
+            text_pages, quality = self._measure_quality(pages)
+            ocr_applied_ratio = round(ocr_count / max(1, len(pages)), 2)
+
         if quality < MIN_TEXT_PAGE_RATIO:
             raise OcrRequiredError(
                 "PDF có quá ít trang chứa văn bản native; cần OCR trước khi lập chỉ mục"
@@ -106,19 +140,22 @@ class DocumentIngestionService:
             layout_blocks=layout_blocks or None,
         )
         empty_pages = [
-            page_no
-            for page_no, text in pages
-            if len((text or "").strip()) < MIN_TEXT_CHARACTERS
+            page_no for page_no, text in pages if len((text or "").strip()) < MIN_TEXT_CHARACTERS
         ]
         table_count = sum(1 for b in layout_blocks if getattr(b, "block_type", "") == "table")
         report = ExtractionQualityReport(
             native_text_ratio=quality,
-            ocr_applied_ratio=0.0,
+            ocr_applied_ratio=ocr_applied_ratio,
             table_count=table_count,
             empty_pages=empty_pages,
             average_confidence=1.0 if quality >= 0.8 else round(quality, 2),
             notes=[
-                f"Đã trích xuất {text_pages}/{len(pages)} trang văn bản ({quality * 100:.1f}%)",
+                f"Đã trích xuất {text_pages}/{len(pages)} trang văn bản ({quality * 100:.1f}%)"
+                + (
+                    f", OCR phục hồi {ocr_applied_ratio * 100:.1f}% trang"
+                    if ocr_applied_ratio > 0
+                    else ""
+                ),
             ],
         )
 

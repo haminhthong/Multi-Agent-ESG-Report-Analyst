@@ -2,10 +2,10 @@
 
 from __future__ import annotations
 
-from app.domain.company_comparison import CompanyComparator, CompanyComparisonService
+from app.domain.company_comparison import CompanyComparisonService
 from app.domain.evidence_matrix import EvidenceMatrixBuilder
 from app.domain.rubric_evaluator import PillarEvaluator, RubricEvaluator
-from app.domain.screening import GreenwashingScreeningService, ScreeningService
+from app.domain.screening import GreenwashingScreeningService
 from app.domain.temporal_analysis import TemporalAnalyzer
 from app.llm import LLMClient
 from app.models import (
@@ -46,18 +46,25 @@ class ESGAnalysisService:
         )
         self.llm = llm_client
 
-    def run(self, citations: list[Citation]) -> tuple[list[PillarResult], float, list[str]]:
-        """Phân tích các trụ cột E, S, G và sàng lọc các tín hiệu cần kiểm tra."""
-        pillars, overall_coverage = self.pillar_evaluator.evaluate_all(citations)
-        if not citations:
+    def run(
+        self,
+        citations: list[Citation],
+        facts: list[ESGFact] | None = None,
+    ) -> tuple[list[PillarResult], float, list[str]]:
+        """Phân tích các trụ cột E, S, G và sàng lọc các tín hiệu cần kiểm tra theo Fact-First."""
+        pillars, overall_coverage = self.pillar_evaluator.evaluate_all(citations, facts=facts)
+        if not citations and not facts:
             return pillars, 0.0, ["Chưa truy xuất được bằng chứng nguồn để thẩm định."]
-        screening = self.screening_service.screen(citations, [])
+        screening = self.screening_service.screen(citations, facts or [])
         return pillars, overall_coverage, screening.all_signals
 
     def evaluate_criterion(
-        self, criterion: RubricCriterion, citations: list[Citation]
+        self,
+        criterion: RubricCriterion,
+        citations: list[Citation],
+        facts: list[ESGFact] | None = None,
     ) -> CriterionResult:
-        return self.rubric_evaluator.evaluate_criterion(criterion, citations)
+        return self.rubric_evaluator.evaluate_criterion(criterion, citations, facts=facts)
 
     _evaluate_criterion = evaluate_criterion
 

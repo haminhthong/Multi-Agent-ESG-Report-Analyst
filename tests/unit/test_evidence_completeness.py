@@ -1,8 +1,5 @@
-from app.domain.evidence_completeness import (
-    DEFAULT_REQUIREMENTS,
-    EvidenceCompletenessGate,
-)
-from app.models import Citation, ESGFact, EvidenceRequirement
+from app.domain.evidence_completeness import EvidenceCompletenessGate
+from app.models import Citation, ESGFact
 
 
 def test_evidence_completeness_satisfied():

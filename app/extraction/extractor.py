@@ -6,7 +6,11 @@ from app.extraction.fact_validator import detect_conflicts
 from app.extraction.metric_detector import FACT_PATTERNS
 from app.extraction.unit_normalizer import UnitNormalizer
 from app.extraction.value_parser import parse_numeric_value
-from app.extraction.year_resolver import extract_methodology, extract_year_for_span
+from app.extraction.year_resolver import (
+    extract_methodology,
+    extract_year_for_span,
+    resolve_target_year,
+)
 from app.models import Citation, ESGFact, EvidenceConflict
 from app.rubric import TARGET_PATTERN, YEAR_PATTERN
 
@@ -29,8 +33,10 @@ class FactExtractor:
 
         for cite in citations:
             text = cite.excerpt
-            year_match = YEAR_PATTERN.search(text)
-            doc_year = int(year_match.group(0)) if year_match else None
+            doc_year = cite.document_year
+            if doc_year is None:
+                year_match = YEAR_PATTERN.search(text)
+                doc_year = int(year_match.group(0)) if year_match else None
 
             # 1. Tìm năm cơ sở toàn văn bản
             baseline_match = re.search(
@@ -39,9 +45,7 @@ class FactExtractor:
                 re.IGNORECASE,
             )
             global_baseline = (
-                int(baseline_match.group(1) or baseline_match.group(2))
-                if baseline_match
-                else None
+                int(baseline_match.group(1) or baseline_match.group(2)) if baseline_match else None
             )
 
             # 2. Quét các mẫu metric định lượng
@@ -82,8 +86,13 @@ class FactExtractor:
                                 "%" if "target" in metric_key or "diversity" in metric_key else None
                             ),
                             year=local_year or doc_year,
+                            reporting_year=local_year or doc_year,
+                            page=cite.page,
+                            chunk_id=str(cite.chunk_id) if cite.chunk_id is not None else None,
                             baseline_year=baseline_year,
                             source=cite,
+                            company=cite.company,
+                            document_id=cite.document_id,
                             confidence=round(confidence, 2),
                             raw_value=numeric_val,
                             raw_unit=raw_unit.strip() if raw_unit else None,
@@ -105,16 +114,30 @@ class FactExtractor:
             if (TARGET_PATTERN.search(text) or has_net_zero) and not any(
                 f.metric == "net_zero_target" and f.source == cite for f in facts
             ):
-                target_year_m = re.search(r"\b20[2-5]\d\b", text)
-                target_year = int(target_year_m.group(0)) if target_year_m else None
+                target_m = TARGET_PATTERN.search(text) or re.search(
+                    r"\b(?:net[ -]?zero|carbon[ -]?neutral|zero\s*emissions)\b", text, re.I
+                )
+                target_span = target_m.span() if target_m else None
+                target_year = resolve_target_year(
+                    text,
+                    target_span=target_span,
+                    reporting_year=doc_year,
+                    baseline_year=global_baseline,
+                )
                 facts.append(
                     ESGFact(
                         metric="net_zero_target",
                         value=target_year if target_year is not None else "disclosed",
                         unit="year" if target_year is not None else "commitment",
                         year=doc_year,
+                        reporting_year=doc_year,
+                        page=cite.page,
+                        chunk_id=str(cite.chunk_id) if cite.chunk_id is not None else None,
+                        target_year=target_year,
                         baseline_year=global_baseline,
                         source=cite,
+                        company=cite.company,
+                        document_id=cite.document_id,
                         confidence=0.88 if global_baseline else 0.75,
                         raw_value=target_year if target_year is not None else "disclosed",
                         raw_unit="year" if target_year is not None else "commitment",

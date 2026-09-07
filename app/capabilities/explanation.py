@@ -41,7 +41,13 @@ class ExplanationAgent:
             if answer and len(answer.strip()) > 20:
                 grounded, _ = validate_answer_grounding(answer, payload)
                 if grounded:
-                    return answer
+                    from app.capabilities.verification import EvidenceVerificationAgent
+
+                    claim_grounded, _ = EvidenceVerificationAgent.verify_claim_grounding(
+                        answer, citations[:6], llm_client=self.llm
+                    )
+                    if claim_grounded:
+                        return answer
 
         return self._deterministic_answer(
             mode,

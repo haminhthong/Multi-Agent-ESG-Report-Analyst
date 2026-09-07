@@ -12,7 +12,7 @@ import re
 from io import BytesIO
 from typing import BinaryIO
 
-from app.chunking import HEADING, is_table_content
+from app.chunking import is_table_content
 from app.models import LayoutBlock
 
 
@@ -38,50 +38,10 @@ class DocumentIntelligenceAgent:
         source: bytes | BinaryIO,
         document_id: str = "doc",
     ) -> list[LayoutBlock]:
-        """Extract heuristic blocks from PyPDF text without fabricating coordinates."""
-        from pypdf import PdfReader
+        """Extract layout blocks using PyMuPDF (genuine bboxes) with pypdf fallback."""
+        from app.ingestion.layout_parser import LayoutParser
 
-        stream = BytesIO(source) if isinstance(source, bytes) else source
-        reader = PdfReader(stream)
-        blocks: list[LayoutBlock] = []
-        current_section = "General Information"
-
-        for page_number, page in enumerate(reader.pages, start=1):
-            raw_text = page.extract_text() or ""
-            paragraphs = [
-                paragraph.strip()
-                for paragraph in re.split(r"\n\s*\n", raw_text)
-                if paragraph.strip()
-            ]
-
-            for block_index, paragraph in enumerate(paragraphs, start=1):
-                if HEADING.match(paragraph):
-                    current_section = paragraph[:100]
-                    block_type = "heading"
-                elif is_table_content(paragraph):
-                    block_type = "table"
-                else:
-                    block_type = "text"
-
-                words = paragraph.split()
-                readable_words = sum(len(word) >= 2 for word in words)
-                quality = round(min(1.0, readable_words / max(1, len(words))), 2)
-
-                blocks.append(
-                    LayoutBlock(
-                        document_id=document_id,
-                        page=page_number,
-                        block_id=f"{document_id}_p{page_number}_b{block_index}",
-                        block_type=block_type,
-                        section=current_section,
-                        text=paragraph,
-                        bbox=None,
-                        source_method="pypdf_text",
-                        quality_score=quality,
-                    )
-                )
-
-        return blocks
+        return LayoutParser.parse_blocks(source, document_id=document_id)
 
     @staticmethod
     def extract_pdf(source: bytes | BinaryIO) -> list[tuple[int, str]]:
