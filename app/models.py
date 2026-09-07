@@ -1,5 +1,24 @@
 from typing import Any, Literal
+
 from pydantic import BaseModel, Field
+
+FactStatus = Literal[
+    "CANDIDATE",
+    "ACCEPTED",
+    "REJECTED",
+    "CONFLICT",
+    # Legacy values are accepted while older SQLite rows are migrated.
+    "candidate",
+    "accepted",
+    "rejected",
+    "conflict",
+    "validated",
+    "partial",
+    "valid",
+    "unverified",
+]
+
+AgentExecutionMode = Literal["agentic", "orchestrated", "deterministic"]
 
 
 class Citation(BaseModel):
@@ -24,6 +43,7 @@ class Citation(BaseModel):
     block_id: str | None = None
     block_type: Literal["text", "table", "heading", "figure"] = "text"
     char_offsets: tuple[int, int] | None = None
+    evidence_id: str | None = None
     retrieval_score: float = 0.0
     reranker_score: float | None = None
     validation_status: Literal["valid", "flagged", "rejected"] = "valid"
@@ -57,6 +77,10 @@ class RubricCriterion(BaseModel):
     required_evidence: list[str] = Field(default_factory=list)
     metric_units: list[str] = Field(default_factory=list)
     mandatory: bool = False
+    fact_types: list[str] = Field(default_factory=list)
+    retrieval_queries: list[str] = Field(default_factory=list)
+    field_validators: dict[str, str] = Field(default_factory=dict)
+    rubric_version: str | None = None
 
 
 class CriterionCitationRef(BaseModel):
@@ -80,6 +104,8 @@ class CriterionResult(BaseModel):
     confidence: float = Field(ge=0.0, le=1.0, default=0.0)
     matched_fields: list[str] = Field(default_factory=list)
     missing_fields: list[str] = Field(default_factory=list)
+    fact_ids: list[str] = Field(default_factory=list)
+    evidence_ids: list[str] = Field(default_factory=list)
 
 
 class PillarResult(BaseModel):
@@ -133,11 +159,12 @@ class ESGFact(BaseModel):
     target_year: int | None = None
     page: int | None = None
     chunk_id: str | None = None
+    evidence_span_id: str | None = None
     extraction_method: Literal["regex", "rule", "llm"] = "rule"
-    verification_status: Literal["validated", "partial", "conflict", "valid", "unverified"] = (
-        "valid"
-    )
-    validation_status: Literal["validated", "partial", "conflict", "valid", "unverified"] = "valid"
+    status: FactStatus = "CANDIDATE"
+    verification_status: FactStatus = "CANDIDATE"
+    # Compatibility name; the canonical lifecycle field is ``status``.
+    validation_status: FactStatus = "CANDIDATE"
 
     # Lưu vết nguyên bản và chuẩn hóa (Dual Value/Unit Representation)
     raw_value: float | str | None = None
@@ -333,6 +360,10 @@ class AnalysisRequest(BaseModel):
     top_k: int = Field(default=8, ge=1, le=25)
     mode: Literal["qa", "audit"] = Field(default="qa")
     focus_pillars: list[Literal["E", "S", "G"]] | None = None
+    agent_mode: AgentExecutionMode = Field(
+        default="agentic",
+        description="agentic uses optional LLM planning; orchestrated uses the bounded graph; deterministic disables the LLM.",
+    )
 
 
 class SearchRequest(BaseModel):
@@ -341,6 +372,13 @@ class SearchRequest(BaseModel):
     query: str = Field(min_length=2, max_length=500)
     document_ids: list[str] | None = Field(default=None, max_length=20)
     top_k: int = Field(default=6, ge=1, le=25)
+
+
+class FactReviewRequest(BaseModel):
+    """Explicit validator or human-review decision for a fact candidate."""
+
+    status: Literal["ACCEPTED", "REJECTED", "CONFLICT", "CANDIDATE"]
+    reviewed_by: str = Field(min_length=1, max_length=200)
 
 
 class ComparisonRequest(BaseModel):
@@ -365,6 +403,7 @@ class AuditRequest(BaseModel):
     document_ids: list[str] | None = None
     top_k: int = Field(default=12, ge=1, le=30)
     focus_pillars: list[Literal["E", "S", "G"]] | None = None
+    agent_mode: AgentExecutionMode = "agentic"
 
 
 class DocumentIngestResponse(BaseModel):
@@ -386,6 +425,9 @@ class AnalysisResponse(BaseModel):
     agent_mode: Literal["llm_agentic", "deterministic_fallback", "agent_orchestrated"] = (
         "deterministic_fallback"
     )
+    requested_agent_mode: AgentExecutionMode = "agentic"
+    agent_route: list[str] = Field(default_factory=list)
+    agent_stop_reason: str = "completed"
     answer: str
     disclosure_coverage: float = Field(ge=0.0, le=100.0, default=0.0)
     evidence_quality: float = Field(ge=0.0, le=100.0, default=0.0)
@@ -420,6 +462,9 @@ class AnalysisState(BaseModel):
     mode: Literal["qa", "audit"] = "qa"
     document_ids: list[str] | None = None
     top_k: int = 8
+    agent_mode: AgentExecutionMode = "agentic"
+    agent_route: list[str] = Field(default_factory=list)
+    agent_stop_reason: str = "pending"
     plan: RetrievalPlan | None = None
     raw_citations: list[Citation] = Field(default_factory=list)
     validated_citations: list[Citation] = Field(default_factory=list)

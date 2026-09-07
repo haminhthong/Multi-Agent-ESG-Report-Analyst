@@ -65,3 +65,33 @@ def test_unknown_document_scope_is_reported_not_silently_used(tmp_path: Path):
     )
 
     assert any("unknown document ids" in item.lower() for item in result.limitations)
+
+
+def test_supervisor_agent_graph_exposes_route_and_mode(tmp_path: Path):
+    store = Store(tmp_path / "workflow.db")
+    store.add_document(
+        "acme-2024",
+        "Acme Sustainability Report 2024.pdf",
+        [(5, "Acme reported Scope 1 emissions of 1200 tCO2e in 2024.")],
+        company="Acme",
+        year=2024,
+    )
+
+    result = ESGAnalysisPipeline(store, retrieval_mode="bm25").run(
+        "What were Acme Scope 1 emissions?",
+        top_k=3,
+        document_ids=["acme-2024"],
+        agent_mode="deterministic",
+    )
+
+    assert result.requested_agent_mode == "deterministic"
+    assert result.agent_mode == "deterministic_fallback"
+    assert result.agent_stop_reason == "completed"
+    assert result.agent_route[:5] == [
+        "ScopeAgent",
+        "QueryPlanningAgent",
+        "RetrievalAgent",
+        "EvidenceVerificationAgent",
+        "EvidenceExtractionAgent",
+    ]
+    assert any("Supervisor: handoff" in item for item in result.trace)

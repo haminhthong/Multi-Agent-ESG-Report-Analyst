@@ -14,10 +14,12 @@ from app.document_service import (
     DocumentIngestError,
     DocumentIngestionService,
     DocumentTooLargeError,
+    DocumentTooManyPagesError,
     OcrRequiredError,
     UnsupportedDocumentError,
 )
 from app.evidence_extractor import EvidenceExtractionAgent
+from app.facts.repository import FactRepository
 from app.models import (
     AnalysisRequest,
     AnalysisResponse,
@@ -30,6 +32,7 @@ from app.models import (
     ErrorDetail,
     ESGFact,
     EvidenceMatrixRow,
+    FactReviewRequest,
     SearchRequest,
     TemporalAnalysisResult,
     TemporalRequest,
@@ -40,6 +43,7 @@ from app.workflow import ESGAnalysisPipeline
 store = Store(settings.database_path)
 pipeline = ESGAnalysisPipeline(store)
 document_service = DocumentIngestionService(store)
+fact_repository = FactRepository(store)
 
 # Compatibility alias for older UI/tests that import ``supervisor`` from app.main.
 supervisor = pipeline
@@ -47,6 +51,7 @@ supervisor = pipeline
 INGEST_ERROR_STATUS = {
     UnsupportedDocumentError: (415, "PDF_INVALID"),
     DocumentTooLargeError: (413, "PDF_TOO_LARGE"),
+    DocumentTooManyPagesError: (413, "PDF_TOO_MANY_PAGES"),
     DocumentExtractionError: (422, "PDF_EXTRACTION_ERROR"),
     OcrRequiredError: (422, "OCR_REQUIRED"),
 }
@@ -68,7 +73,8 @@ async def read_limited_file(file: UploadFile, max_bytes: int = settings.max_file
 
 @asynccontextmanager
 async def lifespan(_: FastAPI) -> AsyncIterator[None]:
-    seed_demo(store)
+    if settings.seed_demo_data:
+        seed_demo(store)
     yield
 
 
@@ -170,6 +176,7 @@ def analyze(request: AnalysisRequest) -> AnalysisResponse:
         document_ids=request.document_ids,
         mode=request.mode,
         focus_pillars=request.focus_pillars,
+        agent_mode=request.agent_mode,
     )
 
 
@@ -181,6 +188,7 @@ def query_endpoint(request: AnalysisRequest) -> AnalysisResponse:
         document_ids=request.document_ids,
         mode="qa",
         focus_pillars=request.focus_pillars,
+        agent_mode=request.agent_mode,
     )
 
 
@@ -195,6 +203,7 @@ def audit_endpoint(request: AuditRequest) -> AnalysisResponse:
         document_ids=request.document_ids,
         mode="audit",
         focus_pillars=request.focus_pillars,
+        agent_mode=request.agent_mode,
     )
 
 
@@ -234,6 +243,25 @@ def document_metrics(document_id: str) -> list[ESGFact]:
     return EvidenceExtractionAgent.extract_facts(citations)
 
 
+@app.patch(
+    "/api/v1/facts/{fact_id}",
+    summary="Accept, reject, or flag an extracted fact candidate",
+)
+def review_fact(fact_id: str, request: FactReviewRequest) -> dict[str, Any]:
+    updated = fact_repository.promote(
+        [fact_id],
+        status=request.status,
+        reviewed_by=request.reviewed_by,
+    )
+    if updated == 0:
+        raise HTTPException(status_code=404, detail=f"Unknown fact candidate '{fact_id}'")
+    return {
+        "fact_id": fact_id,
+        "status": request.status,
+        "reviewed_by": request.reviewed_by,
+    }
+
+
 @app.get(
     "/api/documents/{document_id}/audit",
     response_model=list[EvidenceMatrixRow],
@@ -266,6 +294,9 @@ def recent_trace() -> dict[str, Any]:
         "status": "ok",
         "mode": last.mode,
         "agent_mode": last.agent_mode,
+        "requested_agent_mode": last.requested_agent_mode,
+        "agent_route": last.agent_route,
+        "agent_stop_reason": last.agent_stop_reason,
         "intent": last.plan.intent if last.plan else None,
         "trace": last.trace,
         "trace_steps": [step.model_dump() for step in last.trace_steps],

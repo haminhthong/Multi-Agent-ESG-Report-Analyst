@@ -188,15 +188,14 @@ class EvidenceCompletenessGate:
                                 sub_has_unit = True
 
                 sub_missing: list[str] = []
-                if spec.requires_numeric_value or "value" in spec.required_fields:
-                    if not sub_has_numeric:
-                        sub_missing.append("numeric_value")
-                if spec.requires_year or "year" in spec.required_fields:
-                    if not sub_has_year:
-                        sub_missing.append("year")
-                if spec.requires_unit or "unit" in spec.required_fields:
-                    if not sub_has_unit:
-                        sub_missing.append("unit")
+                if (
+                    spec.requires_numeric_value or "value" in spec.required_fields
+                ) and not sub_has_numeric:
+                    sub_missing.append("numeric_value")
+                if (spec.requires_year or "year" in spec.required_fields) and not sub_has_year:
+                    sub_missing.append("year")
+                if (spec.requires_unit or "unit" in spec.required_fields) and not sub_has_unit:
+                    sub_missing.append("unit")
 
                 if sub_matched_fact or (matched_citation_ids and sub_has_numeric):
                     found_sub_count += 1

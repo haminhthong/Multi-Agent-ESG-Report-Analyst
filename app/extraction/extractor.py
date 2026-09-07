@@ -1,5 +1,6 @@
 """Fact extraction orchestrator from unstructured ESG evidence chunks."""
 
+import hashlib
 import re
 
 from app.extraction.fact_validator import detect_conflicts
@@ -76,31 +77,31 @@ class FactExtractor:
                     has_year = bool(local_year or doc_year)
                     confidence = 0.70 + (0.15 if has_unit else 0.0) + (0.15 if has_year else 0.0)
 
-                    facts.append(
-                        ESGFact(
-                            metric=metric_key,
-                            value=numeric_val,
-                            unit=raw_unit.strip()
-                            if raw_unit
-                            else (
-                                "%" if "target" in metric_key or "diversity" in metric_key else None
-                            ),
-                            year=local_year or doc_year,
-                            reporting_year=local_year or doc_year,
-                            page=cite.page,
-                            chunk_id=str(cite.chunk_id) if cite.chunk_id is not None else None,
-                            baseline_year=baseline_year,
-                            source=cite,
-                            company=cite.company,
-                            document_id=cite.document_id,
-                            confidence=round(confidence, 2),
-                            raw_value=numeric_val,
-                            raw_unit=raw_unit.strip() if raw_unit else None,
-                            normalized_value=norm_val,
-                            normalized_unit=norm_unit,
-                            methodology=methodology,
-                        )
+                    fact = ESGFact(
+                        metric=metric_key,
+                        value=numeric_val,
+                        unit=raw_unit.strip()
+                        if raw_unit
+                        else ("%" if "target" in metric_key or "diversity" in metric_key else None),
+                        year=local_year or doc_year,
+                        reporting_year=local_year or doc_year,
+                        page=cite.page,
+                        chunk_id=str(cite.chunk_id) if cite.chunk_id is not None else None,
+                        baseline_year=baseline_year,
+                        source=cite,
+                        company=cite.company,
+                        document_id=cite.document_id,
+                        confidence=round(confidence, 2),
+                        raw_value=numeric_val,
+                        raw_unit=raw_unit.strip() if raw_unit else None,
+                        normalized_value=norm_val,
+                        normalized_unit=norm_unit,
+                        methodology=methodology,
+                        evidence_span_id=_evidence_span_id(cite),
+                        evidence_text=text,
                     )
+                    fact.fact_id = _fact_id(fact)
+                    facts.append(fact)
 
             # 3. Quét thêm cam kết Target / Net-zero nếu chưa được trích xuất
             # P0: Không bao giờ gán mặc định target_year = 2030 khi tài liệu không công bố!
@@ -115,7 +116,7 @@ class FactExtractor:
                 f.metric == "net_zero_target" and f.source == cite for f in facts
             ):
                 target_m = TARGET_PATTERN.search(text) or re.search(
-                    r"\b(?:net[ -]?zero|carbon[ -]?neutral|zero\s*emissions)\b", text, re.I
+                    r"\b(?:net[ -]?zero|carbon[ -]?neutral|zero\s*emissions)\b", text, re.IGNORECASE
                 )
                 target_span = target_m.span() if target_m else None
                 target_year = resolve_target_year(
@@ -124,27 +125,29 @@ class FactExtractor:
                     reporting_year=doc_year,
                     baseline_year=global_baseline,
                 )
-                facts.append(
-                    ESGFact(
-                        metric="net_zero_target",
-                        value=target_year if target_year is not None else "disclosed",
-                        unit="year" if target_year is not None else "commitment",
-                        year=doc_year,
-                        reporting_year=doc_year,
-                        page=cite.page,
-                        chunk_id=str(cite.chunk_id) if cite.chunk_id is not None else None,
-                        target_year=target_year,
-                        baseline_year=global_baseline,
-                        source=cite,
-                        company=cite.company,
-                        document_id=cite.document_id,
-                        confidence=0.88 if global_baseline else 0.75,
-                        raw_value=target_year if target_year is not None else "disclosed",
-                        raw_unit="year" if target_year is not None else "commitment",
-                        normalized_value=float(target_year) if target_year is not None else None,
-                        normalized_unit="year" if target_year is not None else "commitment",
-                    )
+                fact = ESGFact(
+                    metric="net_zero_target",
+                    value=target_year if target_year is not None else "disclosed",
+                    unit="year" if target_year is not None else "commitment",
+                    year=doc_year,
+                    reporting_year=doc_year,
+                    page=cite.page,
+                    chunk_id=str(cite.chunk_id) if cite.chunk_id is not None else None,
+                    target_year=target_year,
+                    baseline_year=global_baseline,
+                    source=cite,
+                    company=cite.company,
+                    document_id=cite.document_id,
+                    confidence=0.88 if global_baseline else 0.75,
+                    raw_value=target_year if target_year is not None else "disclosed",
+                    raw_unit="year" if target_year is not None else "commitment",
+                    normalized_value=float(target_year) if target_year is not None else None,
+                    normalized_unit="year" if target_year is not None else "commitment",
+                    evidence_span_id=_evidence_span_id(cite),
+                    evidence_text=text,
                 )
+                fact.fact_id = _fact_id(fact)
+                facts.append(fact)
 
         return facts
 
@@ -155,3 +158,33 @@ class FactExtractor:
 
 
 EvidenceExtractionAgent = FactExtractor
+
+
+def _evidence_span_id(citation: Citation) -> str:
+    """Build a deterministic evidence identity for fact lineage."""
+    if citation.evidence_id:
+        return citation.evidence_id
+    source_key = citation.stable_chunk_id or citation.block_id or str(citation.chunk_id or "")
+    if not source_key:
+        source_key = hashlib.sha256(citation.excerpt.encode("utf-8")).hexdigest()[:16]
+    return f"{citation.document_id}:p{citation.page}:{source_key}"
+
+
+def _fact_id(fact: ESGFact) -> str:
+    """Include all semantic dimensions so distinct disclosures cannot overwrite each other."""
+    identity = "|".join(
+        [
+            str(fact.document_id or ""),
+            fact.metric,
+            str(fact.reporting_year or ""),
+            str(fact.baseline_year or ""),
+            str(fact.target_year or ""),
+            str(fact.raw_value if fact.raw_value is not None else fact.value),
+            str(fact.raw_unit or fact.unit or ""),
+            str(fact.normalized_unit or ""),
+            str(fact.methodology or ""),
+            str(fact.organizational_boundary or ""),
+            str(fact.evidence_span_id or ""),
+        ]
+    )
+    return hashlib.sha256(identity.encode("utf-8")).hexdigest()[:16]

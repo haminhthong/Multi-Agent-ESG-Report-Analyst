@@ -13,13 +13,13 @@ from app.extraction import (
 )
 
 __all__ = [
+    "FACT_PATTERNS",
+    "_MAX_REPORTING_YEAR",
     "EvidenceExtractionAgent",
     "FactExtractor",
     "UnitNormalizer",
     "detect_conflicts",
-    "extract_year_for_span",
     "extract_methodology",
+    "extract_year_for_span",
     "parse_numeric_value",
-    "FACT_PATTERNS",
-    "_MAX_REPORTING_YEAR",
 ]

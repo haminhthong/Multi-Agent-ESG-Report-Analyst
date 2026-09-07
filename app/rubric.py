@@ -1,7 +1,88 @@
+import json
 import re
 from dataclasses import dataclass
+from pathlib import Path
+from typing import Any
 
 from app.models import RubricCriterion
+
+CLIMATE_RUBRIC_PATH = (
+    Path(__file__).resolve().parent.parent / "rubrics" / "climate_disclosure_v1.yaml"
+)
+KNOWN_FACT_TYPES = {
+    "scope_1_emissions",
+    "scope_2_emissions",
+    "scope_3_emissions",
+    "net_zero_target",
+    "renewable_energy",
+    "work_safety",
+    "gender_diversity",
+    "supplier_assessment",
+}
+
+
+def load_climate_rubric(path: Path | None = None) -> tuple[str, list[RubricCriterion]]:
+    """Load and validate the versioned climate rubric from one source of truth."""
+    rubric_path = path or CLIMATE_RUBRIC_PATH
+    raw_text = rubric_path.read_text(encoding="utf-8")
+    try:
+        import yaml  # type: ignore
+
+        payload: dict[str, Any] = yaml.safe_load(raw_text) or {}
+    except ImportError:
+        # The checked-in file is also valid JSON, which keeps lightweight local
+        # tooling usable before optional YAML dependencies are installed.
+        payload = json.loads(raw_text)
+
+    version = str(payload.get("version") or "").strip()
+    if not version:
+        raise ValueError("Climate rubric must declare a version")
+
+    criteria = payload.get("criteria")
+    if not isinstance(criteria, list) or not criteria:
+        raise ValueError("Climate rubric must contain a non-empty criteria list")
+
+    seen_ids: set[str] = set()
+    loaded: list[RubricCriterion] = []
+    for item in criteria:
+        if not isinstance(item, dict):
+            raise TypeError("Every climate rubric criterion must be a mapping")
+        criterion_id = str(item.get("id") or "").strip()
+        if not criterion_id or criterion_id in seen_ids:
+            raise ValueError(f"Duplicate or missing climate criterion id: {criterion_id!r}")
+        seen_ids.add(criterion_id)
+        fact_types = [str(value) for value in item.get("fact_types", [])]
+        unknown_facts = sorted(set(fact_types) - KNOWN_FACT_TYPES)
+        if unknown_facts:
+            raise ValueError(f"Unknown fact types for {criterion_id}: {unknown_facts}")
+        required_fields = [str(value) for value in item.get("required_fields", [])]
+        field_validators = {
+            str(key): str(value) for key, value in (item.get("field_validators") or {}).items()
+        }
+        missing_validators = sorted(set(required_fields) - set(field_validators))
+        if missing_validators:
+            raise ValueError(
+                f"Required fields without validators for {criterion_id}: {missing_validators}"
+            )
+        loaded.append(
+            RubricCriterion(
+                id=criterion_id,
+                pillar=item.get("pillar", "E"),
+                name=str(item.get("name") or criterion_id),
+                description=str(item.get("description") or ""),
+                framework_reference=item.get("framework_reference"),
+                retrieval_keywords=[str(v) for v in item.get("retrieval_keywords", [])],
+                retrieval_queries=[str(v) for v in item.get("retrieval_queries", [])],
+                required_fields=required_fields,
+                required_evidence=[str(v) for v in item.get("required_evidence", [])],
+                metric_units=[str(v) for v in item.get("metric_units", [])],
+                mandatory=bool(item.get("mandatory", False)),
+                fact_types=fact_types,
+                field_validators=field_validators,
+                rubric_version=version,
+            )
+        )
+    return version, loaded
 
 
 @dataclass(frozen=True)
@@ -449,3 +530,29 @@ def normalize_number(text: str) -> str:
     if re.search(r"\b\d{1,3}(?:,\d{3})+\.\d+\b", text):
         return text.replace(",", "")
     return text
+
+
+# Active review criteria are loaded from the versioned climate rubric. Keep the
+# historical definitions available only for compatibility with older clients.
+LEGACY_CRITERIA_DEFINITIONS = CRITERIA_DEFINITIONS
+CLIMATE_RUBRIC_VERSION, CLIMATE_CRITERIA_DEFINITIONS = load_climate_rubric()
+CRITERIA_DEFINITIONS = CLIMATE_CRITERIA_DEFINITIONS
+
+LEGACY_CRITERION_ALIASES: dict[str, str] = {
+    "E_GHG_SCOPE_1_2": "CLM_GHG_SCOPE_1",
+    "E_GHG_SCOPE_3": "CLM_GHG_SCOPE_3",
+    "E_TARGETS": "CLM_TARGET",
+    "E_TARGET_SETTING": "CLM_TARGET",
+    "E_PERFORMANCE": "CLM_PROGRESS",
+    "E_RENEWABLE_ENERGY": "CLM_PROGRESS",
+    "S_HEALTH_SAFETY": "CLM_GHG_SCOPE_1",
+    "S_WORK_SAFETY": "CLM_GHG_SCOPE_1",
+    "S_DIVERSITY_INCLUSION": "CLM_PROGRESS",
+    "S_SUPPLY_CHAIN_LABOR": "CLM_METHOD_BOUNDARY",
+    "G_EXTERNAL_ASSURANCE": "CLM_ASSURANCE",
+}
+
+
+def resolve_criterion_id(criterion_id: str) -> str:
+    """Resolve a legacy criterion id to the active versioned rubric id."""
+    return LEGACY_CRITERION_ALIASES.get(criterion_id, criterion_id)

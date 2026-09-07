@@ -62,7 +62,11 @@ CREATE TABLE IF NOT EXISTS documents(
     page_count INTEGER,
     text_page_count INTEGER,
     extraction_quality REAL,
-    status TEXT NOT NULL DEFAULT 'indexed'
+    status TEXT NOT NULL DEFAULT 'indexed',
+    content_sha256 TEXT,
+    original_file_path TEXT,
+    parser_version TEXT,
+    chunker_version TEXT
 );
 CREATE TABLE IF NOT EXISTS chunks(
     id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -98,9 +102,12 @@ CREATE TABLE IF NOT EXISTS esg_facts(
     organizational_boundary TEXT,
     page INTEGER,
     chunk_id TEXT,
+    evidence_span_id TEXT,
     confidence REAL,
-    validation_status TEXT DEFAULT 'valid',
+    validation_status TEXT DEFAULT 'CANDIDATE',
     extractor_version TEXT,
+    reviewed_by TEXT,
+    reviewed_at TIMESTAMP,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY(document_id) REFERENCES documents(id) ON DELETE CASCADE
 );
@@ -137,6 +144,7 @@ class Store:
             db.executescript(SCHEMA)
             self._migrate_documents(db)
             self._migrate_chunks(db)
+            self._migrate_facts(db)
 
     @staticmethod
     def _migrate_documents(db: sqlite3.Connection) -> None:
@@ -147,10 +155,29 @@ class Store:
             "text_page_count": "INTEGER",
             "extraction_quality": "REAL",
             "status": "TEXT NOT NULL DEFAULT 'indexed'",
+            "content_sha256": "TEXT",
+            "original_file_path": "TEXT",
+            "parser_version": "TEXT",
+            "chunker_version": "TEXT",
         }
         for name, definition in columns.items():
             if name not in existing:
                 db.execute(f"ALTER TABLE documents ADD COLUMN {name} {definition}")
+
+    @staticmethod
+    def _migrate_facts(db: sqlite3.Connection) -> None:
+        """Ensure legacy fact tables use the candidate lifecycle fields."""
+        existing = {row["name"] for row in db.execute("PRAGMA table_info(esg_facts)")}
+        if "validation_status" not in existing:
+            db.execute(
+                "ALTER TABLE esg_facts ADD COLUMN validation_status TEXT DEFAULT 'CANDIDATE'"
+            )
+        if "reviewed_by" not in existing:
+            db.execute("ALTER TABLE esg_facts ADD COLUMN reviewed_by TEXT")
+        if "reviewed_at" not in existing:
+            db.execute("ALTER TABLE esg_facts ADD COLUMN reviewed_at TIMESTAMP")
+        if "evidence_span_id" not in existing:
+            db.execute("ALTER TABLE esg_facts ADD COLUMN evidence_span_id TEXT")
 
     @staticmethod
     def _migrate_chunks(db: sqlite3.Connection) -> None:
@@ -188,13 +215,18 @@ class Store:
         extraction_quality: float | None = None,
         status: str = "indexed",
         layout_blocks: list[Any] | None = None,
+        content_sha256: str | None = None,
+        original_file_path: str | None = None,
+        parser_version: str | None = None,
+        chunker_version: str | None = None,
     ) -> None:
         """Thêm mới hoặc cập nhật báo cáo cùng toàn bộ chunk của nó trong một database transaction duy nhất."""
         with self.connect() as db:
             db.execute(
                 "INSERT OR REPLACE INTO documents"
                 "(id,name,company,sector,year,source_url,page_count,text_page_count,"
-                "extraction_quality,status) VALUES(?,?,?,?,?,?,?,?,?,?)",
+                "extraction_quality,status,content_sha256,original_file_path,parser_version,"
+                "chunker_version) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
                 (
                     doc_id,
                     name,
@@ -206,6 +238,10 @@ class Store:
                     text_page_count,
                     extraction_quality,
                     status,
+                    content_sha256,
+                    original_file_path,
+                    parser_version,
+                    chunker_version,
                 ),
             )
             # Xóa các chunk cũ của tài liệu này để tránh trùng lặp khi re-index
@@ -290,11 +326,29 @@ class Store:
                 fact_id = (
                     getattr(f, "fact_id", None)
                     or hashlib.sha256(
-                        f"{company or ''}:{doc_id or ''}:{metric}:{rep_year}:{val_for_hash}".encode()
+                        "|".join(
+                            [
+                                str(doc_id or ""),
+                                metric,
+                                str(rep_year or ""),
+                                str(getattr(f, "baseline_year", None) or ""),
+                                str(getattr(f, "target_year", None) or ""),
+                                str(getattr(f, "raw_unit", None) or getattr(f, "unit", None) or ""),
+                                str(getattr(f, "normalized_unit", None) or ""),
+                                str(getattr(f, "methodology", None) or ""),
+                                str(getattr(f, "organizational_boundary", None) or ""),
+                                str(getattr(f, "evidence_span_id", None) or ""),
+                                str(getattr(f, "chunk_id", None) or page or ""),
+                                str(val_for_hash),
+                            ]
+                        ).encode()
                     ).hexdigest()[:16]
                 )
 
-                raw_val = str(getattr(f, "raw_value", getattr(f, "value", "")))
+                raw_value = getattr(f, "raw_value", None)
+                if raw_value is None:
+                    raw_value = getattr(f, "value", None)
+                raw_val = str(raw_value) if raw_value is not None else None
                 raw_unit = getattr(f, "raw_unit", getattr(f, "unit", None))
                 norm_val = (
                     getattr(f, "normalized_value", None)
@@ -303,14 +357,23 @@ class Store:
                 )
                 norm_unit = getattr(f, "normalized_unit", None)
 
+                status = getattr(f, "status", None) or getattr(f, "validation_status", None)
+                if status == "CANDIDATE" and getattr(f, "validation_status", None) not in (
+                    None,
+                    "CANDIDATE",
+                ):
+                    status = f.validation_status
+                status = status or "CANDIDATE"
+
                 db.execute(
                     """
                     INSERT OR REPLACE INTO esg_facts(
                         fact_id, company, document_id, metric, raw_value, raw_unit,
                         normalized_value, normalized_unit, reporting_year, baseline_year,
                         target_year, methodology, organizational_boundary, page, chunk_id,
+                        evidence_span_id,
                         confidence, validation_status, extractor_version
-                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                     """,
                     (
                         fact_id,
@@ -328,13 +391,35 @@ class Store:
                         getattr(f, "organizational_boundary", None),
                         page,
                         chunk_id,
+                        getattr(f, "evidence_span_id", None),
                         float(getattr(f, "confidence", 0.0)),
-                        getattr(f, "validation_status", "valid"),
+                        status,
                         getattr(f, "extractor_version", "esg-extractor-v2"),
                     ),
                 )
                 inserted += 1
         return inserted
+
+    def promote_facts(
+        self,
+        fact_ids: list[str],
+        status: str = "ACCEPTED",
+        reviewed_by: str | None = None,
+    ) -> int:
+        """Promote or reject candidates explicitly after validation or human review."""
+        if status not in {"ACCEPTED", "REJECTED", "CONFLICT", "CANDIDATE"}:
+            raise ValueError(f"Unsupported fact status: {status}")
+        if not fact_ids:
+            return 0
+        placeholders = ",".join("?" for _ in fact_ids)
+        with self.connect() as db:
+            params: list[Any] = [status, reviewed_by, *fact_ids]
+            cursor = db.execute(
+                f"UPDATE esg_facts SET validation_status=?, reviewed_by=?, reviewed_at=CURRENT_TIMESTAMP "
+                f"WHERE fact_id IN ({placeholders})",
+                params,
+            )
+            return cursor.rowcount
 
     def query_facts(
         self,
@@ -342,6 +427,7 @@ class Store:
         metric: str | None = None,
         year: int | None = None,
         document_id: str | None = None,
+        include_candidates: bool = True,
     ) -> list[dict[str, Any]]:
         """Truy vấn các facts ESG có cấu trúc từ Fact Store."""
         sql = "SELECT * FROM esg_facts WHERE 1=1"
@@ -358,6 +444,8 @@ class Store:
         if document_id:
             sql += " AND document_id = ?"
             params.append(document_id)
+        if not include_candidates:
+            sql += " AND UPPER(COALESCE(validation_status, 'CANDIDATE')) = 'ACCEPTED'"
         sql += " ORDER BY reporting_year ASC, confidence DESC"
         with self.connect() as db:
             return [dict(r) for r in db.execute(sql, params).fetchall()]

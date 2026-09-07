@@ -21,6 +21,12 @@ class Settings(BaseSettings):
 
     # Giới hạn dung lượng tệp PDF tối đa (75MB)
     max_file_size: int = 75 * 1024 * 1024
+    # Giới hạn tài nguyên parser để một tài liệu bất thường không chiếm worker vô hạn.
+    max_pdf_pages: int = 500
+    parser_timeout_seconds: float = 60.0
+
+    # Demo data chỉ được nạp khi người vận hành chủ động bật cờ này.
+    seed_demo_data: bool = False
 
     # Cấu hình Local LLM / Ollama / OpenAI-compatible endpoint
     llm_base_url: str = "http://localhost:11434/v1"

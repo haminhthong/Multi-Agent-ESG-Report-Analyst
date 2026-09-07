@@ -1,4 +1,5 @@
 from fastapi.testclient import TestClient
+
 from app.main import app
 
 client = TestClient(app)
@@ -68,3 +69,16 @@ def test_analyze_validation_errors():
     # top_k out of bounds
     response2 = client.post("/api/analyze", json={"question": "Valid question text", "top_k": 100})
     assert response2.status_code == 422
+
+
+def test_analyze_accepts_explicit_agent_mode():
+    response = client.post(
+        "/api/analyze",
+        json={"question": "What were Scope 1 emissions?", "agent_mode": "deterministic"},
+    )
+    assert response.status_code == 200
+    data = response.json()
+    assert data["requested_agent_mode"] == "deterministic"
+    assert data["agent_mode"] == "deterministic_fallback"
+    assert data["agent_route"]
+    assert data["agent_stop_reason"] == "completed"

@@ -30,10 +30,10 @@ class CrossEncoderReranker:
 
             try:
                 self._model = CrossEncoder(self.model_name, local_files_only=True)
-            except Exception:
+            except Exception:  # noqa: BLE001 - optional local model load boundary
                 self._model = CrossEncoder(self.model_name)
             logger.info("Loaded CrossEncoder model: %s", self.model_name)
-        except Exception as exc:
+        except Exception as exc:  # noqa: BLE001 - optional reranker boundary
             logger.warning(
                 "Không thể nạp CrossEncoder (%s). Sử dụng Semantic Lexical Proximity Reranker Fallback.",
                 exc,
@@ -61,7 +61,7 @@ class CrossEncoderReranker:
                 for c, score in zip(candidates, scores):
                     c["rerank_score"] = round(float(score), 4)
                 return sorted(candidates, key=lambda x: x["rerank_score"], reverse=True)[:top_k]
-            except Exception as exc:
+            except Exception as exc:  # noqa: BLE001 - model inference fallback boundary
                 logger.warning(
                     "Lỗi khi chấm điểm với CrossEncoder (%s). Chuyển sang fallback.", exc
                 )

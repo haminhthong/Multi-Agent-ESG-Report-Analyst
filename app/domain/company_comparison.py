@@ -8,7 +8,7 @@ from app.domain.evidence_matrix import EvidenceMatrixBuilder
 from app.domain.rubric_evaluator import RubricEvaluator
 from app.evidence_extractor import EvidenceExtractionAgent
 from app.models import Citation, CompanyComparisonCriterion, CompanyComparisonResult
-from app.rubric import CRITERIA_DEFINITIONS, RubricCriterion
+from app.rubric import CRITERIA_DEFINITIONS, RubricCriterion, resolve_criterion_id
 from app.store import Store
 
 
@@ -35,7 +35,8 @@ class CompanyComparisonService:
     ) -> CompanyComparisonResult:
         """Company-scoped cross-comparison avoiding global fuzzy keyword confusion."""
         defs = criteria_definitions or CRITERIA_DEFINITIONS
-        target_criteria = [c for c in defs if not criteria_ids or c.id in criteria_ids]
+        requested_ids = {resolve_criterion_id(value) for value in criteria_ids or []}
+        target_criteria = [c for c in defs if not requested_ids or c.id in requested_ids]
         comp_rows: list[CompanyComparisonCriterion] = []
         coverage_summary: dict[str, float] = {}
 

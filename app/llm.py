@@ -47,7 +47,7 @@ class LLMClient:
                 headers = {"Authorization": f"Bearer {self.api_key}"}
                 resp = client.get(f"{self.base_url}/models", headers=headers)
                 self._available = resp.status_code in (200, 401, 403)
-        except Exception:
+        except Exception:  # noqa: BLE001 - optional local LLM availability probe
             self._available = False
         return self._available
 
@@ -87,7 +87,7 @@ class LLMClient:
                         return choices[0].get("message", {}).get("content", "").strip()
                 logger.warning("LLM call returned status %d: %s", resp.status_code, resp.text[:200])
                 return None
-        except Exception as exc:
+        except Exception as exc:  # noqa: BLE001 - optional LLM request boundary
             logger.debug("LLM call failed with exception: %s. Falling back.", exc)
             return None
 
@@ -119,8 +119,8 @@ class LLMClient:
             parsed = json.loads(raw)
             if isinstance(parsed, dict) and "plan" in parsed and isinstance(parsed["plan"], list):
                 return parsed["plan"]
-        except Exception:
-            pass
+        except Exception as exc:  # noqa: BLE001 - malformed optional LLM response
+            logger.debug("LLM plan parsing failed: %s", exc)
         return None
 
     def verify_grounding(self, claim: str, evidence_text: str) -> bool:
@@ -144,7 +144,7 @@ class LLMClient:
             try:
                 data = json.loads(response)
                 return bool(data.get("supported", True))
-            except Exception:
+            except (TypeError, ValueError, json.JSONDecodeError):
                 return "false" not in response.lower()
         return True
 
@@ -189,7 +189,9 @@ def _normalize_number_token(token: str) -> str:
 
 
 def validate_answer_grounding(
-    answer: str, valid_citations: list[dict[str, Any]]
+    answer: str,
+    valid_citations: list[dict[str, Any]],
+    check_numbers: bool = True,
 ) -> tuple[bool, list[str]]:
     """Kiểm tra grounding: [Cn], số trang, và số liệu định lượng phải neo vào citation đã truy xuất.
 
@@ -199,6 +201,17 @@ def validate_answer_grounding(
         return True, []
 
     issues: list[str] = []
+
+    # Grounding is reference-by-construction: every non-empty answer sentence
+    # must carry a citation id (or the legacy explicit document/page form).
+    for sentence in (part.strip() for part in re.split(r"(?<=[.!?])\s+", answer) if part.strip()):
+        has_cid = bool(re.search(r"\[C\d+\]", sentence, re.IGNORECASE))
+        has_legacy_ref = bool(
+            re.search(r"\[[^,\]]+,\s*(?:trang|page)\s*\d+\]", sentence, re.IGNORECASE)
+        )
+        if not has_cid and not has_legacy_ref:
+            issues.append("missing_evidence_ids")
+            break
 
     valid_cids: set[int] = set()
     for i, cite in enumerate(valid_citations, start=1):
@@ -224,28 +237,29 @@ def validate_answer_grounding(
     if bad_pages:
         issues.append(f"hallucinated_pages={bad_pages}")
 
-    excerpt_numbers: set[str] = set()
-    for cite in valid_citations:
-        for num in re.findall(r"\b\d+(?:[.,]\d+)?\b", cite.get("excerpt") or ""):
-            excerpt_numbers.add(_normalize_number_token(num))
-        if cite.get("page") is not None:
-            excerpt_numbers.add(str(int(cite["page"])))
-
-    cited_cid_set = set(cited_cids)
     unsupported: list[str] = []
-    for num in re.findall(r"\b\d+(?:[.,]\d+)?\b", answer):
-        norm = _normalize_number_token(num)
-        # Bỏ qua chỉ số citation ngắn (1, 2, …) khi đã có [Cn]
-        if norm.isdigit() and int(norm) in cited_cid_set and len(norm) <= 2:
-            continue
-        # Chỉ kiểm tra số liệu substantive (>=3 chữ số hoặc thập phân)
-        if len(norm.replace(".", "")) < 3 and "." not in norm:
-            continue
-        if norm in excerpt_numbers:
-            continue
-        unsupported.append(num)
-    if unsupported:
-        issues.append(f"unsupported_numbers={unsupported}")
+    if check_numbers:
+        excerpt_numbers: set[str] = set()
+        for cite in valid_citations:
+            for num in re.findall(r"\b\d+(?:[.,]\d+)?\b", cite.get("excerpt") or ""):
+                excerpt_numbers.add(_normalize_number_token(num))
+            if cite.get("page") is not None:
+                excerpt_numbers.add(str(int(cite["page"])))
 
-    is_valid = not bad_cids and not bad_pages and not unsupported
+        cited_cid_set = set(cited_cids)
+        for num in re.findall(r"\b\d+(?:[.,]\d+)?\b", answer):
+            norm = _normalize_number_token(num)
+            # Bỏ qua chỉ số citation ngắn (1, 2, …) khi đã có [Cn]
+            if norm.isdigit() and int(norm) in cited_cid_set and len(norm) <= 2:
+                continue
+            # Chỉ kiểm tra số liệu substantive (>=3 chữ số hoặc thập phân)
+            if len(norm.replace(".", "")) < 3 and "." not in norm:
+                continue
+            if norm in excerpt_numbers:
+                continue
+            unsupported.append(num)
+        if unsupported:
+            issues.append(f"unsupported_numbers={unsupported}")
+
+    is_valid = not issues
     return is_valid, issues

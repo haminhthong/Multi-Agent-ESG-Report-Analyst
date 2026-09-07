@@ -74,14 +74,15 @@ class ExplanationAgent:
             )
 
         sources = ", ".join(
-            f"[{citation.document_name}, p.{citation.page}]" for citation in citations[:6]
+            f"[C{index}] [{citation.document_name}, page {citation.page}]"
+            for index, citation in enumerate(citations[:6], start=1)
         )
         risk = screening_result.risk_level if screening_result else "not-run"
 
         if mode == "qa":
             excerpt = citations[0].excerpt[:220].strip()
             return (
-                f"Evidence-grounded response to '{question}': {excerpt} "
+                f"Evidence-grounded response to '{question}': {excerpt} [C1] "
                 f"Sources: {sources}. Screening risk: {risk}."
             )
 
@@ -89,8 +90,8 @@ class ExplanationAgent:
             f"{pillar.pillar} {pillar.disclosure_coverage}%" for pillar in pillars
         )
         return (
-            f"Indexed-evidence disclosure coverage: {overall_coverage}%. "
-            f"Pillars: {pillar_summary}. Screening risk: {risk}. "
-            f"Sources: {sources}. Coverage measures disclosure evidence presence, "
-            "not the company's underlying ESG performance."
+            f"Indexed-evidence disclosure coverage: {overall_coverage}%. [C1] "
+            f"Pillars: {pillar_summary}. [C1] Screening risk: {risk}. [C1] "
+            f"Sources: {sources}. [C1] Coverage measures disclosure evidence presence, "
+            "not the company's underlying ESG performance. [C1]"
         )

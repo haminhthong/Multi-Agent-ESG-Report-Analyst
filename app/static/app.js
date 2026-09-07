@@ -24,6 +24,7 @@ const analyzeForm = document.querySelector('#analyze-form');
 const questionInput = document.querySelector('#question-input');
 const topKInput = document.querySelector('#top-k-input');
 const analyzeBtn = document.querySelector('#analyze-btn');
+const agentModeInput = document.querySelector('#agent-mode-input');
 
 const agentTraceBox = document.querySelector('#agent-trace-box');
 const resultsDisplayArea = document.querySelector('#results-display-area');
@@ -39,11 +40,26 @@ const citationsCountText = document.querySelector('#citations-count-text');
 const traceLogsList = document.querySelector('#trace-logs-list');
 const limitationsList = document.querySelector('#limitations-list');
 
-// 7 bước stepper
+// Các node của Supervisor Agent Graph
 const agentStepIds = [
-    'step-doc', 'step-plan', 'step-retrieval',
-    'step-verify', 'step-extract', 'step-audit', 'step-synth'
+    'step-scope', 'step-plan', 'step-retrieval', 'step-verify',
+    'step-extract', 'step-completeness', 'step-audit', 'step-specialized',
+    'step-claim', 'step-synth', 'step-review', 'step-limitations'
 ];
+const agentRouteToStep = {
+    ScopeAgent: 'step-scope',
+    QueryPlanningAgent: 'step-plan',
+    RetrievalAgent: 'step-retrieval',
+    EvidenceVerificationAgent: 'step-verify',
+    EvidenceExtractionAgent: 'step-extract',
+    EvidenceCompletenessGate: 'step-completeness',
+    ESGAuditAgent: 'step-audit',
+    SpecializedAnalysisAgent: 'step-specialized',
+    ClaimVerificationAgent: 'step-claim',
+    ExplanationAgent: 'step-synth',
+    AnswerReviewAgent: 'step-review',
+    LimitationsAgent: 'step-limitations'
+};
 
 // Khởi tạo khi DOM sẵn sàng
 document.addEventListener('DOMContentLoaded', () => {
@@ -209,13 +225,14 @@ uploadForm.addEventListener('submit', async (e) => {
     }
 });
 
-// Chạy pipeline phân tích 7 agents
+// Chạy Supervisor Agent Graph
 analyzeForm.addEventListener('submit', async (e) => {
     e.preventDefault();
     const question = questionInput.value.trim();
     const topK = parseInt(topKInput.value) || 6;
     const modeRadio = document.querySelector('input[name="analysis_mode"]:checked');
     const mode = modeRadio ? modeRadio.value : 'qa';
+    const agentMode = agentModeInput ? agentModeInput.value : 'agentic';
 
     if (!question) return;
 
@@ -231,12 +248,10 @@ analyzeForm.addEventListener('submit', async (e) => {
         const response = await fetch('/api/analyze', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ question, top_k: topK, mode: mode })
+            body: JSON.stringify({ question, top_k: topK, mode: mode, agent_mode: agentMode })
         });
 
         clearInterval(stepInterval);
-        completeAgentStepper();
-
         if (!response.ok) {
             const errObj = await response.json().catch(() => ({}));
             const msg = errObj.error ? errObj.error.message : 'Lỗi không xác định';
@@ -246,6 +261,7 @@ analyzeForm.addEventListener('submit', async (e) => {
         }
 
         const data = await response.json();
+        completeAgentStepper(data.agent_route || []);
         currentAnalysisResponse = data;
         currentEvidenceMatrix = data.evidence_matrix || [];
 
@@ -274,7 +290,7 @@ function resetAgentStepper() {
         const el = document.getElementById(id);
         if (el) el.classList.remove('active');
     });
-    const docEl = document.getElementById('step-doc');
+    const docEl = document.getElementById('step-scope');
     if (docEl) docEl.classList.add('active');
 }
 
@@ -291,8 +307,11 @@ function animateAgentSteps() {
     }, 350);
 }
 
-function completeAgentStepper() {
-    agentStepIds.forEach(id => {
+function completeAgentStepper(route = []) {
+    const completedSteps = route.length
+        ? route.map(agent => agentRouteToStep[agent]).filter(Boolean)
+        : agentStepIds;
+    completedSteps.forEach(id => {
         const el = document.getElementById(id);
         if (el) el.classList.add('active');
     });

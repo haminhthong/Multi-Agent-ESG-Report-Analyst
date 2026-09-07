@@ -85,15 +85,20 @@ class EvidenceVerificationAgent:
 
         for claim_text, cids in claims:
             if not cids:
-                claim_results.append(
-                    {
-                        "claim": claim_text,
-                        "cids": [],
-                        "grounded": True,
-                        "reason": "general_statement",
-                    }
-                )
-                continue
+                # Legacy document/page references remain readable, but an
+                # unreferenced factual sentence is never considered grounded.
+                cids = cls._legacy_source_refs(claim_text, citations)
+                if not cids:
+                    all_grounded = False
+                    claim_results.append(
+                        {
+                            "claim": claim_text,
+                            "cids": [],
+                            "grounded": False,
+                            "reason": "missing_evidence_ids",
+                        }
+                    )
+                    continue
 
             claim_grounded = True
             failure_reasons = []
@@ -143,8 +148,72 @@ class EvidenceVerificationAgent:
         return all_grounded, claim_results
 
     @staticmethod
+    def _legacy_source_refs(claim: str, citations: list[Citation]) -> list[int]:
+        """Resolve old ``[Document, page N]`` references to citation positions."""
+        page_numbers = [
+            int(match.group(1))
+            for match in re.finditer(r"(?:trang|page)\s*(\d+)", claim, re.IGNORECASE)
+        ]
+        if not page_numbers:
+            return []
+        document_hint = claim.split(",", 1)[0].strip(" []")
+        refs: list[int] = []
+        for page in page_numbers:
+            for index, citation in enumerate(citations, start=1):
+                same_page = citation.page == page
+                same_document = (
+                    not document_hint
+                    or document_hint.lower() in citation.document_name.lower()
+                    or citation.document_name.lower() in document_hint.lower()
+                )
+                if same_page and same_document:
+                    refs.append(index)
+                    break
+        return refs
+
+    @staticmethod
     def detect_conflicts(facts: list[ESGFact]) -> list[EvidenceConflict]:
         return EvidenceExtractionAgent.detect_conflicts(facts)
+
+
+class AnswerReviewAgent:
+    """Final safety reviewer for the answer emitted by the explanation agent."""
+
+    @staticmethod
+    def review(answer: str, citations: list[Citation]) -> dict[str, Any]:
+        """Check references after all answer augmentations have been applied."""
+        if not citations:
+            is_abstention = any(
+                phrase in answer.lower()
+                for phrase in ("no validated evidence", "does not make an esg conclusion")
+            )
+            return {
+                "passed": is_abstention,
+                "issues": [] if is_abstention else ["missing_evidence_ids"],
+                "citations": 0,
+            }
+
+        # Import lazily to avoid the llm -> capabilities dependency cycle.
+        from app.llm import validate_answer_grounding
+
+        payload = []
+        for index, citation in enumerate(citations[:6], start=1):
+            payload.append(
+                {
+                    "cid": f"[C{index}]",
+                    "page": citation.page,
+                    "excerpt": citation.excerpt,
+                    "document_name": citation.document_name,
+                }
+            )
+        passed, issues = validate_answer_grounding(
+            answer,
+            payload,
+            # Derived rubric percentages are valid workflow outputs even when
+            # the exact percentage is not printed in a source excerpt.
+            check_numbers=False,
+        )
+        return {"passed": passed, "issues": issues, "citations": len(citations)}
 
 
 class ClaimSplitter:

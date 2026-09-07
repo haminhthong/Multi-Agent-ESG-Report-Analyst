@@ -1,7 +1,7 @@
 # Multi-Agent ESG Report Analyst
-### Evidence-Grounded ESG Intelligence & Audit Platform
+### Agentic Climate Disclosure Evidence Review
 
-> **Hệ thống thẩm tra và đánh giá công bố ESG (Môi trường - Xã hội - Quản trị) dựa trên bằng chứng**, kết hợp phân tích layout tài liệu thực (PyMuPDF layout blocks + genuine bboxes + OCR recovery), truy xuất lai đơn tầng BM25/Dense + Reciprocal Rank Fusion (RRF), trích xuất chuẩn hóa sự thật ESG (Fact Store), kiểm tra mức độ đầy đủ của bằng chứng (Active Completeness Gate), thẩm định chi tiết theo từng tiêu chí (Criterion-Level Audit) và đối chiếu grounding khẳng định cấp câu (Claim-Level Grounding).
+> **Hệ thống rà soát bằng chứng công bố khí hậu theo từng tiêu chí**, kết hợp phân tích layout tài liệu thực (PyMuPDF layout blocks + genuine bboxes + OCR recovery), truy xuất lai BM25/Dense + Reciprocal Rank Fusion (RRF), trích xuất fact candidate có provenance, kiểm tra tính đầy đủ của bằng chứng và grounding khẳng định cấp câu. Hệ thống đo mức độ hiện diện của bằng chứng trong tài liệu, không chấm hiệu quả ESG hay kết luận greenwashing.
 
 > **Tuyên bố miễn trừ trách nhiệm:** Hệ thống này là **công cụ thông minh hỗ trợ phân tích, thẩm tra và sàng lọc rủi ro công bố** (Intelligence & Screening Tool), không thay thế ý kiến kiểm toán độc lập theo chuẩn ISAE 3000, tư vấn pháp lý hay xếp hạng tín nhiệm ESG thương mại. Mọi nhận định, điểm số và cảnh báo đều được ràng buộc nghiêm ngặt với bằng chứng có trích dẫn xuất xứ từ tài liệu nguồn.
 
@@ -80,6 +80,44 @@ Hệ thống được thiết kế theo nguyên tắc **Local-First & Evidence-B
 ---
 
 ## 4. Kiến trúc Canonical (Architecture)
+
+### 4.1 Supervisor Agent & Agent Handoff Graph
+
+Luồng online được điều phối bằng một graph agent có giới hạn bước trong
+`app/agent_runtime.py`, thay vì để các agent gọi lẫn nhau tự do:
+
+```text
+ScopeAgent
+  → QueryPlanningAgent
+  → RetrievalAgent
+  → EvidenceVerificationAgent
+  → EvidenceExtractionAgent
+  → EvidenceCompletenessGate
+  → ESGAuditAgent
+  → ClaimVerificationAgent
+  → ExplanationAgent
+  → AnswerReviewAgent
+  → LimitationsAgent
+```
+
+Supervisor đọc `AnalysisState` sau mỗi handoff để quyết định bước kế tiếp:
+
+- Không có evidence: bỏ qua extraction và đi thẳng đến completeness gate.
+- Có intent `temporal_trend` hoặc `cross_document_compare`: thêm
+  `SpecializedAnalysisAgent`.
+- Evidence không đủ: giữ kết quả ở trạng thái giới hạn, không suy diễn.
+- AnswerReviewAgent kiểm tra lại citation sau mọi bước augment; answer không
+  grounded sẽ được regenerate bằng fallback an toàn hoặc abstain.
+
+Mỗi request trả về `requested_agent_mode`, `agent_mode`, `agent_route`,
+`agent_stop_reason` và `trace_steps`. Có thể chọn:
+
+```json
+{"agent_mode": "agentic"}
+```
+
+`agentic` dùng LLM cho structured planning nếu khả dụng; `orchestrated` dùng
+graph tất định; `deterministic` tắt LLM hoàn toàn.
 
 ### A. Offline / Knowledge Ingestion Pipeline
 ```
@@ -244,7 +282,7 @@ ESGFact
 ├── organizational_boundary : Ranh giới (global operations, manufacturing sites...)
 ├── page / chunk_id         : Xuất xứ số trang PDF và mã chunk
 ├── confidence              : Độ tin cậy trích xuất (0.0 - 1.0)
-└── validation_status       : Trạng thái thẩm tra (valid, conflict, unverified)
+└── status                  : Vòng đời fact (CANDIDATE, ACCEPTED, REJECTED, CONFLICT)
 ```
 
 ### 8.2 Proximity Target Year Resolver (`app/extraction/year_resolver.py`)

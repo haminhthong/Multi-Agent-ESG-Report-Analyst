@@ -8,6 +8,10 @@ dependencies = [
     "uvicorn[standard]>=0.30",
     "pydantic-settings>=2.5",
     "pypdf>=5.0",
+    "PyYAML>=6.0",
+    "pymupdf>=1.24",
+    "pytesseract>=0.3.13",
+    "Pillow>=10.0",
     "python-multipart>=0.0.9",
     "httpx>=0.27",
     "numpy>=1.26",
@@ -15,6 +19,7 @@ dependencies = [
 
 [project.optional-dependencies]
 dev = ["pytest>=8", "httpx>=0.27", "ruff>=0.6"]
+ingestion = ["pymupdf>=1.24", "pytesseract>=0.3.13", "Pillow>=10.0"]
 ml = [
     "sentence-transformers>=3.0",
     "torch>=2.2",

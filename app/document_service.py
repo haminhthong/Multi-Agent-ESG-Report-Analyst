@@ -1,12 +1,14 @@
 import hashlib
+from io import BytesIO
 
 from app.chunking import pages_from_layout_blocks
+from app.config import settings
 from app.document_intelligence import DocumentAgent, DocumentIntelligenceAgent
 from app.ingestion.ocr import OCRProvider, TesseractOCRProvider
 from app.models import DocumentIngestResponse, ExtractionQualityReport, LayoutBlock
 from app.store import Store
 
-MAX_PDF_SIZE_BYTES = 75 * 1024 * 1024
+MAX_PDF_SIZE_BYTES = settings.max_file_size
 MIN_TEXT_CHARACTERS = 40
 MIN_TEXT_PAGE_RATIO = 0.2
 
@@ -21,6 +23,10 @@ class UnsupportedDocumentError(DocumentIngestError):
 
 class DocumentTooLargeError(DocumentIngestError):
     """Raised when the PDF exceeds the configured upload limit."""
+
+
+class DocumentTooManyPagesError(DocumentIngestError):
+    """Raised when a PDF exceeds the configured parser page limit."""
 
 
 class DocumentExtractionError(DocumentIngestError):
@@ -55,7 +61,9 @@ class DocumentIngestionService:
     ) -> DocumentIngestResponse:
         self._validate_file(content, filename, content_type)
 
-        document_id = hashlib.sha256(content).hexdigest()[:16]
+        # The document id is the full content hash so an artifact can be traced
+        # unambiguously across re-indexing and metadata changes.
+        document_id = hashlib.sha256(content).hexdigest()
         existing = self.store.get_document(document_id)
         if existing and not force and existing["extraction_quality"] is not None:
             return DocumentIngestResponse(
@@ -78,7 +86,10 @@ class DocumentIngestionService:
             layout_error = exc
 
         if layout_blocks:
-            pages = pages_from_layout_blocks(layout_blocks)
+            pages = self._merge_page_texts(
+                pages_from_layout_blocks(layout_blocks),
+                self._try_extract_page_texts(content),
+            )
         else:
             try:
                 pages = DocumentAgent.extract_pdf(content)
@@ -88,44 +99,28 @@ class DocumentIngestionService:
 
         if not pages:
             raise DocumentExtractionError("Không thể trích xuất PDF: không có nội dung")
+        if len(pages) > settings.max_pdf_pages:
+            raise DocumentTooManyPagesError(f"PDF vượt quá giới hạn {settings.max_pdf_pages} trang")
 
         text_pages, quality = self._measure_quality(pages)
         ocr_applied_ratio = 0.0
 
         # Nếu chất lượng văn bản native thấp, thử phục hồi bằng OCR provider
-        if quality < MIN_TEXT_PAGE_RATIO and self.ocr_provider.is_available():
-            ocr_pages = []
-            ocr_count = 0
-            for page_no, text in pages:
-                if len((text or "").strip()) < MIN_TEXT_CHARACTERS:
-                    recovered = ""
-                    try:
-                        import fitz
-
-                        doc = fitz.open(stream=content, filetype="pdf")
-                        if page_no - 1 < len(doc):
-                            pix = doc[page_no - 1].get_pixmap()
-                            img_bytes = pix.tobytes("png")
-                            recovered = self.ocr_provider.extract_text(img_bytes)
-                        doc.close()
-                    except Exception:
-                        recovered = ""
-
-                    if recovered and len(recovered.strip()) >= MIN_TEXT_CHARACTERS:
-                        ocr_count += 1
-                        ocr_pages.append((page_no, recovered))
-                    else:
-                        ocr_pages.append((page_no, text))
-                else:
-                    ocr_pages.append((page_no, text))
-
-            pages = ocr_pages
+        needs_page_ocr = any(len((text or "").strip()) < MIN_TEXT_CHARACTERS for _, text in pages)
+        if needs_page_ocr and self._ocr_is_available():
+            pages, ocr_blocks, ocr_count = self._recover_scanned_pages(content, pages, document_id)
+            if ocr_blocks:
+                recovered_pages = {block.page for block in ocr_blocks}
+                layout_blocks = [
+                    block for block in layout_blocks if block.page not in recovered_pages
+                ] + ocr_blocks
+                layout_blocks.sort(key=lambda block: (block.page, block.block_id))
             text_pages, quality = self._measure_quality(pages)
             ocr_applied_ratio = round(ocr_count / max(1, len(pages)), 2)
 
         if quality < MIN_TEXT_PAGE_RATIO:
             raise OcrRequiredError(
-                "PDF có quá ít trang chứa văn bản native; cần OCR trước khi lập chỉ mục"
+                "PDF có quá ít trang chứa văn bản sau khi phục hồi; cần OCR trước khi lập chỉ mục"
             )
 
         self.store.add_document(
@@ -138,6 +133,8 @@ class DocumentIngestionService:
             text_page_count=text_pages,
             extraction_quality=quality,
             layout_blocks=layout_blocks or None,
+            content_sha256=document_id,
+            original_file_path=filename,
         )
         empty_pages = [
             page_no for page_no, text in pages if len((text or "").strip()) < MIN_TEXT_CHARACTERS
@@ -187,3 +184,89 @@ class DocumentIngestionService:
         text_pages = sum(1 for _, text in pages if len((text or "").strip()) >= MIN_TEXT_CHARACTERS)
         quality = round(text_pages / len(pages), 4)
         return text_pages, quality
+
+    @staticmethod
+    def _merge_page_texts(
+        layout_pages: list[tuple[int, str]],
+        extracted_pages: list[tuple[int, str]],
+    ) -> list[tuple[int, str]]:
+        """Keep every page while preferring the richer native extraction."""
+        by_page = {page: text for page, text in layout_pages}
+        for page, text in extracted_pages:
+            if page not in by_page or len((text or "").strip()) > len(
+                (by_page[page] or "").strip()
+            ):
+                by_page[page] = text
+        return sorted(by_page.items())
+
+    @staticmethod
+    def _try_extract_page_texts(content: bytes) -> list[tuple[int, str]]:
+        """Best-effort page enumeration for layout parses that omit empty scan pages."""
+        try:
+            return DocumentAgent.extract_pdf(content)
+        except Exception:  # noqa: BLE001 - optional parser enrichment boundary
+            return []
+
+    def _ocr_is_available(self) -> bool:
+        try:
+            return bool(self.ocr_provider.is_available())
+        except (ImportError, OSError, RuntimeError, AttributeError):
+            return False
+
+    def _recover_scanned_pages(
+        self,
+        content: bytes,
+        pages: list[tuple[int, str]],
+        document_id: str,
+    ) -> tuple[list[tuple[int, str]], list[LayoutBlock], int]:
+        """Recover low-text pages and return replacement layout blocks for indexing."""
+        try:
+            import fitz
+        except ImportError:
+            return pages, [], 0
+
+        page_map = dict(pages)
+        recovered_blocks: list[LayoutBlock] = []
+        recovered_count = 0
+        doc = None
+        try:
+            doc = fitz.open(stream=content, filetype="pdf")
+            for page_no, text in pages:
+                if len((text or "").strip()) >= MIN_TEXT_CHARACTERS:
+                    continue
+                if page_no - 1 >= len(doc):
+                    continue
+                try:
+                    pix = doc[page_no - 1].get_pixmap()
+                    img_bytes = pix.tobytes("png")
+                    from PIL import Image
+
+                    with Image.open(BytesIO(img_bytes)) as image:
+                        recovered = self.ocr_provider.extract_text(image)
+                except (OSError, ValueError, TypeError, RuntimeError):
+                    continue
+
+                if len((recovered or "").strip()) < MIN_TEXT_CHARACTERS:
+                    continue
+                recovered_text = recovered.strip()
+                page_map[page_no] = recovered_text
+                recovered_count += 1
+                recovered_blocks.append(
+                    LayoutBlock(
+                        document_id=document_id,
+                        page=page_no,
+                        block_id=f"{document_id}_p{page_no}_ocr",
+                        block_type="text",
+                        section="OCR Recovered",
+                        text=recovered_text,
+                        bbox=None,
+                        source_method="ocr",
+                        extraction_method="tesseract",
+                        quality_score=1.0,
+                    )
+                )
+        finally:
+            if doc is not None:
+                doc.close()
+
+        return sorted(page_map.items()), recovered_blocks, recovered_count

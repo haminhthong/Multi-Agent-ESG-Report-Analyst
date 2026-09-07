@@ -1,9 +1,10 @@
 from pathlib import Path
-from app.extraction.year_resolver import resolve_target_year
+
 from app.extraction.extractor import FactExtractor
 from app.extraction.fact_validator import detect_conflicts
+from app.extraction.year_resolver import resolve_target_year
 from app.facts.repository import FactRepository
-from app.ingestion.layout_parser import LayoutParser, LayoutBlock
+from app.ingestion.layout_parser import LayoutBlock, LayoutParser
 from app.models import Citation, ESGFact
 from app.store import Store
 

@@ -3,7 +3,7 @@
 from app.extraction.extractor import EvidenceExtractionAgent, FactExtractor
 from app.extraction.fact_validator import detect_conflicts
 from app.extraction.metric_detector import FACT_PATTERNS
-from app.extraction.unit_normalizer import UnitNormalizer
+from app.extraction.unit_normalizer import UnitDefinition, UnitNormalizer
 from app.extraction.value_parser import parse_numeric_value
 from app.extraction.year_resolver import (
     _MAX_REPORTING_YEAR,
@@ -12,13 +12,14 @@ from app.extraction.year_resolver import (
 )
 
 __all__ = [
-    "EvidenceExtractionAgent",
-    "FactExtractor",
-    "UnitNormalizer",
-    "detect_conflicts",
-    "extract_year_for_span",
-    "extract_methodology",
-    "parse_numeric_value",
     "FACT_PATTERNS",
     "_MAX_REPORTING_YEAR",
+    "EvidenceExtractionAgent",
+    "FactExtractor",
+    "UnitDefinition",
+    "UnitNormalizer",
+    "detect_conflicts",
+    "extract_methodology",
+    "extract_year_for_span",
+    "parse_numeric_value",
 ]

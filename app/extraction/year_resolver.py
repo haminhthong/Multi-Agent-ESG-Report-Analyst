@@ -1,10 +1,10 @@
 """Year and temporal context resolution for ESG metrics."""
 
 import re
-from datetime import datetime
+from datetime import UTC, datetime
 
 # Năm báo cáo tối đa hợp lệ (cho phép trễ 1 năm so với lịch hiện tại; năm xa hơn thường là target).
-_MAX_REPORTING_YEAR = datetime.now().year + 1
+_MAX_REPORTING_YEAR = datetime.now(UTC).year + 1
 
 
 def extract_year_for_span(
@@ -91,7 +91,9 @@ def resolve_target_year(
     else:
         window = text
         window_start = 0
-        m = re.search(r"\b(?:target|net[ -]?zero|carbon[ -]?neutral|goal|commitment)\b", text, re.I)
+        m = re.search(
+            r"\b(?:target|net[ -]?zero|carbon[ -]?neutral|goal|commitment)\b", text, re.IGNORECASE
+        )
         target_mid = (m.start() + m.end()) // 2 if m else len(text) // 2
 
     min_year = (reporting_year + 1) if reporting_year else 2025

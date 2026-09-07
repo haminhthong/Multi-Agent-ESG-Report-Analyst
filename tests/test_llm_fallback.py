@@ -99,3 +99,20 @@ def test_validate_answer_grounding_rejects_unsupported_numbers():
     )
     assert ok is False
     assert any("unsupported_numbers" in i for i in issues)
+
+
+def test_validate_answer_grounding_rejects_uncited_sentence():
+    citations = [
+        {
+            "cid": "[C1]",
+            "page": 5,
+            "excerpt": "Scope 1 emissions were 100 metric tons in 2024.",
+            "document_name": "TestReport.pdf",
+        }
+    ]
+    ok, issues = validate_answer_grounding(
+        "Scope 1 emissions were 100 metric tons in 2024 [C1]. This is a broad conclusion.",
+        citations,
+    )
+    assert ok is False
+    assert "missing_evidence_ids" in issues

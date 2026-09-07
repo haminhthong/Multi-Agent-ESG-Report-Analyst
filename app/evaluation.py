@@ -238,9 +238,7 @@ def evaluate_extraction(
                 if (
                     expected_num != 0
                     and abs(actual_num - expected_num) / abs(expected_num) <= case.tolerance
-                ):
-                    is_tol = True
-                elif actual_num == expected_num:
+                ) or actual_num == expected_num:
                     is_tol = True
             except (ValueError, TypeError):
                 is_tol = is_em
@@ -249,14 +247,14 @@ def evaluate_extraction(
                 case.expected_unit
                 and matched_fact.unit
                 and case.expected_unit.lower() in matched_fact.unit.lower()
-            ):
-                is_unit = True
-            elif not case.expected_unit:
+            ) or not case.expected_unit:
                 is_unit = True
 
-            if case.expected_year and matched_fact.year == case.expected_year:
-                is_year = True
-            elif not case.expected_year:
+            if (
+                case.expected_year
+                and matched_fact.year == case.expected_year
+                or not case.expected_year
+            ):
                 is_year = True
 
         if is_em:

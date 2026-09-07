@@ -62,8 +62,7 @@ def _load_demo_pages(path: Path) -> list[tuple[int, str]]:
     import re
 
     raw = path.read_text(encoding="utf-8").strip()
-    if raw.startswith("---PAGE "):
-        raw = raw[len("---PAGE ") :]
+    raw = raw.removeprefix("---PAGE ")
 
     pages: list[tuple[int, str]] = []
     for block in re.split(r"(?:\n|^)---PAGE ", raw):

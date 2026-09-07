@@ -154,6 +154,8 @@ class RetrievalAgent:
     @staticmethod
     def _to_citation(row: dict) -> Citation:
         base_score = float(row.get("score") or 0.0)
+        source_key = row.get("stable_id") or row.get("block_id") or row.get("chunk_id")
+        evidence_id = f"{row['document_id']}:p{row['page']}:{source_key}" if source_key else None
         return Citation(
             chunk_id=row.get("chunk_id"),
             stable_chunk_id=row.get("stable_id"),
@@ -167,6 +169,7 @@ class RetrievalAgent:
             section=row.get("section_title"),
             block_id=row.get("block_id"),
             block_type=row.get("block_type", "text"),
+            evidence_id=evidence_id,
             retrieval_score=base_score,
             reranker_score=row.get("rerank_score"),
             validated=False,

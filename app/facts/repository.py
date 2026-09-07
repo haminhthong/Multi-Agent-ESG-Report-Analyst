@@ -19,8 +19,37 @@ class FactRepository:
         self.store = store
 
     def save_facts(self, facts: list[ESGFact]) -> int:
-        """Lưu trữ danh sách sự thật ESG có cấu trúc vào Fact Store."""
+        """Compatibility writer that preserves the candidate state."""
         return self.store.save_facts(facts)
+
+    def save_candidates(self, facts: list[ESGFact]) -> int:
+        """Persist extracted facts as unreviewed candidates."""
+        candidates = []
+        for fact in facts:
+            conflict = fact.status in {"CONFLICT", "conflict"} or fact.validation_status in {
+                "CONFLICT",
+                "conflict",
+            }
+            status = "CONFLICT" if conflict else "CANDIDATE"
+            candidates.append(
+                fact.model_copy(
+                    update={
+                        "status": status,
+                        "validation_status": status,
+                        "verification_status": status,
+                    }
+                )
+            )
+        return self.store.save_facts(candidates)
+
+    def promote(
+        self,
+        fact_ids: list[str],
+        status: str = "ACCEPTED",
+        reviewed_by: str | None = None,
+    ) -> int:
+        """Apply an explicit validator or human-review decision."""
+        return self.store.promote_facts(fact_ids, status=status, reviewed_by=reviewed_by)
 
     def query_facts(
         self,
@@ -28,6 +57,7 @@ class FactRepository:
         metric: str | None = None,
         year: int | None = None,
         document_id: str | None = None,
+        include_candidates: bool = True,
     ) -> list[ESGFact]:
         """Truy vấn các sự thật ESG từ Fact Store và chuyển đổi về đối tượng ESGFact."""
         rows = self.store.query_facts(
@@ -35,6 +65,7 @@ class FactRepository:
             metric=metric,
             year=year,
             document_id=document_id,
+            include_candidates=include_candidates,
         )
         return [self._row_to_fact(r) for r in rows]
 
@@ -74,6 +105,7 @@ class FactRepository:
                 page=row.get("page") or 1,
                 chunk_id=int(row["chunk_id"]) if str(row.get("chunk_id", "")).isdigit() else None,
                 excerpt=f"Fact recorded from page {row.get('page')}",
+                evidence_id=row.get("evidence_span_id"),
             )
 
         return ESGFact(
@@ -87,6 +119,7 @@ class FactRepository:
             reporting_year=row.get("reporting_year"),
             baseline_year=row.get("baseline_year"),
             target_year=row.get("target_year"),
+            evidence_span_id=row.get("evidence_span_id"),
             source=cite,
             confidence=float(row.get("confidence") or 0.8),
             raw_value=val,
@@ -97,6 +130,15 @@ class FactRepository:
             normalized_unit=row.get("normalized_unit"),
             methodology=row.get("methodology"),
             organizational_boundary=row.get("organizational_boundary"),
-            validation_status=row.get("validation_status", "valid"),
+            verification_status=row.get("validation_status", "CANDIDATE"),
+            validation_status=row.get("validation_status", "CANDIDATE"),
+            status=row.get("validation_status", "CANDIDATE"),
             extractor_version=row.get("extractor_version", "esg-extractor-v2"),
         )
+
+
+class FactCandidateRepository(FactRepository):
+    """Named repository used by the extraction workflow for candidate facts."""
+
+    def save(self, candidates: list[ESGFact]) -> int:
+        return self.save_candidates(candidates)

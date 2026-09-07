@@ -1,0 +1,161 @@
+{
+  "version": "climate-disclosure-v1",
+  "name": "Climate Disclosure Evidence Review v1",
+  "criteria": [
+    {
+      "id": "CLM_GHG_SCOPE_1",
+      "pillar": "E",
+      "name": "Scope 1 emissions",
+      "description": "Absolute Scope 1 emissions with unit, reporting period, and boundary.",
+      "framework_reference": "GRI 305-1",
+      "retrieval_keywords": ["scope 1", "direct emissions", "tCO2e", "boundary"],
+      "retrieval_queries": ["Scope 1 direct greenhouse gas emissions tCO2e boundary"],
+      "fact_types": ["scope_1_emissions"],
+      "required_fields": ["value", "unit", "reporting_period"],
+      "required_evidence": ["scope 1", "direct emissions", "tCO2e"],
+      "metric_units": ["tCO2e", "ktCO2e", "MtCO2e"],
+      "field_validators": {
+        "value": "numeric_value",
+        "unit": "emissions_unit",
+        "reporting_period": "reporting_year"
+      },
+      "mandatory": true
+    },
+    {
+      "id": "CLM_GHG_SCOPE_2",
+      "pillar": "E",
+      "name": "Scope 2 emissions",
+      "description": "Absolute Scope 2 emissions with methodology, unit, period, and boundary.",
+      "framework_reference": "GRI 305-2",
+      "retrieval_keywords": ["scope 2", "indirect emissions", "market-based", "location-based"],
+      "retrieval_queries": ["Scope 2 market-based location-based emissions tCO2e"],
+      "fact_types": ["scope_2_emissions"],
+      "required_fields": ["value", "unit", "reporting_period", "methodology", "organizational_boundary"],
+      "required_evidence": ["scope 2", "indirect emissions"],
+      "metric_units": ["tCO2e", "ktCO2e", "MtCO2e"],
+      "field_validators": {
+        "value": "numeric_value",
+        "unit": "emissions_unit",
+        "reporting_period": "reporting_year",
+        "methodology": "scope_2_methodology",
+        "organizational_boundary": "boundary_text"
+      },
+      "mandatory": true
+    },
+    {
+      "id": "CLM_GHG_SCOPE_3",
+      "pillar": "E",
+      "name": "Scope 3 emissions",
+      "description": "Value-chain emissions or disclosed Scope 3 categories with unit and period.",
+      "framework_reference": "GRI 305-3",
+      "retrieval_keywords": ["scope 3", "value chain", "supply chain emissions"],
+      "retrieval_queries": ["Scope 3 value chain emissions categories tCO2e"],
+      "fact_types": ["scope_3_emissions"],
+      "required_fields": ["value", "unit", "reporting_period", "categories"],
+      "required_evidence": ["scope 3", "value chain"],
+      "metric_units": ["tCO2e", "ktCO2e", "MtCO2e"],
+      "field_validators": {
+        "value": "numeric_value",
+        "unit": "emissions_unit",
+        "reporting_period": "reporting_year",
+        "categories": "scope_3_category_text"
+      },
+      "mandatory": false
+    },
+    {
+      "id": "CLM_TARGET",
+      "pillar": "E",
+      "name": "Climate target",
+      "description": "Target value or commitment with target year, baseline year, and scope.",
+      "framework_reference": "GRI 305-5 / TCFD",
+      "retrieval_keywords": ["net zero", "target", "baseline", "reduction goal", "pathway"],
+      "retrieval_queries": ["climate target net zero target year baseline year scope"],
+      "fact_types": ["net_zero_target"],
+      "required_fields": ["target_statement", "target_year", "baseline_year", "target_scope"],
+      "required_evidence": ["target", "net zero", "baseline"],
+      "metric_units": ["%", "year", "tCO2e"],
+      "field_validators": {
+        "target_statement": "target_text",
+        "target_year": "future_year",
+        "baseline_year": "baseline_year",
+        "target_scope": "scope_text"
+      },
+      "mandatory": true
+    },
+    {
+      "id": "CLM_PROGRESS",
+      "pillar": "E",
+      "name": "Climate target progress",
+      "description": "Current and baseline/comparison values on the same declared dimension.",
+      "framework_reference": "GRI 305-5",
+      "retrieval_keywords": ["progress", "reduction", "decreased", "compared to baseline", "trajectory"],
+      "retrieval_queries": ["emissions reduction progress current value baseline comparison"],
+      "fact_types": ["scope_1_emissions", "scope_2_emissions", "scope_3_emissions"],
+      "required_fields": ["current_value", "baseline_value", "comparison_period", "change_percentage"],
+      "required_evidence": ["reduction", "progress", "compared"],
+      "metric_units": ["%", "tCO2e"],
+      "field_validators": {
+        "current_value": "numeric_value",
+        "baseline_value": "numeric_value",
+        "comparison_period": "year_or_baseline",
+        "change_percentage": "percentage"
+      },
+      "mandatory": false
+    },
+    {
+      "id": "CLM_METHOD_BOUNDARY",
+      "pillar": "E",
+      "name": "Calculation method and boundary",
+      "description": "GHG calculation method and organizational or operational boundary.",
+      "framework_reference": "GHG Protocol",
+      "retrieval_keywords": ["methodology", "calculation method", "organizational boundary", "operational control"],
+      "retrieval_queries": ["GHG calculation methodology organizational boundary operational control"],
+      "fact_types": ["scope_1_emissions", "scope_2_emissions", "scope_3_emissions"],
+      "required_fields": ["methodology", "organizational_boundary"],
+      "required_evidence": ["method", "boundary"],
+      "metric_units": [],
+      "field_validators": {
+        "methodology": "methodology_text",
+        "organizational_boundary": "boundary_text"
+      },
+      "mandatory": false
+    },
+    {
+      "id": "CLM_RESTATEMENT",
+      "pillar": "E",
+      "name": "GHG restatement",
+      "description": "Disclosure of whether prior GHG data was restated and why.",
+      "framework_reference": "GRI 2-4",
+      "retrieval_keywords": ["restatement", "restated", "recalculated", "prior year adjustment"],
+      "retrieval_queries": ["GHG emissions restatement restated recalculated prior year"],
+      "fact_types": [],
+      "required_fields": ["restatement_statement", "restatement_reason"],
+      "required_evidence": ["restatement", "restated", "recalculated"],
+      "metric_units": [],
+      "field_validators": {
+        "restatement_statement": "restatement_text",
+        "restatement_reason": "reason_text"
+      },
+      "mandatory": false
+    },
+    {
+      "id": "CLM_ASSURANCE",
+      "pillar": "E",
+      "name": "Climate disclosure assurance",
+      "description": "Assurance provider, level, scope, and exact referenced evidence.",
+      "framework_reference": "ISAE 3000",
+      "retrieval_keywords": ["external assurance", "independent assurance", "limited assurance", "reasonable assurance"],
+      "retrieval_queries": ["independent external assurance climate emissions provider scope level"],
+      "fact_types": [],
+      "required_fields": ["assurance_provider", "assurance_level", "scope"],
+      "required_evidence": ["assurance", "independent", "external"],
+      "metric_units": [],
+      "field_validators": {
+        "assurance_provider": "provider_text",
+        "assurance_level": "assurance_level",
+        "scope": "scope_text"
+      },
+      "mandatory": true
+    }
+  ]
+}

@@ -104,11 +104,11 @@ def make_chunk(
 ) -> TextChunk:
     """Tạo đối tượng TextChunk kèm theo stable_chunk_id và content_hash dựa trên SHA-256."""
     c_hash = hashlib.sha256(text.encode("utf-8")).hexdigest()[:16]
-    s_id = hashlib.sha256(
-        f"{company or ''}:{year or ''}:{page}:{block_id or ''}:{chunk_index}:{c_hash}".encode(
-            "utf-8"
-        )
-    ).hexdigest()[:16]
+    # Provenance identity belongs to the content, not mutable document metadata.
+    # A company rename or corrected reporting year must not create a new chunk id.
+    s_id = hashlib.sha256(f"{page}:{block_id or ''}:{chunk_index}:{c_hash}".encode()).hexdigest()[
+        :16
+    ]
     return TextChunk(
         page=page,
         text=text,
@@ -325,7 +325,10 @@ def chunk_layout_blocks(
         buffer: list[str] = []
         buffer_block_id: str | None = None
 
-        def flush_buffer(page_no: int = page) -> None:
+        def flush_buffer(
+            page_no: int = page,
+            section_title: str | None = None,
+        ) -> None:
             nonlocal chunk_index, buffer, buffer_block_id
             if not buffer:
                 return
@@ -335,7 +338,7 @@ def chunk_layout_blocks(
                 words=buffer,
                 max_words=max_words,
                 step=step,
-                section_title=current_section,
+                section_title=section_title,
                 company=company,
                 year=year,
                 chunk_index=chunk_index,
@@ -368,7 +371,7 @@ def chunk_layout_blocks(
                 current_section = str(b_section)[:120]
 
             if b_type == "heading":
-                flush_buffer()
+                flush_buffer(section_title=current_section)
                 current_section = text[:120]
                 chunk_index += 1
                 chunks.append(
@@ -385,7 +388,7 @@ def chunk_layout_blocks(
                     )
                 )
             elif b_type == "table":
-                flush_buffer()
+                flush_buffer(section_title=current_section)
                 chunk_index += 1
                 chunks.append(
                     make_chunk(
@@ -404,12 +407,12 @@ def chunk_layout_blocks(
                 words = text.split()
                 if len(buffer) + len(words) > max_words and buffer:
                     overlap = buffer[-overlap_words:] if overlap_words else []
-                    flush_buffer()
+                    flush_buffer(section_title=current_section)
                     buffer = overlap
                 buffer.extend(words)
                 buffer_block_id = b_id or buffer_block_id
 
-        flush_buffer()
+            flush_buffer(section_title=current_section)
 
     return chunks
 

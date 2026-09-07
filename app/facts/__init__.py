@@ -1,5 +1,5 @@
 """Fact Store module: persistence and retrieval of structured ESG facts."""
 
-from app.facts.repository import FactRepository
+from app.facts.repository import FactCandidateRepository, FactRepository
 
-__all__ = ["FactRepository"]
+__all__ = ["FactCandidateRepository", "FactRepository"]

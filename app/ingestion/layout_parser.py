@@ -68,7 +68,7 @@ class LayoutParser:
                                 clean_row = [str(c or "").strip().replace("\n", " ") for c in row]
                                 rows_str.append("| " + " | ".join(clean_row) + " |")
                             tab_df_markdown = "\n".join(rows_str)
-                    except Exception:
+                    except Exception:  # noqa: BLE001 - table extractor is optional
                         tab_df_markdown = ""
 
                     if not tab_df_markdown:
@@ -93,7 +93,7 @@ class LayoutParser:
                                 quality_score=1.0,
                             )
                         )
-            except Exception as exc:
+            except Exception as exc:  # noqa: BLE001 - optional table extraction boundary
                 logger.debug("Table detection error on page %d: %s", page_no, exc)
 
             # 2. Trích xuất text blocks với real bounding box

@@ -8,10 +8,15 @@ All core capabilities, domain models, services, and workflows have been modulari
 - Workflow: app.workflow
 """
 
+from app.agent_runtime import AgentGraphSupervisor, AgentNode
 from app.capabilities.explanation import ExplanationAgent
 from app.capabilities.planning import QueryPlanningAgent
 from app.capabilities.retrieval import RetrievalAgent
-from app.capabilities.verification import EvidenceValidator, EvidenceVerificationAgent
+from app.capabilities.verification import (
+    AnswerReviewAgent,
+    EvidenceValidator,
+    EvidenceVerificationAgent,
+)
 from app.document_intelligence import DocumentAgent, DocumentIntelligenceAgent
 from app.domain.evidence_completeness import EvidenceCompletenessGate
 from app.evidence_extractor import EvidenceExtractionAgent
@@ -29,17 +34,20 @@ def _requirement_satisfied(req: str, facts: list, citations: list) -> bool:
 
 
 __all__ = [
-    "DocumentIntelligenceAgent",
+    "AgentGraphSupervisor",
+    "AgentNode",
+    "AnalysisWorkflow",
+    "AnswerReviewAgent",
     "DocumentAgent",
+    "DocumentIntelligenceAgent",
+    "ESGAnalysisAgent",
+    "ESGAuditAgent",
+    "ESGAuditService",
+    "EvidenceExtractionAgent",
+    "EvidenceValidator",
+    "EvidenceVerificationAgent",
+    "ExplanationAgent",
     "QueryPlanningAgent",
     "RetrievalAgent",
-    "EvidenceVerificationAgent",
-    "EvidenceValidator",
-    "ESGAuditAgent",
-    "ESGAnalysisAgent",
-    "ESGAuditService",
-    "ExplanationAgent",
     "SupervisorAgent",
-    "AnalysisWorkflow",
-    "EvidenceExtractionAgent",
 ]

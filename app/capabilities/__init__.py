@@ -7,9 +7,14 @@ Legacy classes in :mod:`app.agents` remain temporarily for backward compatibilit
 from app.capabilities.explanation import ExplanationAgent
 from app.capabilities.planning import QueryPlanningAgent
 from app.capabilities.retrieval import RetrievalAgent
-from app.capabilities.verification import EvidenceValidator, EvidenceVerificationAgent
+from app.capabilities.verification import (
+    AnswerReviewAgent,
+    EvidenceValidator,
+    EvidenceVerificationAgent,
+)
 
 __all__ = [
+    "AnswerReviewAgent",
     "EvidenceValidator",
     "EvidenceVerificationAgent",
     "ExplanationAgent",

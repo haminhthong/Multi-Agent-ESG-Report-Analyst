@@ -88,6 +88,7 @@ def detect_conflicts(facts: list[ESGFact]) -> list[EvidenceConflict]:
             )
             # Đánh dấu trạng thái conflict cho các fact
             for f in fact_list:
+                f.status = "CONFLICT"
                 f.validation_status = "conflict"
                 f.verification_status = "conflict"
 

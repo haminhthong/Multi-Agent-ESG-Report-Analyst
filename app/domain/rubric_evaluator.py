@@ -1,5 +1,6 @@
 from typing import Literal
 
+from app.domain.evidence_matrix import EvidenceMatrixBuilder
 from app.models import (
     Citation,
     CriterionCitationRef,
@@ -20,13 +21,13 @@ from app.rubric import (
     TARGET_PATTERN,
     YEAR_PATTERN,
     PillarRubric,
+    resolve_criterion_id,
 )
-from app.domain.evidence_matrix import EvidenceMatrixBuilder
 
 __all__ = [
-    "RubricEvaluator",
-    "PillarEvaluator",
     "EvidenceMatrixBuilder",
+    "PillarEvaluator",
+    "RubricEvaluator",
 ]
 
 
@@ -67,8 +68,23 @@ CRITERION_FACT_MAP: dict[str, list[str]] = {
     "E_GHG_SCOPE_1_2": ["scope_1_emissions", "scope_2_emissions"],
     "E_GHG_SCOPE_3": ["scope_3_emissions"],
     "E_TARGET_SETTING": ["net_zero_target"],
+    "E_TARGETS": ["net_zero_target"],
+    "E_PERFORMANCE": ["scope_1_emissions", "scope_2_emissions", "scope_3_emissions"],
+    "E_RESOURCE_MANAGEMENT": ["renewable_energy"],
+    "CLM_GHG_SCOPE_1": ["scope_1_emissions"],
+    "CLM_GHG_SCOPE_2": ["scope_2_emissions"],
+    "CLM_GHG_SCOPE_3": ["scope_3_emissions"],
+    "CLM_TARGET": ["net_zero_target"],
+    "CLM_PROGRESS": ["scope_1_emissions", "scope_2_emissions", "scope_3_emissions"],
+    "CLM_METHOD_BOUNDARY": [
+        "scope_1_emissions",
+        "scope_2_emissions",
+        "scope_3_emissions",
+    ],
+    "CLM_ASSURANCE": [],
     "E_RENEWABLE_ENERGY": ["renewable_energy"],
     "S_HEALTH_SAFETY": ["work_safety"],
+    "S_WORK_SAFETY": ["work_safety"],
     "S_DIVERSITY_INCLUSION": ["gender_diversity"],
     "S_SUPPLY_CHAIN_LABOR": ["supplier_assessment"],
 }
@@ -104,7 +120,11 @@ class RubricEvaluator:
             relevant[0] if relevant else (citations[0] if citations else None)
         )
 
-        expected_metric_keys = CRITERION_FACT_MAP.get(criterion.id, [])
+        resolved_id = resolve_criterion_id(criterion.id)
+        expected_metric_keys = criterion.fact_types or CRITERION_FACT_MAP.get(
+            criterion.id,
+            CRITERION_FACT_MAP.get(resolved_id, []),
+        )
         relevant_facts = [
             f
             for f in (facts or [])
@@ -141,7 +161,7 @@ class RubricEvaluator:
                     )
                 elif any(k in rf_l for k in ("value", "rate", "percentage", "count", "trir")):
                     field_satisfied = any(f.value is not None for f in relevant_facts)
-                elif "year" in rf_l:
+                elif "year" in rf_l or "period" in rf_l:
                     field_satisfied = any(f.year is not None for f in relevant_facts)
                 elif "unit" in rf_l:
                     field_satisfied = any(bool(f.unit or f.normalized_unit) for f in relevant_facts)
@@ -149,6 +169,31 @@ class RubricEvaluator:
                     field_satisfied = any("target" in f.metric for f in relevant_facts)
                 elif "baseline" in rf_l:
                     field_satisfied = any(f.baseline_year is not None for f in relevant_facts)
+                elif "methodology" in rf_l or "method" in rf_l:
+                    field_satisfied = any(
+                        f.methodology is not None
+                        or any(
+                            token in (f.source.excerpt.lower() if f.source else "")
+                            for token in ("method", "market-based", "location-based")
+                        )
+                        for f in relevant_facts
+                    )
+                elif "boundary" in rf_l:
+                    field_satisfied = any(
+                        f.organizational_boundary is not None
+                        or "boundar" in (f.source.excerpt.lower() if f.source else "")
+                        for f in relevant_facts
+                    )
+                elif "categor" in rf_l or "scope" in rf_l:
+                    field_satisfied = any(
+                        "scope 3" in (f.source.excerpt.lower() if f.source else "")
+                        for f in relevant_facts
+                    )
+                else:
+                    field_satisfied = any(
+                        rf_l.replace("_", " ") in (f.source.excerpt.lower() if f.source else "")
+                        for f in relevant_facts
+                    )
 
                 if field_satisfied:
                     matched_fields.append(rf)
@@ -261,6 +306,18 @@ class RubricEvaluator:
             confidence=confidence,
             matched_fields=matched_fields,
             missing_fields=missing_fields,
+            fact_ids=list(dict.fromkeys(f.fact_id for f in relevant_facts if f.fact_id)),
+            evidence_ids=list(
+                dict.fromkeys(
+                    evidence_id
+                    for f in relevant_facts
+                    for evidence_id in (
+                        f.evidence_span_id,
+                        f.source.evidence_id if f.source else None,
+                    )
+                    if evidence_id
+                )
+            ),
         )
 
 
