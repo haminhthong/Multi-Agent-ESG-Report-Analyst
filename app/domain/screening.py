@@ -1,3 +1,7 @@
+"""Rule engine sàng lọc tín hiệu cần chuyên gia kiểm tra thêm."""
+
+from __future__ import annotations
+
 import re
 from typing import Any, Literal
 
@@ -13,7 +17,6 @@ from app.rubric import (
     VAGUE_WORDS,
 )
 
-# Cấu hình tường minh các quy tắc sàng lọc greenwashing kèm trọng số và độ nghiêm trọng
 SCREENING_RULES: dict[str, dict[str, Any]] = {
     "TARGET_NO_BASELINE": {
         "weight": 2,
@@ -34,7 +37,7 @@ SCREENING_RULES: dict[str, dict[str, Any]] = {
         "severity": "medium",
         "category": "evidence_quality",
         "rule": "metrics_count == 0",
-        "message": "Toàn bộ báo cáo mới ở mức mô tả định tính, hoàn toàn thiếu số liệu đo lường.",
+        "message": "Toàn bộ bằng chứng mới ở mức mô tả định tính, thiếu số liệu đo lường.",
     },
     "EXPLICIT_NO_ASSURANCE": {
         "weight": 2,
@@ -48,34 +51,27 @@ SCREENING_RULES: dict[str, dict[str, Any]] = {
         "severity": "low",
         "category": "evidence_quality",
         "rule": "assurance_absent",
-        "message": "Chưa tìm thấy phạm vi bảo đảm độc lập (External Assurance) cho báo cáo.",
+        "message": "Chưa tìm thấy phạm vi bảo đảm độc lập cho báo cáo.",
     },
     "TARGET_MISSED_OR_EMISSIONS_INCREASED": {
         "weight": 2,
         "severity": "medium",
         "category": "evidence_quality",
         "rule": "performance_negated",
-        "message": "Ghi nhận thông tin không đạt mục tiêu giảm phát thải hoặc phát thải tăng.",
+        "message": "Ghi nhận mục tiêu không đạt hoặc phát thải tăng.",
     },
     "HIGH_VAGUE_NARRATIVE_RATIO": {
         "weight": 2,
         "severity": "medium",
         "category": "narrative_risk",
         "rule": "vague_count > metrics * 1.5",
-        "message": "Mật độ từ ngữ định hướng tham vọng vượt trội so với số liệu chứng minh.",
+        "message": "Mật độ ngôn ngữ tham vọng vượt trội so với số liệu chứng minh.",
     },
 }
 
 
 class GreenwashingScreeningService:
-    """Dịch vụ chuyên biệt sàng lọc rủi ro Greenwashing có cấu trúc và giải thích được.
-
-    Đặc điểm:
-    - Tách biệt hoàn toàn khỏi rubric audit và so sánh đa công ty.
-    - Sử dụng Rule Engine cấu hình hóa (config-driven weights & severity).
-    - Tạo các đối tượng ScreeningSignal rõ ràng (code, rule, category, severity, message).
-    - Tương thích ngược tuyệt đối với các chuỗi thông báo truyền thống.
-    """
+    """Tạo tín hiệu sàng lọc có rule, mức độ và evidence riêng cho từng tín hiệu."""
 
     def __init__(self, rules: dict[str, dict[str, Any]] | None = None):
         self.rules = rules or SCREENING_RULES
@@ -83,190 +79,202 @@ class GreenwashingScreeningService:
     def screen(
         self, citations: list[Citation], facts: list[ESGFact]
     ) -> GreenwashingScreeningResult:
-        """Sàng lọc rủi ro Greenwashing đa chiều (Target Credibility, Evidence Quality, Narrative Risk)."""
         text = " ".join(item.excerpt.lower() for item in citations)
-        metrics = len(METRIC_PATTERN.findall(text))
-        fact_metric_count = sum(1 for f in facts if f.value is not None)
-        metrics = max(metrics, fact_metric_count)
+        metrics = max(
+            len(METRIC_PATTERN.findall(text)),
+            sum(1 for fact in facts if fact.value is not None),
+        )
+        all_ids = [_citation_key(citation) for citation in citations]
+        target_ids = [
+            _citation_key(citation)
+            for citation in citations
+            if TARGET_PATTERN.search(citation.excerpt)
+            or re.search(
+                r"\b(?:net[ -]?zero|baseline|pathway|goal)\b",
+                citation.excerpt,
+                re.IGNORECASE,
+            )
+        ]
+        metric_ids = [
+            _citation_key(citation)
+            for citation in citations
+            if METRIC_PATTERN.search(citation.excerpt)
+        ]
+        assurance_ids = [
+            _citation_key(citation)
+            for citation in citations
+            if ASSURANCE_PATTERN.search(citation.excerpt)
+            or NEGATED_ASSURANCE_PATTERN.search(citation.excerpt)
+        ]
 
         signals: list[ScreeningSignal] = []
         target_signals: list[str] = []
         evidence_signals: list[str] = []
         narrative_signals: list[str] = []
 
-        citation_ids = [str(c.chunk_id) for c in citations if c.chunk_id is not None]
-
-        # 1. Target Credibility
         has_target = bool(TARGET_PATTERN.search(text)) or any(
-            "target" in f.metric.lower() for f in facts
+            "target" in fact.metric.lower() for fact in facts
         )
         has_baseline = (
             bool(BASELINE_PATTERN.search(text)) and not bool(NEGATED_BASELINE_PATTERN.search(text))
-        ) or any(f.baseline_year is not None for f in facts)
-        has_interim = bool(re.search(r"\b(?:2025|2030|interim|milestone)\b", text))
+        ) or any(fact.baseline_year is not None for fact in facts)
+        has_interim = any(
+            fact.target_year is not None and fact.target_year < 2050 for fact in facts
+        ) or any(
+            re.search(
+                r"\b(?:interim|milestone|near[- ]term|short[- ]term|medium[- ]term)\b"
+                r".{0,80}\b20[2-5]\d\b",
+                citation.excerpt,
+                re.IGNORECASE,
+            )
+            for citation in citations
+        )
 
         if has_target:
-            target_signals.append(
-                "✓ Doanh nghiệp có tuyên bố cam kết mục tiêu giảm phát thải/Net-Zero."
-            )
+            target_signals.append("✓ Có tuyên bố mục tiêu giảm phát thải/Net-Zero.")
             if has_baseline:
-                target_signals.append(
-                    "✓ Công bố năm cơ sở (Baseline Year) làm mốc đối sánh rõ ràng."
-                )
+                target_signals.append("✓ Có công bố năm cơ sở (Baseline Year).")
             else:
-                rule_info = self.rules["TARGET_NO_BASELINE"]
-                signals.append(
-                    ScreeningSignal(
-                        code="TARGET_NO_BASELINE",
-                        category=rule_info["category"],
-                        severity=rule_info["severity"],
-                        message=rule_info["message"],
-                        evidence_ids=citation_ids,
-                        rule=rule_info["rule"],
-                    )
+                self._add_signal(
+                    signals,
+                    "TARGET_NO_BASELINE",
+                    target_ids,
+                    missing_requirement="baseline_year",
                 )
-                target_signals.append("⚠ " + rule_info["message"])
-
+                target_signals.append("⚠ " + self.rules["TARGET_NO_BASELINE"]["message"])
             if has_interim:
-                target_signals.append(
-                    "✓ Có lộ trình mục tiêu trung hạn (Interim target / 2030 milestone)."
-                )
+                target_signals.append("✓ Có lộ trình mục tiêu trung hạn.")
             else:
-                rule_info = self.rules["TARGET_NO_INTERIM"]
-                signals.append(
-                    ScreeningSignal(
-                        code="TARGET_NO_INTERIM",
-                        category=rule_info["category"],
-                        severity=rule_info["severity"],
-                        message=rule_info["message"],
-                        evidence_ids=citation_ids,
-                        rule=rule_info["rule"],
-                    )
+                self._add_signal(
+                    signals,
+                    "TARGET_NO_INTERIM",
+                    target_ids,
+                    missing_requirement="interim_target_or_milestone",
                 )
-                target_signals.append("⚠ " + rule_info["message"])
+                target_signals.append("⚠ " + self.rules["TARGET_NO_INTERIM"]["message"])
         else:
-            target_signals.append("ℹ Chưa phát hiện cam kết Net-Zero trong các đoạn đã truy xuất.")
+            target_signals.append("ℹ Chưa phát hiện cam kết Net-Zero trong evidence đã truy xuất.")
 
-        # 2. Evidence Quality
         if metrics > 0:
-            evidence_signals.append(
-                f"✓ Ghi nhận {metrics} số liệu định lượng có kèm đơn vị đo lường cụ thể."
-            )
-            if any("scope" in f.metric.lower() for f in facts):
-                evidence_signals.append(
-                    "✓ Trích xuất được số liệu Scope phát thải có cấu trúc từ bằng chứng."
-                )
+            evidence_signals.append(f"✓ Ghi nhận {metrics} số liệu định lượng.")
+            if any("scope" in fact.metric.lower() for fact in facts):
+                evidence_signals.append("✓ Có fact Scope phát thải có cấu trúc.")
         else:
-            rule_info = self.rules["NO_QUANTITATIVE_METRICS"]
-            signals.append(
-                ScreeningSignal(
-                    code="NO_QUANTITATIVE_METRICS",
-                    category=rule_info["category"],
-                    severity=rule_info["severity"],
-                    message=rule_info["message"],
-                    evidence_ids=citation_ids,
-                    rule=rule_info["rule"],
-                )
+            self._add_signal(
+                signals,
+                "NO_QUANTITATIVE_METRICS",
+                metric_ids,
+                missing_requirement="quantitative_metric",
             )
-            evidence_signals.append("⚠ " + rule_info["message"])
+            evidence_signals.append("⚠ " + self.rules["NO_QUANTITATIVE_METRICS"]["message"])
 
         has_assurance = bool(ASSURANCE_PATTERN.search(text))
         negated_assurance = bool(NEGATED_ASSURANCE_PATTERN.search(text))
         if has_assurance and not negated_assurance:
-            evidence_signals.append(
-                "✓ Có tuyên bố bảo đảm độc lập từ bên thứ ba (External Assurance)."
-            )
+            evidence_signals.append("✓ Có tuyên bố External Assurance độc lập từ bên thứ ba.")
         elif negated_assurance:
-            rule_info = self.rules["EXPLICIT_NO_ASSURANCE"]
-            signals.append(
-                ScreeningSignal(
-                    code="EXPLICIT_NO_ASSURANCE",
-                    category=rule_info["category"],
-                    severity=rule_info["severity"],
-                    message=rule_info["message"],
-                    evidence_ids=citation_ids,
-                    rule=rule_info["rule"],
-                )
+            self._add_signal(
+                signals,
+                "EXPLICIT_NO_ASSURANCE",
+                assurance_ids,
+                missing_requirement="external_assurance",
             )
-            evidence_signals.append("⚠ " + rule_info["message"])
+            evidence_signals.append("⚠ " + self.rules["EXPLICIT_NO_ASSURANCE"]["message"])
         else:
-            rule_info = self.rules["NO_ASSURANCE_FOUND"]
-            signals.append(
-                ScreeningSignal(
-                    code="NO_ASSURANCE_FOUND",
-                    category=rule_info["category"],
-                    severity=rule_info["severity"],
-                    message=rule_info["message"],
-                    evidence_ids=citation_ids,
-                    rule=rule_info["rule"],
-                )
+            self._add_signal(
+                signals,
+                "NO_ASSURANCE_FOUND",
+                [],
+                missing_requirement="external_assurance",
             )
-            evidence_signals.append("⚠ " + rule_info["message"])
+            evidence_signals.append("⚠ " + self.rules["NO_ASSURANCE_FOUND"]["message"])
 
-        if NEGATED_PERFORMANCE_PATTERN.search(text):
-            rule_info = self.rules["TARGET_MISSED_OR_EMISSIONS_INCREASED"]
-            signals.append(
-                ScreeningSignal(
-                    code="TARGET_MISSED_OR_EMISSIONS_INCREASED",
-                    category=rule_info["category"],
-                    severity=rule_info["severity"],
-                    message=rule_info["message"],
-                    evidence_ids=citation_ids,
-                    rule=rule_info["rule"],
-                )
+        performance_ids = [
+            _citation_key(citation)
+            for citation in citations
+            if NEGATED_PERFORMANCE_PATTERN.search(citation.excerpt)
+        ]
+        if performance_ids:
+            self._add_signal(
+                signals,
+                "TARGET_MISSED_OR_EMISSIONS_INCREASED",
+                performance_ids,
             )
-            evidence_signals.append("⚠ " + rule_info["message"])
+            evidence_signals.append(
+                "⚠ " + self.rules["TARGET_MISSED_OR_EMISSIONS_INCREASED"]["message"]
+            )
 
-        # 3. Narrative Risk
-        vague_count = sum(text.count(w) for w in VAGUE_WORDS)
+        vague_count = sum(text.count(word) for word in VAGUE_WORDS)
         if metrics > 0 and vague_count > metrics * 1.5:
-            rule_info = self.rules["HIGH_VAGUE_NARRATIVE_RATIO"]
-            signals.append(
-                ScreeningSignal(
-                    code="HIGH_VAGUE_NARRATIVE_RATIO",
-                    category=rule_info["category"],
-                    severity=rule_info["severity"],
-                    message=f"Mật độ từ ngữ định hướng tham vọng ({vague_count}) vượt trội so với số liệu chứng minh ({metrics}).",
-                    evidence_ids=citation_ids,
-                    rule=rule_info["rule"],
-                )
+            self._add_signal(
+                signals,
+                "HIGH_VAGUE_NARRATIVE_RATIO",
+                all_ids,
+                message=(
+                    f"Mật độ ngôn ngữ tham vọng ({vague_count}) vượt số liệu chứng minh ({metrics})."
+                ),
             )
             narrative_signals.append(
-                f"⚠ Mật độ từ ngữ định hướng tham vọng ({vague_count}) vượt trội so với số liệu chứng minh ({metrics})."
+                f"⚠ Mật độ ngôn ngữ tham vọng ({vague_count}) vượt số liệu chứng minh ({metrics})."
             )
         elif vague_count > 0:
-            narrative_signals.append(
-                f"ℹ Ghi nhận {vague_count} từ ngữ mang tính định hướng tham vọng."
-            )
+            narrative_signals.append(f"ℹ Ghi nhận {vague_count} từ ngữ tham vọng.")
 
-        # Tính tổng điểm cảnh báo từ trọng số cấu hình
-        total_warning_score = sum(self.rules.get(s.code, {}).get("weight", 1) for s in signals)
-
-        # Phân loại Risk Level
-        risk_level: Literal["LOW", "MEDIUM", "HIGH"]
-        if total_warning_score >= 5:
-            risk_level = "HIGH"
-        elif total_warning_score >= 2:
-            risk_level = "MEDIUM"
-        else:
-            risk_level = "LOW"
-
-        summary = (
-            f"Sàng lọc rủi ro Greenwashing ở mức: {risk_level}. "
-            "Lưu ý: Đây là chỉ số đánh giá rủi ro công bố (screening risk) nhằm khuyến nghị chuyên gia đối soát, "
-            "không phải kết luận pháp lý hay khẳng định doanh nghiệp gian lận."
+        score = sum(self.rules.get(signal.code, {}).get("weight", 1) for signal in signals)
+        risk_level: Literal["LOW", "MEDIUM", "HIGH"] = (
+            "HIGH" if score >= 5 else "MEDIUM" if score >= 2 else "LOW"
         )
-
-        all_signals = target_signals + evidence_signals + narrative_signals
+        priority: Literal["LOW_SIGNAL", "MEDIUM_SIGNAL", "HIGH_SIGNAL"] = {
+            "LOW": "LOW_SIGNAL",
+            "MEDIUM": "MEDIUM_SIGNAL",
+            "HIGH": "HIGH_SIGNAL",
+        }[risk_level]
+        summary = (
+            f"Mức ưu tiên sàng lọc: {priority}. "
+            "Đây là tín hiệu heuristic để chuyên gia đối soát, không phải xác suất hay kết luận pháp lý."
+        )
         return GreenwashingScreeningResult(
             risk_level=risk_level,
+            screening_priority=priority,
             signals=signals,
             target_credibility_signals=target_signals,
             evidence_quality_signals=evidence_signals,
             narrative_risk_signals=narrative_signals,
-            all_signals=all_signals,
+            all_signals=target_signals + evidence_signals + narrative_signals,
             summary=summary,
         )
+
+    def _add_signal(
+        self,
+        signals: list[ScreeningSignal],
+        code: str,
+        evidence_ids: list[str],
+        missing_requirement: str | None = None,
+        message: str | None = None,
+    ) -> None:
+        rule = self.rules[code]
+        signals.append(
+            ScreeningSignal(
+                code=code,
+                category=rule["category"],
+                severity=rule["severity"],
+                message=message or rule["message"],
+                evidence_ids=evidence_ids,
+                rule=rule["rule"],
+                missing_requirement=missing_requirement,
+            )
+        )
+
+
+def _citation_key(citation: Citation) -> str:
+    """Định danh evidence ổn định, không dùng numeric chunk id làm provenance."""
+    return (
+        citation.evidence_id
+        or citation.stable_chunk_id
+        or (
+            f"{citation.document_id}:p{citation.page}:{citation.block_id or citation.chunk_id or 'text'}"
+        )
+    )
 
 
 ScreeningService = GreenwashingScreeningService

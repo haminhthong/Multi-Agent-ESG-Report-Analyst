@@ -142,7 +142,7 @@ def main() -> None:
                 f"{value} | {row.reporting_year or '—'} | {page} |"
             )
         if result.screening_result:
-            print(f"\nScreening risk: {result.screening_result.risk_level}")
+            print(f"\nScreening priority: {result.screening_result.screening_priority}")
             print("Screening output is heuristic and requires analyst review.")
         return
 

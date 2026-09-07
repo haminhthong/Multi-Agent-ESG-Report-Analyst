@@ -1,6 +1,5 @@
 /**
- * Evidence-Grounded ESG Intelligence & Audit System
- * Client Controller & Multi-Agent Visualization Dashboard.
+ * Bộ điều khiển dashboard Evidence-Grounded ESG và hiển thị graph của agent.
  */
 
 // Biến trạng thái toàn cục
@@ -453,10 +452,17 @@ function renderGreenwashingScreening(screening, conflicts) {
     const narrativeList = document.getElementById('gw-narrative-signals');
     const conflictsList = document.getElementById('conflicts-list');
 
-    if (!screening) return;
+    if (!screening) {
+        if (riskBadge) riskBadge.textContent = 'SCREENING: CHỈ CHẠY Ở AUDIT';
+        [targetList, evidenceList, narrativeList].forEach(list => {
+            if (list) list.innerHTML = '<li>Không chạy screening trong chế độ QA.</li>';
+        });
+        if (conflictsList) conflictsList.innerHTML = '';
+        return;
+    }
 
     if (riskBadge) {
-        riskBadge.textContent = `RISK LEVEL: ${screening.risk_level}`;
+        riskBadge.textContent = `SCREENING PRIORITY: ${screening.screening_priority || screening.risk_level}`;
         riskBadge.className = screening.risk_level === 'LOW' ? 'risk-badge risk-low' : (
             screening.risk_level === 'MEDIUM' ? 'risk-badge risk-medium' : 'risk-badge risk-high'
         );
@@ -561,7 +567,7 @@ function renderComparisonResults(data, container) {
     const matrix = data.criteria_matrix || [];
 
     if (matrix.length === 0) {
-        container.innerHTML = '<p class="upload-note">Không tìm thấy đủ dữ liệu để so sánh các doanh nghiệp này.</p>';
+        container.innerHTML = '<p class="upload-note">Không tìm thấy fact accepted phù hợp để so sánh các doanh nghiệp này.</p>';
         return;
     }
 
@@ -589,7 +595,7 @@ function renderComparisonResults(data, container) {
 function renderTemporalResults(data, container) {
     const timeline = data.timeline || [];
     if (timeline.length === 0) {
-        container.innerHTML = `<p class="upload-note">Chưa tìm thấy số liệu qua các năm cho chỉ số '${escapeHtml(data.metric)}' của ${escapeHtml(data.company)}.</p>`;
+        container.innerHTML = `<p class="upload-note">Chưa tìm thấy fact accepted qua các năm cho chỉ số '${escapeHtml(data.metric)}' của ${escapeHtml(data.company)}.</p>`;
         return;
     }
 

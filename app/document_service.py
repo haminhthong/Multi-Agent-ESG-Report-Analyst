@@ -102,8 +102,14 @@ class DocumentIngestionService:
         if len(pages) > settings.max_pdf_pages:
             raise DocumentTooManyPagesError(f"PDF vượt quá giới hạn {settings.max_pdf_pages} trang")
 
+        native_pages = [
+            page for page, text in pages if len((text or "").strip()) >= MIN_TEXT_CHARACTERS
+        ]
+        low_quality_pages = [page for page, text in pages if page not in native_pages]
+        native_text_ratio = round(len(native_pages) / max(1, len(pages)), 4)
         text_pages, quality = self._measure_quality(pages)
         ocr_applied_ratio = 0.0
+        ocr_pages: list[int] = []
 
         # Nếu chất lượng văn bản native thấp, thử phục hồi bằng OCR provider
         needs_page_ocr = any(len((text or "").strip()) < MIN_TEXT_CHARACTERS for _, text in pages)
@@ -111,6 +117,7 @@ class DocumentIngestionService:
             pages, ocr_blocks, ocr_count = self._recover_scanned_pages(content, pages, document_id)
             if ocr_blocks:
                 recovered_pages = {block.page for block in ocr_blocks}
+                ocr_pages = sorted(recovered_pages)
                 layout_blocks = [
                     block for block in layout_blocks if block.page not in recovered_pages
                 ] + ocr_blocks
@@ -140,12 +147,33 @@ class DocumentIngestionService:
             page_no for page_no, text in pages if len((text or "").strip()) < MIN_TEXT_CHARACTERS
         ]
         table_count = sum(1 for b in layout_blocks if getattr(b, "block_type", "") == "table")
+        table_pages = sorted(
+            {b.page for b in layout_blocks if getattr(b, "block_type", "") == "table"}
+        )
+        average_confidence = round(
+            sum(getattr(block, "quality_score", 0.0) for block in layout_blocks)
+            / max(1, len(layout_blocks)),
+        )
+        if not layout_blocks:
+            average_confidence = round(quality, 2)
+        quality_status = (
+            "failed"
+            if quality < MIN_TEXT_PAGE_RATIO
+            else "review"
+            if ocr_pages or low_quality_pages
+            else "good"
+        )
         report = ExtractionQualityReport(
-            native_text_ratio=quality,
+            native_text_ratio=native_text_ratio,
             ocr_applied_ratio=ocr_applied_ratio,
+            native_pages=native_pages,
+            ocr_pages=ocr_pages,
+            table_pages=table_pages,
+            low_quality_pages=low_quality_pages,
             table_count=table_count,
             empty_pages=empty_pages,
-            average_confidence=1.0 if quality >= 0.8 else round(quality, 2),
+            average_confidence=average_confidence,
+            status=quality_status,
             notes=[
                 f"Đã trích xuất {text_pages}/{len(pages)} trang văn bản ({quality * 100:.1f}%)"
                 + (
@@ -262,7 +290,7 @@ class DocumentIngestionService:
                         bbox=None,
                         source_method="ocr",
                         extraction_method="tesseract",
-                        quality_score=1.0,
+                        quality_score=0.75,
                     )
                 )
         finally:

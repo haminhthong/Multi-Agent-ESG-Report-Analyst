@@ -6,8 +6,8 @@ from typing import Any
 
 from app.domain.evidence_matrix import EvidenceMatrixBuilder
 from app.domain.rubric_evaluator import RubricEvaluator
-from app.evidence_extractor import EvidenceExtractionAgent
-from app.models import Citation, CompanyComparisonCriterion, CompanyComparisonResult
+from app.facts.repository import FactRepository
+from app.models import Citation, CompanyComparisonCriterion, CompanyComparisonResult, ESGFact
 from app.rubric import CRITERIA_DEFINITIONS, RubricCriterion, resolve_criterion_id
 from app.store import Store
 
@@ -33,36 +33,34 @@ class CompanyComparisonService:
         criteria_ids: list[str] | None = None,
         criteria_definitions: list[RubricCriterion] | None = None,
     ) -> CompanyComparisonResult:
-        """Company-scoped cross-comparison avoiding global fuzzy keyword confusion."""
+        """So sánh theo fact accepted, không trích xuất candidate trong request."""
         defs = criteria_definitions or CRITERIA_DEFINITIONS
-        requested_ids = {resolve_criterion_id(value) for value in criteria_ids or []}
-        target_criteria = [c for c in defs if not requested_ids or c.id in requested_ids]
+        requested_ids = (
+            {resolve_criterion_id(value) for value in criteria_ids}
+            if criteria_ids is not None
+            else None
+        )
+        target_criteria = [c for c in defs if requested_ids is None or c.id in requested_ids]
         comp_rows: list[CompanyComparisonCriterion] = []
         coverage_summary: dict[str, float] = {}
+        fact_repository = FactRepository(store) if store else None
+
+        def accepted_facts(company: str) -> list[ESGFact]:
+            if fact_repository is None:
+                return []
+            scoped_doc_ids = company_documents.get(company) if company_documents else None
+            facts = fact_repository.query_facts(company=company)
+            if scoped_doc_ids:
+                facts = [fact for fact in facts if fact.document_id in scoped_doc_ids]
+            return facts
+
+        def fact_citations(facts: list[ESGFact]) -> list[Citation]:
+            return [fact.source for fact in facts if fact.source is not None]
 
         for company in companies:
-            scoped_doc_ids = company_documents.get(company) if company_documents else None
-            if store:
-                results = store.search(
-                    f"{company} ESG sustainability report",
-                    limit=12,
-                    document_ids=scoped_doc_ids,
-                )
-                cites = [
-                    Citation(
-                        chunk_id=r["chunk_id"],
-                        document_id=r["document_id"],
-                        document_name=r["name"],
-                        page=r["page"],
-                        excerpt=r["text"],
-                    )
-                    for r in results
-                ]
-            else:
-                cites = []
-
-            facts = EvidenceExtractionAgent.extract_facts(cites)
-            matrix = self.evidence_matrix_builder.build(cites, facts, defs)
+            facts = accepted_facts(company)
+            cites = fact_citations(facts)
+            matrix = self.evidence_matrix_builder.build(cites, facts, target_criteria)
             found_count = sum(1 for m in matrix if m.status == "found")
             cov = round((found_count / max(1, len(matrix))) * 100, 1)
             coverage_summary[company] = cov
@@ -70,27 +68,8 @@ class CompanyComparisonService:
         for crit in target_criteria:
             row_dict: dict[str, Any] = {}
             for company in companies:
-                scoped_doc_ids = company_documents.get(company) if company_documents else None
-                if store:
-                    results = store.search(
-                        f"{company} {crit.name}",
-                        limit=4,
-                        document_ids=scoped_doc_ids,
-                    )
-                    cites = [
-                        Citation(
-                            chunk_id=r["chunk_id"],
-                            document_id=r["document_id"],
-                            document_name=r["name"],
-                            page=r["page"],
-                            excerpt=r["text"],
-                        )
-                        for r in results
-                    ]
-                else:
-                    cites = []
-
-                facts_crit = EvidenceExtractionAgent.extract_facts(cites)
+                facts_crit = accepted_facts(company)
+                cites = fact_citations(facts_crit)
                 eval_res = self.rubric_evaluator.evaluate_criterion(crit, cites, facts=facts_crit)
                 row_dict[company] = {
                     "status": eval_res.status,

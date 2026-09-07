@@ -5,7 +5,8 @@ from app.agents import (
     EvidenceExtractionAgent,
     QueryPlanningAgent,
 )
-from app.models import Citation
+from app.facts.repository import FactRepository
+from app.models import Citation, ESGFact
 from app.store import Store
 
 
@@ -131,6 +132,22 @@ def test_temporal_analysis(tmp_path: Path):
         "doc_2023",
         "Company_2023.pdf",
         [(10, "In 2023, Scope 1 emissions were 400,000 MT CO2e.")],
+    )
+
+    # Temporal analysis chỉ đọc fact accepted; ingestion đã tạo candidate riêng.
+    FactRepository(store).save_facts(
+        [
+            ESGFact(
+                metric="scope_1_emissions",
+                value=value,
+                unit="MT CO2e",
+                year=year,
+                reporting_year=year,
+                company="Company",
+                document_id=f"doc_{year}",
+            )
+            for year, value in ((2021, 500000.0), (2022, 450000.0), (2023, 400000.0))
+        ]
     )
 
     agent = ESGAuditAgent()

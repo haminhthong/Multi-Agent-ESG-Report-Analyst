@@ -23,7 +23,7 @@ from app.capabilities import (
 from app.config import settings
 from app.domain.evidence_completeness import EvidenceCompletenessGate
 from app.evidence_extractor import EvidenceExtractionAgent
-from app.facts.repository import FactCandidateRepository
+from app.facts.repository import FactRepository
 from app.llm import LLMClient
 from app.models import (
     AgentExecutionMode,
@@ -31,6 +31,7 @@ from app.models import (
     AnalysisResponse,
     AnalysisState,
     Citation,
+    CriterionEvidenceBundle,
     ESGFact,
     PillarResult,
     RetrievalPlan,
@@ -102,7 +103,7 @@ class ESGAnalysisPipeline:
         self.analysis = self.audit
         self.explanation = ExplanationAgent(llm_client=self.llm)
         self.completeness_gate = EvidenceCompletenessGate()
-        self.fact_candidates = FactCandidateRepository(store)
+        self.fact_repository = FactRepository(store)
         self.agent_supervisor = AgentGraphSupervisor(max_steps=16)
         self.retrieval_mode = retrieval_mode or settings.retrieval_mode
         self.last_response: AnalysisResponse | None = None
@@ -258,12 +259,19 @@ class ESGAnalysisPipeline:
         state.agent_stop_reason = route_result.stop_reason
 
         evidence_quality, data_completeness, confidence = _aggregate_pillar_metrics(state.pillars)
+        response_status = (
+            "incomplete"
+            if state.evidence_completeness.get("status") == "incomplete"
+            else "completed"
+        )
         response = AnalysisResponse(
             mode=state.mode,
             agent_mode=resolved_agent_mode,
             requested_agent_mode=requested_agent_mode,
             agent_route=state.agent_route,
             agent_stop_reason=state.agent_stop_reason,
+            request_id=state.request_id,
+            status=response_status,
             answer=state.answer,
             disclosure_coverage=state.overall_coverage,
             evidence_quality=evidence_quality,
@@ -286,6 +294,14 @@ class ESGAnalysisPipeline:
             comparison=state.comparison,
             evidence_completeness=state.evidence_completeness,
             trace_steps=state.trace_steps,
+            claims=state.claims,
+            versions={
+                "planner": "retrieval-plan-v2",
+                "retrieval": "hybrid-rerank-v1",
+                "extractor": "esg-extractor-v2",
+                "rubric": "climate-disclosure-v1",
+            },
+            criterion_bundles=state.criterion_bundles,
         )
         self.last_response = response
         return response
@@ -461,10 +477,19 @@ class ESGAnalysisPipeline:
 
             # Criterion-level audit retrieval: đảm bảo mọi tiêu chí chuẩn mực đều được truy xuất bằng chứng chuyên biệt
             criterion_cites: list[Citation] = []
+            state.criterion_bundles = []
             for crit in CRITERIA_DEFINITIONS:
                 crit_query = f"{crit.name} {' '.join(crit.retrieval_keywords[:3])}"
                 sub_cites = self.retrieval.run(crit_query, top_k=3, document_ids=state.document_ids)
                 criterion_cites.extend(sub_cites)
+                state.criterion_bundles.append(
+                    CriterionEvidenceBundle(
+                        criterion_id=crit.id,
+                        query=crit_query,
+                        citation_ids=[_citation_key(cite) for cite in sub_cites],
+                        completeness_status="complete" if sub_cites else "missing",
+                    )
+                )
 
             plan = RetrievalPlan(
                 intent="criterion_audit",
@@ -473,6 +498,10 @@ class ESGAnalysisPipeline:
                 subqueries=AUDIT_SUBQUERIES,
                 required_evidence=state.plan.required_evidence,
                 document_scope=state.document_ids,
+                criteria=[criterion.id for criterion in CRITERIA_DEFINITIONS],
+                metrics=state.plan.metrics,
+                reporting_years=state.plan.reporting_years,
+                requires_numeric=state.plan.requires_numeric,
             )
             core_cites = self.retrieval.run_plan(plan, top_k=max(state.top_k, 12))
             state.raw_citations = self._merge_citations(
@@ -511,11 +540,7 @@ class ESGAnalysisPipeline:
         started = time.perf_counter()
         state.extracted_facts = self.extractor.extract_facts(state.validated_citations)
         state.conflicts = self.extractor.detect_conflicts(state.extracted_facts)
-
-        # Extraction is not validation. Persist candidates for review, never as
-        # accepted source-of-truth facts.
-        if state.extracted_facts:
-            self.fact_candidates.save(state.extracted_facts)
+        _attach_facts_to_criterion_bundles(state)
 
         self._trace(
             state,
@@ -571,7 +596,6 @@ class ESGAnalysisPipeline:
             new_facts = self.extractor.extract_facts(new_cites)
             if new_facts:
                 state.extracted_facts.extend(new_facts)
-                self.fact_candidates.save(new_facts)
                 state.conflicts = self.extractor.detect_conflicts(state.extracted_facts)
 
             # Thẩm định lại completeness sau khi thu hồi thêm bằng chứng
@@ -626,15 +650,17 @@ class ESGAnalysisPipeline:
     ) -> None:
         started = time.perf_counter()
         pillars, overall_coverage, _ = self.audit.run(
-            state.validated_citations, facts=state.extracted_facts
-        )
-        matrix = self.audit.build_evidence_matrix(
             state.validated_citations,
-            state.extracted_facts,
+            facts=state.extracted_facts,
+            run_screening=state.mode == "audit",
         )
-        screening = self.audit.screen_greenwashing_signals(
-            state.validated_citations,
-            state.extracted_facts,
+        matrix = self.audit.build_scoped_evidence_matrix(
+            state.validated_citations, state.extracted_facts, state.criterion_bundles
+        )
+        screening = (
+            self.audit.screen_greenwashing_signals(state.validated_citations, state.extracted_facts)
+            if state.mode == "audit"
+            else None
         )
 
         if focus_pillars:
@@ -674,13 +700,22 @@ class ESGAnalysisPipeline:
             state.temporal_analysis = self.audit.run_temporal_analysis(
                 company,
                 self.store,
+                metric=(state.plan.metrics[0] if state.plan.metrics else "scope_1_emissions"),
                 document_ids=state.document_ids,
+                facts=self.fact_repository.query_facts(
+                    company=company,
+                    metric=(state.plan.metrics[0] if state.plan.metrics else "scope_1_emissions"),
+                ),
             )
             details.update({"executed": True, "company": company, "analysis": "temporal"})
         elif state.plan.intent == "cross_document_compare":
             companies = self._resolve_companies(state.user_question, state.document_ids)
             if len(companies) >= 2:
-                state.comparison = self.audit.run_comparison(companies, self.store)
+                state.comparison = self.audit.run_comparison(
+                    companies,
+                    self.store,
+                    criteria_ids=state.plan.criteria,
+                )
                 details.update({"executed": True, "companies": companies, "analysis": "comparison"})
             else:
                 state.warnings.append(
@@ -698,10 +733,30 @@ class ESGAnalysisPipeline:
     def _verify_claims(self, state: AnalysisState) -> None:
         started = time.perf_counter()
         claims = _build_audit_claims(state.extracted_facts, state.pillars)
+        state.claims = [
+            {
+                "text": claim,
+                "evidence_ids": [
+                    _citation_key(cite)
+                    for cite in state.validated_citations
+                    if _claim_overlaps_citation(claim, cite)
+                ],
+            }
+            for claim in claims
+        ]
         state.verification_summary = self.verifier.audit_claims(
             claims,
             state.validated_citations,
         )
+        audits = {
+            item.get("claim"): item
+            for item in state.verification_summary.get("audits", [])
+            if isinstance(item, dict)
+        }
+        for claim in state.claims:
+            audit = audits.get(claim.get("text"), {})
+            claim["supported"] = bool(audit.get("supported", False))
+            claim["support_score"] = audit.get("keyword_overlap", 0.0)
         self._trace(
             state,
             "EvidenceVerificationAgent",
@@ -866,6 +921,44 @@ class ESGAnalysisPipeline:
 SupervisorWorkflow = ESGAnalysisPipeline
 SupervisorAgent = ESGAnalysisPipeline
 AnalysisWorkflow = ESGAnalysisPipeline
+
+
+def _citation_key(citation: Citation) -> str:
+    """Trả về định danh evidence ổn định, không dùng numeric chunk id làm provenance."""
+    return (
+        citation.evidence_id
+        or citation.stable_chunk_id
+        or (
+            f"{citation.document_id}:p{citation.page}:{citation.block_id or citation.chunk_id or 'text'}"
+        )
+    )
+
+
+def _attach_facts_to_criterion_bundles(state: AnalysisState) -> None:
+    """Gắn fact với bundle đúng phạm vi bằng provenance của citation."""
+    for bundle in state.criterion_bundles:
+        citation_ids = set(bundle.citation_ids)
+        fact_ids = [
+            fact.fact_id
+            for fact in state.extracted_facts
+            if fact.fact_id
+            and fact.source is not None
+            and _citation_key(fact.source) in citation_ids
+        ]
+        bundle.fact_ids = list(dict.fromkeys(fact_ids))
+        if bundle.citation_ids and fact_ids:
+            bundle.completeness_status = "complete"
+        elif bundle.citation_ids:
+            bundle.completeness_status = "partial"
+
+
+def _claim_overlaps_citation(claim: str, citation: Citation) -> bool:
+    """Xác định claim có liên hệ tối thiểu với excerpt trước khi gắn citation."""
+    claim_tokens = {
+        token.lower() for token in re.findall(r"[a-zA-ZÀ-ỹ0-9_]+", claim) if len(token) > 3
+    }
+    excerpt = citation.excerpt.lower()
+    return any(token in excerpt for token in claim_tokens)
 
 
 def _requirement_satisfied(

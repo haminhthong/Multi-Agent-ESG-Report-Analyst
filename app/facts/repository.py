@@ -19,8 +19,21 @@ class FactRepository:
         self.store = store
 
     def save_facts(self, facts: list[ESGFact]) -> int:
-        """Compatibility writer that preserves the candidate state."""
-        return self.store.save_facts(facts)
+        """Ghi các fact đã được xác nhận vào canonical Fact Store.
+
+        Candidate phải đi qua :meth:`save_candidates` và :meth:`promote`.
+        """
+        accepted = [
+            fact.model_copy(
+                update={
+                    "status": "ACCEPTED",
+                    "validation_status": "ACCEPTED",
+                    "verification_status": "ACCEPTED",
+                }
+            )
+            for fact in facts
+        ]
+        return self.store.save_facts(accepted)
 
     def save_candidates(self, facts: list[ESGFact]) -> int:
         """Persist extracted facts as unreviewed candidates."""
@@ -40,7 +53,7 @@ class FactRepository:
                     }
                 )
             )
-        return self.store.save_facts(candidates)
+        return self.store.save_fact_candidates(candidates)
 
     def promote(
         self,
@@ -57,7 +70,7 @@ class FactRepository:
         metric: str | None = None,
         year: int | None = None,
         document_id: str | None = None,
-        include_candidates: bool = True,
+        include_candidates: bool = False,
     ) -> list[ESGFact]:
         """Truy vấn các sự thật ESG từ Fact Store và chuyển đổi về đối tượng ESGFact."""
         rows = self.store.query_facts(
@@ -68,6 +81,22 @@ class FactRepository:
             include_candidates=include_candidates,
         )
         return [self._row_to_fact(r) for r in rows]
+
+    def query_candidates(
+        self,
+        company: str | None = None,
+        metric: str | None = None,
+        year: int | None = None,
+        document_id: str | None = None,
+    ) -> list[ESGFact]:
+        """Truy vấn lớp candidate riêng, không nhập lẫn vào fact accepted."""
+        rows = self.store.query_fact_candidates(
+            company=company,
+            metric=metric,
+            year=year,
+            document_id=document_id,
+        )
+        return [self._row_to_fact(row) for row in rows]
 
     def get_temporal_series(self, company: str, metric: str) -> list[ESGFact]:
         """Truy xuất chuỗi thời gian đa năm của một chỉ số ESG cho một công ty cụ thể."""
@@ -100,12 +129,17 @@ class FactRepository:
         if row.get("document_id") or row.get("page"):
             cite = Citation(
                 document_id=row.get("document_id") or "unknown",
-                document_name=row.get("document_id") or "Report",
+                document_name=row.get("name") or row.get("document_id") or "Report",
                 company=row.get("company"),
                 page=row.get("page") or 1,
                 chunk_id=int(row["chunk_id"]) if str(row.get("chunk_id", "")).isdigit() else None,
-                excerpt=f"Fact recorded from page {row.get('page')}",
+                excerpt=(row.get("evidence_text") or f"Fact recorded from page {row.get('page')}")[
+                    :700
+                ],
                 evidence_id=row.get("evidence_span_id"),
+                stable_chunk_id=(
+                    row.get("chunk_id") if not str(row.get("chunk_id", "")).isdigit() else None
+                ),
             )
 
         return ESGFact(
@@ -133,6 +167,7 @@ class FactRepository:
             verification_status=row.get("validation_status", "CANDIDATE"),
             validation_status=row.get("validation_status", "CANDIDATE"),
             status=row.get("validation_status", "CANDIDATE"),
+            conflict_status=row.get("conflict_status", "none") or "none",
             extractor_version=row.get("extractor_version", "esg-extractor-v2"),
         )
 

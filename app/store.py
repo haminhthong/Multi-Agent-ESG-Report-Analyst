@@ -1,6 +1,7 @@
 import hashlib
 import json
 import sqlite3
+import uuid
 from pathlib import Path
 from typing import Any, Protocol, runtime_checkable
 
@@ -66,7 +67,23 @@ CREATE TABLE IF NOT EXISTS documents(
     content_sha256 TEXT,
     original_file_path TEXT,
     parser_version TEXT,
-    chunker_version TEXT
+    chunker_version TEXT,
+    report_id TEXT,
+    report_version TEXT
+);
+CREATE TABLE IF NOT EXISTS reports(
+    report_id TEXT PRIMARY KEY,
+    canonical_name TEXT NOT NULL,
+    company TEXT,
+    sector TEXT,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+CREATE TABLE IF NOT EXISTS document_versions(
+    document_id TEXT PRIMARY KEY,
+    report_id TEXT NOT NULL,
+    version_label TEXT,
+    content_sha256 TEXT NOT NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 CREATE TABLE IF NOT EXISTS chunks(
     id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -110,6 +127,36 @@ CREATE TABLE IF NOT EXISTS esg_facts(
     reviewed_at TIMESTAMP,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY(document_id) REFERENCES documents(id) ON DELETE CASCADE
+);
+CREATE TABLE IF NOT EXISTS fact_candidates(
+    fact_id TEXT PRIMARY KEY,
+    company TEXT,
+    document_id TEXT,
+    metric TEXT NOT NULL,
+    raw_value TEXT,
+    raw_unit TEXT,
+    normalized_value REAL,
+    normalized_unit TEXT,
+    reporting_year INTEGER,
+    baseline_year INTEGER,
+    target_year INTEGER,
+    methodology TEXT,
+    organizational_boundary TEXT,
+    page INTEGER,
+    chunk_id TEXT,
+    evidence_span_id TEXT,
+    confidence REAL,
+    conflict_status TEXT DEFAULT 'none',
+    extractor_version TEXT,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+CREATE TABLE IF NOT EXISTS fact_review_decisions(
+    decision_id TEXT PRIMARY KEY,
+    candidate_id TEXT NOT NULL,
+    decision TEXT NOT NULL,
+    reviewed_by TEXT,
+    notes TEXT,
+    reviewed_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 CREATE VIRTUAL TABLE IF NOT EXISTS chunks_fts USING fts5(text, content='chunks', content_rowid='id');
 CREATE TRIGGER IF NOT EXISTS chunks_ai AFTER INSERT ON chunks BEGIN INSERT INTO chunks_fts(rowid,text) VALUES(new.id,new.text); END;
@@ -159,14 +206,41 @@ class Store:
             "original_file_path": "TEXT",
             "parser_version": "TEXT",
             "chunker_version": "TEXT",
+            "report_id": "TEXT",
+            "report_version": "TEXT",
         }
         for name, definition in columns.items():
             if name not in existing:
                 db.execute(f"ALTER TABLE documents ADD COLUMN {name} {definition}")
+        for row in db.execute(
+            "SELECT id, name, company, sector, year, content_sha256, report_id, report_version "
+            "FROM documents"
+        ).fetchall():
+            report_id = (
+                row["report_id"]
+                or hashlib.sha256(
+                    f"{(row['company'] or '').strip().lower()}|{row['name'].strip().lower()}".encode()
+                ).hexdigest()[:16]
+            )
+            report_version = row["report_version"] or row["content_sha256"] or row["id"]
+            db.execute(
+                "UPDATE documents SET report_id=?, report_version=? WHERE id=?",
+                (report_id, report_version, row["id"]),
+            )
+            db.execute(
+                "INSERT INTO reports(report_id,canonical_name,company,sector) VALUES(?,?,?,?) "
+                "ON CONFLICT(report_id) DO UPDATE SET company=excluded.company, sector=excluded.sector",
+                (report_id, row["name"], row["company"], row["sector"]),
+            )
+            db.execute(
+                "INSERT INTO document_versions(document_id,report_id,version_label,content_sha256) "
+                "VALUES(?,?,?,?) ON CONFLICT(document_id) DO NOTHING",
+                (row["id"], report_id, str(row["year"]) if row["year"] else None, report_version),
+            )
 
     @staticmethod
     def _migrate_facts(db: sqlite3.Connection) -> None:
-        """Ensure legacy fact tables use the candidate lifecycle fields."""
+        """Bổ sung các bảng lifecycle mà không làm mất dữ liệu cũ."""
         existing = {row["name"] for row in db.execute("PRAGMA table_info(esg_facts)")}
         if "validation_status" not in existing:
             db.execute(
@@ -178,6 +252,28 @@ class Store:
             db.execute("ALTER TABLE esg_facts ADD COLUMN reviewed_at TIMESTAMP")
         if "evidence_span_id" not in existing:
             db.execute("ALTER TABLE esg_facts ADD COLUMN evidence_span_id TEXT")
+        if "conflict_status" not in existing:
+            db.execute("ALTER TABLE esg_facts ADD COLUMN conflict_status TEXT DEFAULT 'none'")
+        db.execute(
+            """
+            CREATE TABLE IF NOT EXISTS fact_candidates(
+                fact_id TEXT PRIMARY KEY, company TEXT, document_id TEXT, metric TEXT NOT NULL,
+                raw_value TEXT, raw_unit TEXT, normalized_value REAL, normalized_unit TEXT,
+                reporting_year INTEGER, baseline_year INTEGER, target_year INTEGER,
+                methodology TEXT, organizational_boundary TEXT, page INTEGER, chunk_id TEXT,
+                evidence_span_id TEXT, confidence REAL, conflict_status TEXT DEFAULT 'none',
+                extractor_version TEXT, created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            )
+            """
+        )
+        db.execute(
+            """
+            CREATE TABLE IF NOT EXISTS fact_review_decisions(
+                decision_id TEXT PRIMARY KEY, candidate_id TEXT NOT NULL, decision TEXT NOT NULL,
+                reviewed_by TEXT, notes TEXT, reviewed_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            )
+            """
+        )
 
     @staticmethod
     def _migrate_chunks(db: sqlite3.Connection) -> None:
@@ -220,13 +316,27 @@ class Store:
         parser_version: str | None = None,
         chunker_version: str | None = None,
     ) -> None:
-        """Thêm mới hoặc cập nhật báo cáo cùng toàn bộ chunk của nó trong một database transaction duy nhất."""
+        """Đăng ký phiên bản báo cáo và lập chỉ mục chunk trong một transaction."""
+        report_id = hashlib.sha256(
+            f"{(company or '').strip().lower()}|{name.strip().lower()}".encode()
+        ).hexdigest()[:16]
+        report_version = (
+            content_sha256
+            or hashlib.sha256("\n".join(text for _, text in pages).encode()).hexdigest()
+        )
         with self.connect() as db:
             db.execute(
-                "INSERT OR REPLACE INTO documents"
+                "INSERT INTO documents"
                 "(id,name,company,sector,year,source_url,page_count,text_page_count,"
                 "extraction_quality,status,content_sha256,original_file_path,parser_version,"
-                "chunker_version) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
+                "chunker_version,report_id,report_version) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?) "
+                "ON CONFLICT(id) DO UPDATE SET name=excluded.name, company=excluded.company, "
+                "sector=excluded.sector, year=excluded.year, source_url=excluded.source_url, "
+                "page_count=excluded.page_count, text_page_count=excluded.text_page_count, "
+                "extraction_quality=excluded.extraction_quality, status=excluded.status, "
+                "content_sha256=excluded.content_sha256, original_file_path=excluded.original_file_path, "
+                "parser_version=excluded.parser_version, chunker_version=excluded.chunker_version, "
+                "report_id=excluded.report_id, report_version=excluded.report_version",
                 (
                     doc_id,
                     name,
@@ -242,7 +352,21 @@ class Store:
                     original_file_path,
                     parser_version,
                     chunker_version,
+                    report_id,
+                    report_version,
                 ),
+            )
+            db.execute(
+                "INSERT INTO reports(report_id,canonical_name,company,sector) VALUES(?,?,?,?) "
+                "ON CONFLICT(report_id) DO UPDATE SET canonical_name=excluded.canonical_name, "
+                "company=excluded.company, sector=excluded.sector",
+                (report_id, name, company, sector),
+            )
+            db.execute(
+                "INSERT INTO document_versions(document_id,report_id,version_label,content_sha256) "
+                "VALUES(?,?,?,?) ON CONFLICT(document_id) DO UPDATE SET report_id=excluded.report_id, "
+                "version_label=excluded.version_label, content_sha256=excluded.content_sha256",
+                (doc_id, report_id, str(year) if year is not None else None, report_version),
             )
             # Xóa các chunk cũ của tài liệu này để tránh trùng lặp khi re-index
             db.execute("DELETE FROM chunks WHERE document_id=?", (doc_id,))
@@ -289,9 +413,41 @@ class Store:
                         "INSERT OR REPLACE INTO chunk_embeddings(chunk_id, vector_json) VALUES(?,?)",
                         (cid, json.dumps(vec)),
                     )
+        self._extract_offline_candidates(doc_id)
 
-    def save_facts(self, facts: list[Any]) -> int:
-        """Lưu trữ danh sách ESGFact vào bảng esg_facts trong SQLite (Fact Store)."""
+    def _extract_offline_candidates(self, document_id: str) -> None:
+        """Trích xuất candidate ngay sau indexing; truy vấn online không ghi canonical store."""
+        from app.evidence_extractor import EvidenceExtractionAgent
+        from app.models import Citation
+
+        citations = [
+            Citation(
+                chunk_id=row["chunk_id"],
+                stable_chunk_id=row.get("stable_id"),
+                document_id=row["document_id"],
+                document_name=row.get("name") or document_id,
+                company=row.get("company"),
+                document_year=row.get("year"),
+                page=row["page"],
+                excerpt=" ".join((row.get("text") or "").split())[:700],
+                section=row.get("section_title"),
+                block_id=row.get("block_id"),
+                block_type=row.get("block_type") or "text",
+                evidence_id=(
+                    f"{document_id}:p{row['page']}:{row.get('stable_id') or row['chunk_id']}"
+                ),
+            )
+            for row in self.document_chunks(document_id)
+            if (row.get("text") or "").strip()
+        ]
+        candidates = EvidenceExtractionAgent.extract_facts(citations)
+        if candidates:
+            self.save_fact_candidates(candidates)
+
+    def save_facts(self, facts: list[Any], table: str = "esg_facts") -> int:
+        """Lưu fact vào kho accepted tương thích hoặc bảng candidate chuyên biệt."""
+        if table not in {"esg_facts", "fact_candidates"}:
+            raise ValueError(f"Unsupported fact table: {table}")
         if not facts:
             return 0
         inserted = 0
@@ -365,40 +521,79 @@ class Store:
                     status = f.validation_status
                 status = status or "CANDIDATE"
 
-                db.execute(
-                    """
-                    INSERT OR REPLACE INTO esg_facts(
-                        fact_id, company, document_id, metric, raw_value, raw_unit,
-                        normalized_value, normalized_unit, reporting_year, baseline_year,
-                        target_year, methodology, organizational_boundary, page, chunk_id,
-                        evidence_span_id,
-                        confidence, validation_status, extractor_version
-                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-                    """,
-                    (
-                        fact_id,
-                        company,
-                        doc_id,
-                        metric,
-                        raw_val,
-                        raw_unit,
-                        norm_val,
-                        norm_unit,
-                        rep_year,
-                        getattr(f, "baseline_year", None),
-                        getattr(f, "target_year", None),
-                        getattr(f, "methodology", None),
-                        getattr(f, "organizational_boundary", None),
-                        page,
-                        chunk_id,
-                        getattr(f, "evidence_span_id", None),
-                        float(getattr(f, "confidence", 0.0)),
-                        status,
-                        getattr(f, "extractor_version", "esg-extractor-v2"),
-                    ),
+                values = (
+                    fact_id,
+                    company,
+                    doc_id,
+                    metric,
+                    raw_val,
+                    raw_unit,
+                    norm_val,
+                    norm_unit,
+                    rep_year,
+                    getattr(f, "baseline_year", None),
+                    getattr(f, "target_year", None),
+                    getattr(f, "methodology", None),
+                    getattr(f, "organizational_boundary", None),
+                    page,
+                    chunk_id,
+                    getattr(f, "evidence_span_id", None),
+                    float(getattr(f, "confidence", 0.0)),
+                    "suspected" if status == "CONFLICT" else getattr(f, "conflict_status", "none"),
+                    getattr(f, "extractor_version", "esg-extractor-v2"),
                 )
+                if table == "fact_candidates":
+                    db.execute(
+                        """
+                        INSERT INTO fact_candidates(
+                            fact_id, company, document_id, metric, raw_value, raw_unit,
+                            normalized_value, normalized_unit, reporting_year, baseline_year,
+                            target_year, methodology, organizational_boundary, page, chunk_id,
+                            evidence_span_id, confidence, conflict_status, extractor_version
+                        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                        ON CONFLICT(fact_id) DO UPDATE SET
+                            company=excluded.company, document_id=excluded.document_id,
+                            metric=excluded.metric, raw_value=excluded.raw_value,
+                            raw_unit=excluded.raw_unit, normalized_value=excluded.normalized_value,
+                            normalized_unit=excluded.normalized_unit, reporting_year=excluded.reporting_year,
+                            baseline_year=excluded.baseline_year, target_year=excluded.target_year,
+                            methodology=excluded.methodology, organizational_boundary=excluded.organizational_boundary,
+                            page=excluded.page, chunk_id=excluded.chunk_id,
+                            evidence_span_id=excluded.evidence_span_id, confidence=excluded.confidence,
+                            conflict_status=excluded.conflict_status, extractor_version=excluded.extractor_version
+                        """,
+                        values,
+                    )
+                else:
+                    db.execute(
+                        """
+                        INSERT INTO esg_facts(
+                            fact_id, company, document_id, metric, raw_value, raw_unit,
+                            normalized_value, normalized_unit, reporting_year, baseline_year,
+                            target_year, methodology, organizational_boundary, page, chunk_id,
+                            evidence_span_id, confidence, validation_status, conflict_status,
+                            extractor_version
+                        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                        ON CONFLICT(fact_id) DO UPDATE SET
+                            company=excluded.company, document_id=excluded.document_id,
+                            metric=excluded.metric, raw_value=excluded.raw_value,
+                            raw_unit=excluded.raw_unit, normalized_value=excluded.normalized_value,
+                            normalized_unit=excluded.normalized_unit, reporting_year=excluded.reporting_year,
+                            baseline_year=excluded.baseline_year, target_year=excluded.target_year,
+                            methodology=excluded.methodology, organizational_boundary=excluded.organizational_boundary,
+                            page=excluded.page, chunk_id=excluded.chunk_id,
+                            evidence_span_id=excluded.evidence_span_id, confidence=excluded.confidence,
+                            conflict_status=excluded.conflict_status,
+                            extractor_version=excluded.extractor_version
+                        """,
+                        (*values[:17], status, values[17], values[18]),
+                    )
                 inserted += 1
         return inserted
+
+    def save_fact_candidates(self, facts: list[Any]) -> int:
+        """Lưu candidate offline mà không ghi đè fact đã được duyệt."""
+        return self.save_facts(facts, table="fact_candidates")
 
     def promote_facts(
         self,
@@ -406,20 +601,67 @@ class Store:
         status: str = "ACCEPTED",
         reviewed_by: str | None = None,
     ) -> int:
-        """Promote or reject candidates explicitly after validation or human review."""
+        """Ghi quyết định append-only và đồng bộ fact accepted khi được duyệt."""
         if status not in {"ACCEPTED", "REJECTED", "CONFLICT", "CANDIDATE"}:
             raise ValueError(f"Unsupported fact status: {status}")
         if not fact_ids:
             return 0
-        placeholders = ",".join("?" for _ in fact_ids)
         with self.connect() as db:
-            params: list[Any] = [status, reviewed_by, *fact_ids]
-            cursor = db.execute(
-                f"UPDATE esg_facts SET validation_status=?, reviewed_by=?, reviewed_at=CURRENT_TIMESTAMP "
-                f"WHERE fact_id IN ({placeholders})",
-                params,
-            )
-            return cursor.rowcount
+            updated = 0
+            for fact_id in dict.fromkeys(fact_ids):
+                candidate = db.execute(
+                    "SELECT * FROM fact_candidates WHERE fact_id=?", (fact_id,)
+                ).fetchone()
+                existing = db.execute(
+                    "SELECT fact_id FROM esg_facts WHERE fact_id=?", (fact_id,)
+                ).fetchone()
+                if candidate is None and existing is None:
+                    continue
+
+                db.execute(
+                    "INSERT INTO fact_review_decisions"
+                    "(decision_id,candidate_id,decision,reviewed_by) VALUES(?,?,?,?)",
+                    (uuid.uuid4().hex, fact_id, status, reviewed_by),
+                )
+                if status == "ACCEPTED" and candidate is not None:
+                    db.execute(
+                        """
+                        INSERT INTO esg_facts(
+                            fact_id, company, document_id, metric, raw_value, raw_unit,
+                            normalized_value, normalized_unit, reporting_year, baseline_year,
+                            target_year, methodology, organizational_boundary, page, chunk_id,
+                            evidence_span_id, confidence, validation_status, conflict_status,
+                            extractor_version, reviewed_by, reviewed_at
+                        )
+                        SELECT fact_id, company, document_id, metric, raw_value, raw_unit,
+                            normalized_value, normalized_unit, reporting_year, baseline_year,
+                            target_year, methodology, organizational_boundary, page, chunk_id,
+                            evidence_span_id, confidence, 'ACCEPTED', conflict_status,
+                            extractor_version, ?, CURRENT_TIMESTAMP
+                        FROM fact_candidates WHERE fact_id=?
+                        ON CONFLICT(fact_id) DO UPDATE SET
+                            company=excluded.company, document_id=excluded.document_id,
+                            metric=excluded.metric, raw_value=excluded.raw_value,
+                            raw_unit=excluded.raw_unit, normalized_value=excluded.normalized_value,
+                            normalized_unit=excluded.normalized_unit, reporting_year=excluded.reporting_year,
+                            baseline_year=excluded.baseline_year, target_year=excluded.target_year,
+                            methodology=excluded.methodology, organizational_boundary=excluded.organizational_boundary,
+                            page=excluded.page, chunk_id=excluded.chunk_id,
+                            evidence_span_id=excluded.evidence_span_id, confidence=excluded.confidence,
+                            validation_status='ACCEPTED', conflict_status=excluded.conflict_status,
+                            extractor_version=excluded.extractor_version, reviewed_by=excluded.reviewed_by,
+                            reviewed_at=CURRENT_TIMESTAMP
+                        """,
+                        (reviewed_by, fact_id),
+                    )
+                else:
+                    db.execute(
+                        "UPDATE esg_facts SET validation_status=?, reviewed_by=?, "
+                        "reviewed_at=CURRENT_TIMESTAMP WHERE fact_id=?",
+                        (status, reviewed_by, fact_id),
+                    )
+                updated += 1
+            return updated
 
     def query_facts(
         self,
@@ -430,25 +672,83 @@ class Store:
         include_candidates: bool = True,
     ) -> list[dict[str, Any]]:
         """Truy vấn các facts ESG có cấu trúc từ Fact Store."""
-        sql = "SELECT * FROM esg_facts WHERE 1=1"
+        sql = (
+            "SELECT f.*, d.name, ch.text evidence_text FROM esg_facts f "
+            "LEFT JOIN documents d ON d.id=f.document_id "
+            "LEFT JOIN chunks ch ON ch.document_id=f.document_id "
+            "AND CAST(ch.id AS TEXT)=f.chunk_id WHERE 1=1"
+        )
         params: list[Any] = []
         if company:
-            sql += " AND LOWER(company) = LOWER(?)"
+            sql += " AND LOWER(f.company) = LOWER(?)"
             params.append(company)
         if metric:
-            sql += " AND (metric = ? OR metric LIKE ?)"
+            sql += " AND (f.metric = ? OR f.metric LIKE ?)"
             params.extend([metric, f"%{metric}%"])
         if year:
-            sql += " AND reporting_year = ?"
+            sql += " AND f.reporting_year = ?"
             params.append(year)
         if document_id:
-            sql += " AND document_id = ?"
+            sql += " AND f.document_id = ?"
             params.append(document_id)
         if not include_candidates:
-            sql += " AND UPPER(COALESCE(validation_status, 'CANDIDATE')) = 'ACCEPTED'"
-        sql += " ORDER BY reporting_year ASC, confidence DESC"
+            sql += " AND UPPER(COALESCE(f.validation_status, 'CANDIDATE')) = 'ACCEPTED'"
+        sql += " ORDER BY f.reporting_year ASC, f.confidence DESC"
         with self.connect() as db:
             return [dict(r) for r in db.execute(sql, params).fetchall()]
+
+    def query_fact_candidates(
+        self,
+        company: str | None = None,
+        metric: str | None = None,
+        year: int | None = None,
+        document_id: str | None = None,
+    ) -> list[dict[str, Any]]:
+        """Truy vấn candidate chưa được duyệt, kèm quyết định mới nhất nếu có."""
+        sql = """
+            SELECT c.*, docs.name, chunks.text evidence_text,
+                   COALESCE(d.decision, 'CANDIDATE') validation_status,
+                   d.reviewed_by, d.reviewed_at
+            FROM fact_candidates c
+            LEFT JOIN documents docs ON docs.id=c.document_id
+            LEFT JOIN chunks ON chunks.document_id=c.document_id
+                AND CAST(chunks.id AS TEXT)=c.chunk_id
+            LEFT JOIN fact_review_decisions d ON d.decision_id = (
+                SELECT latest.decision_id
+                FROM fact_review_decisions latest
+                WHERE latest.candidate_id = c.fact_id
+                ORDER BY latest.reviewed_at DESC, latest.rowid DESC
+                LIMIT 1
+            )
+            WHERE 1=1
+        """
+        params: list[Any] = []
+        if company:
+            sql += " AND LOWER(c.company) = LOWER(?)"
+            params.append(company)
+        if metric:
+            sql += " AND (c.metric = ? OR c.metric LIKE ?)"
+            params.extend([metric, f"%{metric}%"])
+        if year:
+            sql += " AND c.reporting_year = ?"
+            params.append(year)
+        if document_id:
+            sql += " AND c.document_id = ?"
+            params.append(document_id)
+        sql += " ORDER BY c.reporting_year ASC, c.confidence DESC"
+        with self.connect() as db:
+            return [dict(r) for r in db.execute(sql, params).fetchall()]
+
+    def document_chunks(self, document_id: str) -> list[dict[str, Any]]:
+        """Lấy toàn bộ chunk ổn định của một tài liệu để chạy extraction offline."""
+        with self.connect() as db:
+            rows = db.execute(
+                f"SELECT {SEARCH_COLUMNS} FROM chunks c "
+                "JOIN documents d ON d.id=c.document_id WHERE c.document_id=? "
+                "ORDER BY c.page, c.id",
+                (document_id,),
+            ).fetchall()
+            return [dict(row) for row in rows]
 
     def ensure_embeddings(self) -> None:
         """Đảm bảo mọi chunk trong cơ sở dữ liệu đều có vector embedding."""

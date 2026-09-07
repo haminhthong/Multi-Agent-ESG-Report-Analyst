@@ -11,6 +11,7 @@ from app.llm import LLMClient
 from app.models import (
     Citation,
     CompanyComparisonResult,
+    CriterionEvidenceBundle,
     CriterionResult,
     ESGFact,
     EvidenceMatrixRow,
@@ -50,11 +51,14 @@ class ESGAnalysisService:
         self,
         citations: list[Citation],
         facts: list[ESGFact] | None = None,
+        run_screening: bool = True,
     ) -> tuple[list[PillarResult], float, list[str]]:
-        """Phân tích các trụ cột E, S, G và sàng lọc các tín hiệu cần kiểm tra theo Fact-First."""
+        """Đánh giá rubric; screening chỉ chạy khi luồng yêu cầu rõ ràng."""
         pillars, overall_coverage = self.pillar_evaluator.evaluate_all(citations, facts=facts)
         if not citations and not facts:
             return pillars, 0.0, ["Chưa truy xuất được bằng chứng nguồn để thẩm định."]
+        if not run_screening:
+            return pillars, overall_coverage, []
         screening = self.screening_service.screen(citations, facts or [])
         return pillars, overall_coverage, screening.all_signals
 
@@ -79,6 +83,19 @@ class ESGAnalysisService:
         self, citations: list[Citation], facts: list[ESGFact]
     ) -> list[EvidenceMatrixRow]:
         return self.matrix_builder.build(citations, facts)
+
+    def build_scoped_evidence_matrix(
+        self,
+        citations: list[Citation],
+        facts: list[ESGFact],
+        bundles: list[CriterionEvidenceBundle],
+    ) -> list[EvidenceMatrixRow]:
+        """Đánh giá mỗi tiêu chí bằng đúng evidence bundle của tiêu chí đó."""
+        if not bundles:
+            return self.matrix_builder.build(citations, facts)
+        from app.rubric import CRITERIA_DEFINITIONS
+
+        return self.matrix_builder.build_scoped(citations, facts, bundles, CRITERIA_DEFINITIONS)
 
     def screen_greenwashing_signals(
         self, citations: list[Citation], facts: list[ESGFact]

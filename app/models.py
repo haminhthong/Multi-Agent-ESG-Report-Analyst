@@ -7,7 +7,7 @@ FactStatus = Literal[
     "ACCEPTED",
     "REJECTED",
     "CONFLICT",
-    # Legacy values are accepted while older SQLite rows are migrated.
+    # Vẫn nhận giá trị cũ để tương thích các bản ghi SQLite đã tồn tại.
     "candidate",
     "accepted",
     "rejected",
@@ -124,7 +124,7 @@ class PillarResult(BaseModel):
 
 
 class RetrievalPlan(BaseModel):
-    """Kế hoạch truy xuất có cấu trúc do Query Planning Agent sinh ra."""
+    """Hợp đồng truy xuất có kiểu dữ liệu do bộ lập kế hoạch sinh ra."""
 
     intent: Literal[
         "fact_lookup",
@@ -140,10 +140,15 @@ class RetrievalPlan(BaseModel):
     evidence_requirements: list[Any] = Field(default_factory=list)
     document_scope: list[str] | None = None
     temporal_scope: str | None = None
+    companies: list[str] = Field(default_factory=list)
+    criteria: list[str] = Field(default_factory=list)
+    metrics: list[str] = Field(default_factory=list)
+    reporting_years: list[int] = Field(default_factory=list)
+    requires_numeric: bool = False
 
 
 class ESGFact(BaseModel):
-    """Bằng chứng số liệu ESG có cấu trúc đã chuẩn hóa đơn vị và năm."""
+    """Fact ESG đã chuẩn hóa, luôn giữ liên kết tới bằng chứng nguồn."""
 
     metric: str
     value: float | str | None = None
@@ -163,15 +168,16 @@ class ESGFact(BaseModel):
     extraction_method: Literal["regex", "rule", "llm"] = "rule"
     status: FactStatus = "CANDIDATE"
     verification_status: FactStatus = "CANDIDATE"
-    # Compatibility name; the canonical lifecycle field is ``status``.
+    # Tên tương thích; lifecycle chuẩn dùng trường ``status``.
     validation_status: FactStatus = "CANDIDATE"
+    conflict_status: Literal["none", "suspected", "confirmed"] = "none"
 
-    # Lưu vết nguyên bản và chuẩn hóa (Dual Value/Unit Representation)
+    # Giữ song song giá trị nguyên bản và giá trị đã chuẩn hóa.
     raw_value: float | str | None = None
     raw_unit: str | None = None
     normalized_value: float | None = None
     normalized_unit: str | None = None
-    methodology: str | None = None  # e.g. "market-based", "location-based", "gross", "net"
+    methodology: str | None = None  # Ví dụ: market-based, location-based, gross, net.
     organizational_boundary: str | None = None
     evidence_text: str | None = None
     extractor_version: str = "esg-extractor-v2"
@@ -196,6 +202,7 @@ class ScreeningSignal(BaseModel):
     message: str
     evidence_ids: list[str] = Field(default_factory=list)
     rule: str = ""
+    missing_requirement: str | None = None
 
 
 class EvidenceRequirement(BaseModel):
@@ -206,7 +213,7 @@ class EvidenceRequirement(BaseModel):
     all_of: list[str] = Field(default_factory=list)
     any_of: list[str] = Field(default_factory=list)
     min_count: int = 1
-    required_fields: list[str] = Field(default_factory=list)  # e.g. ["value", "unit", "year"]
+    required_fields: list[str] = Field(default_factory=list)  # Ví dụ: value, unit, year.
     keywords: list[str] = Field(default_factory=list)
     requires_numeric_value: bool = False
     requires_year: bool = False
@@ -264,9 +271,14 @@ class ExtractionQualityReport(BaseModel):
 
     native_text_ratio: float = Field(ge=0.0, le=1.0, default=1.0)
     ocr_applied_ratio: float = Field(ge=0.0, le=1.0, default=0.0)
+    native_pages: list[int] = Field(default_factory=list)
+    ocr_pages: list[int] = Field(default_factory=list)
+    table_pages: list[int] = Field(default_factory=list)
+    low_quality_pages: list[int] = Field(default_factory=list)
     table_count: int = 0
     empty_pages: list[int] = Field(default_factory=list)
     average_confidence: float = Field(ge=0.0, le=1.0, default=1.0)
+    status: Literal["good", "review", "failed"] = "good"
     notes: list[str] = Field(default_factory=list)
 
 
@@ -274,6 +286,7 @@ class GreenwashingScreeningResult(BaseModel):
     """Kết quả sàng lọc rủi ro greenwashing đa tín hiệu."""
 
     risk_level: Literal["LOW", "MEDIUM", "HIGH"] = "LOW"
+    screening_priority: Literal["LOW_SIGNAL", "MEDIUM_SIGNAL", "HIGH_SIGNAL"] = "LOW_SIGNAL"
     signals: list[ScreeningSignal] = Field(default_factory=list)
     target_credibility_signals: list[str] = Field(default_factory=list)
     evidence_quality_signals: list[str] = Field(default_factory=list)
@@ -346,6 +359,19 @@ class EvidenceMatrixRow(BaseModel):
     citation: CriterionCitationRef | None = None
     confidence: float = 0.0
     missing_fields: list[str] = Field(default_factory=list)
+    fact_ids: list[str] = Field(default_factory=list)
+    evidence_ids: list[str] = Field(default_factory=list)
+
+
+class CriterionEvidenceBundle(BaseModel):
+    """Bằng chứng được cô lập theo từng tiêu chí để tránh trộn lẫn phạm vi audit."""
+
+    criterion_id: str
+    query: str = ""
+    citation_ids: list[str] = Field(default_factory=list)
+    fact_ids: list[str] = Field(default_factory=list)
+    completeness_status: Literal["complete", "partial", "missing"] = "missing"
+    missing_requirements: list[str] = Field(default_factory=list)
 
 
 class AnalysisRequest(BaseModel):
@@ -375,7 +401,7 @@ class SearchRequest(BaseModel):
 
 
 class FactReviewRequest(BaseModel):
-    """Explicit validator or human-review decision for a fact candidate."""
+    """Quyết định rõ ràng của validator hoặc người review candidate."""
 
     status: Literal["ACCEPTED", "REJECTED", "CONFLICT", "CANDIDATE"]
     reviewed_by: str = Field(min_length=1, max_length=200)
@@ -428,6 +454,8 @@ class AnalysisResponse(BaseModel):
     requested_agent_mode: AgentExecutionMode = "agentic"
     agent_route: list[str] = Field(default_factory=list)
     agent_stop_reason: str = "completed"
+    request_id: str = ""
+    status: Literal["completed", "incomplete", "failed"] = "completed"
     answer: str
     disclosure_coverage: float = Field(ge=0.0, le=100.0, default=0.0)
     evidence_quality: float = Field(ge=0.0, le=100.0, default=0.0)
@@ -452,6 +480,9 @@ class AnalysisResponse(BaseModel):
         default_factory=EvidenceCompletenessResult
     )
     trace_steps: list[AgentTraceStep] = Field(default_factory=list)
+    claims: list[dict[str, Any]] = Field(default_factory=list)
+    versions: dict[str, str] = Field(default_factory=dict)
+    criterion_bundles: list[CriterionEvidenceBundle] = Field(default_factory=list)
 
 
 class AnalysisState(BaseModel):
@@ -486,6 +517,8 @@ class AnalysisState(BaseModel):
     limitations: list[str] = Field(default_factory=list)
     trace: list[str] = Field(default_factory=list)
     trace_steps: list[AgentTraceStep] = Field(default_factory=list)
+    claims: list[dict[str, Any]] = Field(default_factory=list)
+    criterion_bundles: list[CriterionEvidenceBundle] = Field(default_factory=list)
 
 
 class ErrorDetail(BaseModel):

@@ -18,7 +18,6 @@ from app.document_service import (
     OcrRequiredError,
     UnsupportedDocumentError,
 )
-from app.evidence_extractor import EvidenceExtractionAgent
 from app.facts.repository import FactRepository
 from app.models import (
     AnalysisRequest,
@@ -232,15 +231,9 @@ def temporal_endpoint(request: TemporalRequest) -> TemporalAnalysisResult:
     summary="Extract structured metrics for one report",
 )
 def document_metrics(document_id: str) -> list[ESGFact]:
-    doc = store.get_document(document_id)
-    if not doc:
+    if not store.get_document(document_id):
         raise HTTPException(status_code=404, detail=f"Unknown document id '{document_id}'")
-    citations = pipeline.retrieval.run(
-        query=f"{doc['name']} emissions energy safety board governance",
-        top_k=15,
-        document_ids=[document_id],
-    )
-    return EvidenceExtractionAgent.extract_facts(citations)
+    return fact_repository.query_candidates(document_id=document_id)
 
 
 @app.patch(
@@ -292,11 +285,14 @@ def recent_trace() -> dict[str, Any]:
         }
     return {
         "status": "ok",
+        "request_id": last.request_id,
+        "analysis_status": last.status,
         "mode": last.mode,
         "agent_mode": last.agent_mode,
         "requested_agent_mode": last.requested_agent_mode,
         "agent_route": last.agent_route,
         "agent_stop_reason": last.agent_stop_reason,
+        "versions": last.versions,
         "intent": last.plan.intent if last.plan else None,
         "trace": last.trace,
         "trace_steps": [step.model_dump() for step in last.trace_steps],

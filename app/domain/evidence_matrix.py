@@ -4,7 +4,13 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Any, Literal
 
-from app.models import Citation, ESGFact, EvidenceMatrixRow, RubricCriterion
+from app.models import (
+    Citation,
+    CriterionEvidenceBundle,
+    ESGFact,
+    EvidenceMatrixRow,
+    RubricCriterion,
+)
 from app.rubric import CRITERIA_DEFINITIONS
 
 if TYPE_CHECKING:
@@ -44,7 +50,7 @@ class EvidenceMatrixBuilder:
             if eval_res.status in ("found", "partial", "contradicts", "unclear"):
                 status = eval_res.status  # type: ignore[assignment]
 
-            # Match with extracted facts to enrich accurate numerical values
+            # Ưu tiên fact có độ tin cậy cao để hiển thị số liệu chuẩn hóa.
             matched_fact = None
             if "scope_1" in criterion.id.lower():
                 matched_fact = fact_by_metric.get("scope_1_emissions")
@@ -77,6 +83,16 @@ class EvidenceMatrixBuilder:
                     reporting_year=display_year,
                     citation=eval_res.citation,
                     confidence=eval_res.confidence,
+                    missing_fields=eval_res.missing_fields,
+                    fact_ids=eval_res.fact_ids,
+                    evidence_ids=eval_res.evidence_ids
+                    or [
+                        _citation_key(citation)
+                        for citation in citations
+                        if eval_res.citation
+                        and citation.document_name == eval_res.citation.document
+                        and citation.page == eval_res.citation.page
+                    ],
                 )
             )
         return matrix
@@ -89,3 +105,43 @@ class EvidenceMatrixBuilder:
     ) -> list[EvidenceMatrixRow]:
         """Backward-compatible alias for build()."""
         return self.build(citations, facts, criteria_definitions=criteria_definitions)
+
+    def build_scoped(
+        self,
+        citations: list[Citation],
+        facts: list[ESGFact],
+        bundles: list[CriterionEvidenceBundle],
+        criteria_definitions: list[RubricCriterion] | None = None,
+    ) -> list[EvidenceMatrixRow]:
+        """Xây ma trận theo bundle, không cho phép một tiêu chí mượn evidence tiêu chí khác."""
+        defs = criteria_definitions or CRITERIA_DEFINITIONS
+        by_id = {criterion.id: criterion for criterion in defs}
+        rows: list[EvidenceMatrixRow] = []
+        for bundle in bundles:
+            criterion = by_id.get(bundle.criterion_id)
+            if criterion is None:
+                continue
+            citation_ids = set(bundle.citation_ids)
+            scoped_citations = [
+                citation for citation in citations if _citation_key(citation) in citation_ids
+            ]
+            fact_ids = set(bundle.fact_ids)
+            scoped_facts = [
+                fact
+                for fact in facts
+                if fact.fact_id in fact_ids
+                or (fact.source is not None and _citation_key(fact.source) in citation_ids)
+            ]
+            rows.extend(self.build(scoped_citations, scoped_facts, [criterion]))
+        return rows
+
+
+def _citation_key(citation: Citation) -> str:
+    """Dùng evidence id ổn định thay vì id numeric của chunk."""
+    return (
+        citation.evidence_id
+        or citation.stable_chunk_id
+        or (
+            f"{citation.document_id}:p{citation.page}:{citation.block_id or citation.chunk_id or 'text'}"
+        )
+    )

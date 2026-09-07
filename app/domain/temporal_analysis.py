@@ -4,8 +4,8 @@ from __future__ import annotations
 
 from typing import Any
 
-from app.evidence_extractor import EvidenceExtractionAgent
-from app.models import Citation, ESGFact, TemporalAnalysisResult, TemporalTrendPoint
+from app.facts.repository import FactRepository
+from app.models import ESGFact, TemporalAnalysisResult, TemporalTrendPoint
 from app.store import Store
 
 
@@ -93,7 +93,7 @@ class TemporalAnalyzer:
         document_ids: list[str] | None = None,
         facts: list[ESGFact] | None = None,
     ) -> TemporalAnalysisResult:
-        """Backward-compatible entry point: uses facts if provided, otherwise retrieves from store."""
+        """Chạy trên fact accepted; không trích xuất hoặc suy luận từ chunk online."""
         if facts:
             return self.analyze(company=company, facts=facts, metric=metric)
 
@@ -105,22 +105,18 @@ class TemporalAnalyzer:
                 yoy_changes=[],
                 baseline_to_current_change=None,
                 reporting_consistency="limited_data",
-                consistency_issues=["No facts or store available"],
+                consistency_issues=["Chưa có fact accepted hoặc kho dữ liệu"],
             )
 
-        query = f"{company} {metric} Scope 1 greenhouse gas emissions"
-        results = store.search(query, limit=12, document_ids=document_ids)
-        citations = [
-            Citation(
-                chunk_id=r["chunk_id"],
-                document_id=r["document_id"],
-                document_name=r["name"],
-                page=r["page"],
-                excerpt=r["text"],
-                score=float(r.get("score") or 0.5),
-            )
-            for r in results
-        ]
-
-        extracted_facts = EvidenceExtractionAgent.extract_facts(citations)
-        return self.analyze(company=company, facts=extracted_facts, metric=metric)
+        repository = FactRepository(store)
+        if document_ids:
+            accepted_facts = [
+                fact
+                for document_id in document_ids
+                for fact in repository.query_facts(
+                    company=company, metric=metric, document_id=document_id
+                )
+            ]
+        else:
+            accepted_facts = repository.query_facts(company=company, metric=metric)
+        return self.analyze(company=company, facts=accepted_facts, metric=metric)
