@@ -1,6 +1,12 @@
 # Multi-Agent ESG Report Analyst — Evidence-Grounded ESG Intelligence
 
-![Python Version](https://img.shields.io/badge/Python-3.11%2B-blue.svg)
+[![CI](https://github.com/haminhthong/Multi-Agent-ESG-Report-Analyst/actions/workflows/ci.yml/badge.svg)](https://github.com/haminhthong/Multi-Agent-ESG-Report-Analyst/actions/workflows/ci.yml)
+[![Python](https://img.shields.io/badge/Python-3.11%2B-3776AB.svg?logo=python&logoColor=white)](https://www.python.org/)
+[![FastAPI](https://img.shields.io/badge/FastAPI-0.115%2B-009688.svg?logo=fastapi&logoColor=white)](https://fastapi.tiangolo.com/)
+[![SQLite FTS5](https://img.shields.io/badge/SQLite-FTS5-003B57.svg?logo=sqlite&logoColor=white)](https://sqlite.org/fts5.html)
+[![Docker](https://img.shields.io/badge/Docker-ready-2496ED.svg?logo=docker&logoColor=white)](https://www.docker.com/)
+[![Tesseract OCR](https://img.shields.io/badge/OCR-Tesseract-5A5A5A.svg)](https://github.com/tesseract-ocr/tesseract)
+[![License](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
 Nền tảng local-first để phân tích báo cáo ESG theo nguyên tắc **evidence-first**. Mọi số liệu, nhận định và tín hiệu sàng lọc đều phải truy ngược được về tài liệu, trang PDF, chunk ổn định và `evidence_id`. Hệ thống có thể chạy deterministic hoàn toàn, hoặc dùng local LLM khi được bật.
 
@@ -50,8 +56,10 @@ flowchart TD
         P --> Q[RetrievalAgent truy xuất và hợp nhất bằng chứng]
         Q --> R[EvidenceVerificationAgent kiểm tra provenance]
         R --> S[EvidenceExtractionAgent tạo facts tạm thời]
-        S --> T[EvidenceCompletenessGate kiểm tra required evidence]
-        T --> U[ESGAuditAgent tạo rubric và evidence matrix]
+        S --> T{EvidenceCompletenessGate: đủ?}
+        T -->|Đủ| U[ESGAuditAgent tạo rubric và evidence matrix]
+        T -->|Thiếu / partial| T1[Targeted retrieval retry và recheck trong Gate]
+        T1 --> U
         U --> V{Temporal hoặc comparison?}
         V -->|Có| W[Phân tích accepted facts]
         V -->|Không| X[ClaimVerificationAgent]
@@ -76,6 +84,27 @@ Quy tắc quan trọng của luồng:
 3. Citation phải còn trong scope, có trang hợp lệ và có excerpt trước khi gắn vào claim.
 4. Thiếu bằng chứng không bị biến thành kết luận chắc chắn; hệ thống ghi `partial`/`missing` và đưa vào `limitations`.
 5. Screening chỉ chạy trong `audit` và luôn có disclaimer về tính heuristic.
+
+### Luồng dữ liệu và hợp đồng giữa các tầng
+
+| Tầng | Input chính | Output chính | Nơi tồn tại |
+|---|---|---|---|
+| Ingestion | PDF bytes, tên công ty, năm, sector | Trang native/OCR, layout blocks, quality report | Bộ nhớ request → `documents`, `chunks` |
+| Indexing | Trang và layout blocks đã chuẩn hóa | `stable_id`, FTS5 và vector embedding | SQLite: `chunks`, `chunks_fts`, `chunk_embeddings` |
+| Fact extraction | Chunk có provenance | Fact chờ duyệt, `evidence_span_id` | SQLite: `fact_candidates` |
+| Human/validator review | `fact_id`, quyết định | Lịch sử append-only và fact canonical | `fact_review_decisions` → `esg_facts` |
+| Query planning | Câu hỏi, mode, document scope | `RetrievalPlan` typed | `AnalysisState` trong bộ nhớ |
+| Retrieval + verification | `RetrievalPlan` | Citation raw → citation hợp lệ | `AnalysisState.validated_citations` |
+| Audit/analysis | Citation hợp lệ, accepted facts | Rubric matrix, temporal, comparison, screening | `AnalysisResponse` |
+| Answer review | Claims, citations, limitations | Answer grounded + trace + versions | API response, không ghi fact mới |
+
+Ranh giới dữ liệu quan trọng:
+
+- `fact_candidates` không phải sự thật canonical; chỉ `ACCEPTED` trong `esg_facts` mới được dùng mặc định cho temporal và comparison.
+- Re-index xóa và tạo lại chunk/embedding nhưng giữ `fact_id` và review history; chunk không đổi giữ `stable_chunk_id`, còn chunk thay đổi nhận ID mới để provenance không phụ thuộc numeric SQLite id.
+- Luồng online chỉ tạo fact tạm thời trong `AnalysisState`; việc ghi candidate chính thức diễn ra ở luồng indexing offline.
+- Temporal nhận các alias như `Scope 1`, `scope1` và `scope_1_emissions`, chọn fact có confidence cao nhất nếu một năm bị trùng, đồng thời báo rõ năm bị thiếu thay vì gắn nhãn nhất quán giả.
+- Mọi claim đầu ra phải liên hệ được với citation có `document_id`, `page`, excerpt và `evidence_id`; thiếu bằng chứng được phản ánh trong `limitations`.
 
 ## Hướng agent
 
@@ -167,13 +196,18 @@ Multi-Agent-ESG-Report-Analyst/
 ├─ rubrics/                    rubric YAML versioned
 ├─ docs/
 │  ├─ AGENT_GRAPH.md           graph agent chi tiết
-│  ├─ CORPUS_SNAPSHOT.yaml     snapshot cấu trúc corpus
-│  └─ ...                      tài liệu kỹ thuật bổ sung
+│  └─ CORPUS_SNAPSHOT.yaml     snapshot cấu trúc corpus
 ├─ tests/                      unit, API, workflow và lifecycle tests
+├─ reports/                    benchmark snapshots và báo cáo đầu ra
+├─ scratch/                    tiện ích sinh báo cáo; database runtime không commit
+├─ infra/                      Terraform tùy chọn cho hạ tầng triển khai
 ├─ Dockerfile
+├─ docker-compose.yml
 ├─ pyproject.toml
 └─ README.md
 ```
+
+`docs/` hiện chỉ giữ hai tài liệu được README liên kết; các Markdown kỹ thuật trùng lặp đã được loại bỏ.
 
 SQLite runtime mặc định nằm ở `data/esg.db`. Database, cache và file build là artifact chạy thử, không phải source code cần commit.
 
@@ -294,6 +328,19 @@ python -m ruff check app tests
 python -m ruff format --check app tests
 python -m pytest
 ```
+
+## CI và quality gate
+
+Workflow [`.github/workflows/ci.yml`](.github/workflows/ci.yml) chạy trên Python 3.12 với các bước theo đúng thứ tự:
+
+1. cài package editable từ `pyproject.toml`;
+2. kiểm tra format và lint bằng Ruff trên `app/` và `tests/`;
+3. chạy toàn bộ unit/integration tests;
+4. import smoke test cho `ESGAnalysisPipeline` và FastAPI app;
+5. chạy retrieval gate BM25 trên corpus evaluation với `Recall@K >= 0.8` và `MRR >= 0.8`;
+6. build Docker image, trong đó có source app, rubric và Tesseract OCR.
+
+Các artifact runtime như `data/*.db`, `.pytest_tmp/`, cache và `scratch/*.db` không thuộc source control. JSON snapshot trong `reports/` được giữ lại khi cần đối chiếu kết quả benchmark; có thể sinh lại bằng CLI.
 
 ## Corpus snapshot
 

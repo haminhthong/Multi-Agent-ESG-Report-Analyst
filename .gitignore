@@ -4,6 +4,10 @@ __pycache__/
 .pytest_cache/
 *.pyc
 *.egg-info/
+build/
+dist/
 data/*.db
 data/reports/*.pdf
 .pytest_tmp/
+scratch/*.db
+scratch/__pycache__/

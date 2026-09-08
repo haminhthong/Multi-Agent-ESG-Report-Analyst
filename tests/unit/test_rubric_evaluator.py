@@ -4,7 +4,12 @@ from app.domain.rubric_evaluator import (
     RubricEvaluator,
 )
 from app.models import Citation, ESGFact, RubricCriterion
-from app.rubric import CRITERIA_DEFINITIONS, RUBRICS
+from app.rubric import CLIMATE_RUBRIC_PATH, CRITERIA_DEFINITIONS, RUBRICS
+
+
+def test_versioned_rubric_is_resolvable():
+    assert CLIMATE_RUBRIC_PATH.name == "climate_disclosure_v1.yaml"
+    assert CLIMATE_RUBRIC_PATH.is_file()
 
 
 def test_rubric_evaluator_criterion_found():

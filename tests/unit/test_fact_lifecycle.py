@@ -54,7 +54,11 @@ def test_reindex_does_not_erase_accepted_fact_or_review_history(tmp_path: Path):
         year=2024,
     )
 
-    assert repository.query_facts(document_id="report")[0].fact_id == fact_id
+    accepted = repository.query_facts(document_id="report")[0]
+    assert accepted.fact_id == fact_id
+    assert accepted.source is not None
+    assert accepted.source.stable_chunk_id
+    assert accepted.source.excerpt
     with store.connect() as db:
         count = db.execute(
             "SELECT COUNT(*) AS count FROM fact_review_decisions WHERE candidate_id=?",

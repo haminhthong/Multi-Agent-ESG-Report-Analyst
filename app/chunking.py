@@ -412,7 +412,7 @@ def chunk_layout_blocks(
                 buffer.extend(words)
                 buffer_block_id = b_id or buffer_block_id
 
-            flush_buffer(section_title=current_section)
+        flush_buffer(section_title=current_section)
 
     return chunks
 

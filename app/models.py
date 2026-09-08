@@ -163,6 +163,7 @@ class ESGFact(BaseModel):
     document_id: str | None = None
     target_year: int | None = None
     page: int | None = None
+    # Ưu tiên stable_chunk_id; numeric SQLite id chỉ dùng để tương thích dữ liệu cũ.
     chunk_id: str | None = None
     evidence_span_id: str | None = None
     extraction_method: Literal["regex", "rule", "llm"] = "rule"
@@ -411,7 +412,6 @@ class ComparisonRequest(BaseModel):
     """Schema yêu cầu so sánh chất lượng công bố giữa các doanh nghiệp."""
 
     companies: list[str] = Field(min_length=2, max_length=10)
-    top_k: int = Field(default=6, ge=1, le=20)
     criteria_ids: list[str] | None = None
 
 

@@ -112,6 +112,8 @@ def test_fact_repository_and_store_integration(tmp_path: Path):
     assert len(series) == 2
     assert series[0].reporting_year == 2023
     assert series[1].reporting_year == 2024
+    assert series[0].value == 100000.0
+    assert series[0].raw_value == "100,000"
     assert series[0].normalized_value == 100000.0
     assert series[1].normalized_value == 90000.0
 

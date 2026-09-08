@@ -460,9 +460,16 @@ class Store:
                 page = getattr(f, "page", None) or (
                     getattr(source_cite, "page", None) if source_cite else None
                 )
+                stable_chunk_id = (
+                    getattr(source_cite, "stable_chunk_id", None)
+                    or getattr(source_cite, "block_id", None)
+                    if source_cite
+                    else None
+                )
                 chunk_id = (
                     str(
-                        getattr(f, "chunk_id", None)
+                        stable_chunk_id
+                        or getattr(f, "chunk_id", None)
                         or (getattr(source_cite, "chunk_id", "") if source_cite else "")
                     )
                     or None
@@ -669,14 +676,14 @@ class Store:
         metric: str | None = None,
         year: int | None = None,
         document_id: str | None = None,
-        include_candidates: bool = True,
+        include_candidates: bool = False,
     ) -> list[dict[str, Any]]:
-        """Truy vấn các facts ESG có cấu trúc từ Fact Store."""
+        """Truy vấn fact; mặc định chỉ trả về bản ghi đã được ACCEPTED."""
         sql = (
             "SELECT f.*, d.name, ch.text evidence_text FROM esg_facts f "
             "LEFT JOIN documents d ON d.id=f.document_id "
             "LEFT JOIN chunks ch ON ch.document_id=f.document_id "
-            "AND CAST(ch.id AS TEXT)=f.chunk_id WHERE 1=1"
+            "AND (ch.stable_id=f.chunk_id OR CAST(ch.id AS TEXT)=f.chunk_id) WHERE 1=1"
         )
         params: list[Any] = []
         if company:
@@ -712,7 +719,7 @@ class Store:
             FROM fact_candidates c
             LEFT JOIN documents docs ON docs.id=c.document_id
             LEFT JOIN chunks ON chunks.document_id=c.document_id
-                AND CAST(chunks.id AS TEXT)=c.chunk_id
+                AND (chunks.stable_id=c.chunk_id OR CAST(chunks.id AS TEXT)=c.chunk_id)
             LEFT JOIN fact_review_decisions d ON d.decision_id = (
                 SELECT latest.decision_id
                 FROM fact_review_decisions latest
@@ -799,6 +806,8 @@ class Store:
         year: int | None = None,
     ) -> list[dict[str, Any]]:
         """Thực thi tìm kiếm đoạn văn bản theo các chế độ Hybrid & Rerank kết hợp khử trùng ngữ nghĩa (Diversification)."""
+        if limit <= 0:
+            return []
         search_mode = mode or settings.retrieval_mode
         terms = [t.lower() for t in query.replace('"', " ").split() if len(t) > 2]
 

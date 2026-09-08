@@ -119,10 +119,16 @@ class FactRepository:
     def _row_to_fact(row: dict[str, Any]) -> ESGFact:
         val_raw = row.get("raw_value")
         val: float | str | None = None
-        if val_raw is not None:
+        normalized_value = row.get("normalized_value")
+        if normalized_value is not None:
             try:
-                val = float(val_raw)
-            except ValueError:
+                val = float(normalized_value)
+            except (TypeError, ValueError):
+                val = None
+        if val_raw is not None and val is None:
+            try:
+                val = float(str(val_raw).replace(",", ""))
+            except (TypeError, ValueError):
                 val = val_raw
 
         cite = None
@@ -156,7 +162,7 @@ class FactRepository:
             evidence_span_id=row.get("evidence_span_id"),
             source=cite,
             confidence=float(row.get("confidence") or 0.8),
-            raw_value=val,
+            raw_value=row.get("raw_value"),
             raw_unit=row.get("raw_unit"),
             normalized_value=float(row["normalized_value"])
             if row.get("normalized_value") is not None

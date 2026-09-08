@@ -86,7 +86,7 @@ class FactExtractor:
                         year=local_year or doc_year,
                         reporting_year=local_year or doc_year,
                         page=cite.page,
-                        chunk_id=str(cite.chunk_id) if cite.chunk_id is not None else None,
+                        chunk_id=_chunk_reference(cite),
                         baseline_year=baseline_year,
                         source=cite,
                         company=cite.company,
@@ -132,7 +132,7 @@ class FactExtractor:
                     year=doc_year,
                     reporting_year=doc_year,
                     page=cite.page,
-                    chunk_id=str(cite.chunk_id) if cite.chunk_id is not None else None,
+                    chunk_id=_chunk_reference(cite),
                     target_year=target_year,
                     baseline_year=global_baseline,
                     source=cite,
@@ -168,6 +168,15 @@ def _evidence_span_id(citation: Citation) -> str:
     if not source_key:
         source_key = hashlib.sha256(citation.excerpt.encode("utf-8")).hexdigest()[:16]
     return f"{citation.document_id}:p{citation.page}:{source_key}"
+
+
+def _chunk_reference(citation: Citation) -> str | None:
+    """Ưu tiên định danh chunk ổn định để provenance không phụ thuộc thứ tự SQLite."""
+    if citation.stable_chunk_id:
+        return citation.stable_chunk_id
+    if citation.block_id:
+        return citation.block_id
+    return str(citation.chunk_id) if citation.chunk_id is not None else None
 
 
 def _fact_id(fact: ESGFact) -> str:

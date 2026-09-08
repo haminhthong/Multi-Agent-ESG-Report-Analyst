@@ -1,6 +1,7 @@
 import pytest
 
-from app.chunking import chunk_pages, normalize_text
+from app.chunking import chunk_layout_blocks, chunk_pages, normalize_text
+from app.models import LayoutBlock
 
 
 def test_chunking_preserves_page_and_bounds_size():
@@ -19,3 +20,27 @@ def test_normalize_repairs_line_break_hyphenation():
 def test_chunking_rejects_invalid_overlap():
     with pytest.raises(ValueError, match="overlap_words"):
         chunk_pages([(1, "sample text")], max_words=10, overlap_words=10)
+
+
+def test_layout_chunking_accumulates_text_blocks_on_same_page():
+    blocks = [
+        LayoutBlock(
+            document_id="doc",
+            page=1,
+            block_id="b1",
+            block_type="text",
+            text="Scope 1 emissions were measured",
+        ),
+        LayoutBlock(
+            document_id="doc",
+            page=1,
+            block_id="b2",
+            block_type="text",
+            text="using the operational control method.",
+        ),
+    ]
+
+    chunks = chunk_layout_blocks(blocks, max_words=20, overlap_words=4)
+
+    assert len(chunks) == 1
+    assert chunks[0].text == "Scope 1 emissions were measured using the operational control method."

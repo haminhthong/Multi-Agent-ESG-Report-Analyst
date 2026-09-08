@@ -1,13 +1,20 @@
 import json
 import re
+import sys
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
 from app.models import RubricCriterion
 
-CLIMATE_RUBRIC_PATH = (
-    Path(__file__).resolve().parent.parent / "rubrics" / "climate_disclosure_v1.yaml"
+_RUBRIC_FILENAME = "climate_disclosure_v1.yaml"
+_RUBRIC_CANDIDATES = (
+    Path(__file__).resolve().parent.parent / "rubrics" / _RUBRIC_FILENAME,
+    Path(sys.prefix) / "rubrics" / _RUBRIC_FILENAME,
+    Path.cwd() / "rubrics" / _RUBRIC_FILENAME,
+)
+CLIMATE_RUBRIC_PATH = next(
+    (path for path in _RUBRIC_CANDIDATES if path.is_file()), _RUBRIC_CANDIDATES[0]
 )
 KNOWN_FACT_TYPES = {
     "scope_1_emissions",
