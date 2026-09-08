@@ -1,0 +1,41 @@
+# Snapshot baseline cho corpus demo trong repository.
+# Các số liệu runtime cần đọc lại sau mỗi lần nạp hoặc re-index corpus thật.
+snapshot:
+  name: repository-demo-fixtures
+  generated_at: "2026-09-08"
+  source:
+    files:
+      - data/demo/boeing_excerpt.txt
+      - data/demo/nextera_energy_excerpt.txt
+      - data/demo/alcoa_materials_excerpt.txt
+    loader: app.demo.seed_demo
+    note: "Mỗi marker ---PAGE X--- là một page excerpt của fixture demo."
+  companies:
+    - name: Boeing
+      sector: Industrials
+      report_year: 2025
+      document_id: boeing-demo
+    - name: NextEra Energy
+      sector: Energy
+      report_year: 2024
+      document_id: nextera-demo
+    - name: Alcoa
+      sector: Materials
+      report_year: 2024
+      document_id: alcoa-demo
+  reports: 3
+  pages: 16
+  chunks: 16
+  years: [2024, 2025]
+  candidate_facts: runtime_generated
+  accepted_facts: 0
+  interpretation: >-
+    Đây là baseline của fixture trước khi analyst review fact candidates.
+    Corpus runtime có thể khác nếu database đã được seed, re-index hoặc review.
+
+runtime_refresh:
+  corpus_stats_endpoint: GET /api/corpus/stats
+  candidate_facts_query: "SELECT COUNT(*) FROM fact_candidates"
+  accepted_facts_query: "SELECT COUNT(*) FROM esg_facts WHERE validation_status = 'ACCEPTED'"
+  years_query: "SELECT DISTINCT year FROM documents WHERE year IS NOT NULL ORDER BY year"
+  refresh_rule: "Cập nhật snapshot sau khi thay đổi fixture hoặc ingest corpus production."

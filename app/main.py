@@ -78,7 +78,7 @@ async def lifespan(_: FastAPI) -> AsyncIterator[None]:
 
 
 app = FastAPI(
-    title="Evidence-Grounded ESG Report Analyst",
+    title="Multi-Agent ESG Report Analyst — Evidence-Grounded ESG Intelligence",
     description=(
         "Evidence-first ESG report analysis with an explicit application workflow, "
         "hybrid retrieval, structured fact extraction, disclosure auditing, and "
@@ -116,7 +116,7 @@ def index() -> FileResponse:
 def health() -> dict[str, Any]:
     return {
         "status": "ok",
-        "system": "Evidence-Grounded ESG Report Analyst",
+        "system": "Multi-Agent ESG Report Analyst",
         "pipeline": "explicit-application-workflow",
         **store.stats(),
     }
