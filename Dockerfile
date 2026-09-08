@@ -9,6 +9,7 @@ RUN apt-get update \
 COPY pyproject.toml .
 COPY app ./app
 COPY data ./data
+COPY rubrics ./rubrics
 RUN pip install --no-cache-dir ".[ingestion]"
 RUN adduser --disabled-password --gecos "" appuser && chown -R appuser:appuser /app
 USER appuser

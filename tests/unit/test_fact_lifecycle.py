@@ -63,6 +63,23 @@ def test_reindex_does_not_erase_accepted_fact_or_review_history(tmp_path: Path):
     assert count == 1
 
 
+def test_reindex_removes_orphan_chunk_embeddings(tmp_path: Path):
+    store = Store(tmp_path / "embeddings.db")
+    store.add_document("report", "ACME report.pdf", [(1, "Scope 1 emissions were 100 tCO2e.")])
+
+    with store.connect() as db:
+        assert db.execute("SELECT COUNT(*) FROM chunk_embeddings").fetchone()[0] == 1
+
+    store.add_document("report", "ACME report.pdf", [(1, "Scope 1 emissions were 120 tCO2e.")])
+
+    with store.connect() as db:
+        orphan_count = db.execute(
+            "SELECT COUNT(*) FROM chunk_embeddings e "
+            "LEFT JOIN chunks c ON c.id=e.chunk_id WHERE c.id IS NULL"
+        ).fetchone()[0]
+    assert orphan_count == 0
+
+
 def test_fact_repository_save_facts_is_explicit_accepted_import(tmp_path: Path):
     store = Store(tmp_path / "accepted.db")
     store.add_document("report", "Report.pdf", [(1, "metadata")])

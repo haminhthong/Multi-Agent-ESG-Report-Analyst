@@ -168,7 +168,7 @@ Multi-Agent-ESG-Report-Analyst/
 ├─ docs/
 │  ├─ AGENT_GRAPH.md           graph agent chi tiết
 │  ├─ CORPUS_SNAPSHOT.yaml     snapshot cấu trúc corpus
-│  └─ ...                      architecture, benchmark, roadmap
+│  └─ ...                      tài liệu kỹ thuật bổ sung
 ├─ tests/                      unit, API, workflow và lifecycle tests
 ├─ Dockerfile
 ├─ pyproject.toml
@@ -237,6 +237,14 @@ Mở [http://localhost:8000](http://localhost:8000). Các endpoint chính:
 | `GET` | `/api/documents/{id}/audit` | Evidence matrix của tài liệu |
 | `GET` | `/api/analysis/recent/trace` | Trace request gần nhất |
 
+Chạy bằng Docker Compose:
+
+```powershell
+docker compose up --build
+```
+
+Container đã cài Tesseract OCR và copy rubric versioned cùng mã nguồn. Database runtime được mount từ thư mục `data/`.
+
 Ví dụ duyệt fact candidate:
 
 ```http
@@ -270,7 +278,7 @@ Nếu package chưa được cài editable, có thể gọi tương đương b�
 
 ## Evaluation
 
-Repo đã có ba nhóm đánh giá, không chỉ kiểm tra xem pipeline có chạy hay không:
+Repo đã có bốn dòng đánh giá, không chỉ kiểm tra xem pipeline có chạy hay không:
 
 | Nhóm | Chỉ số hiện có | Lệnh |
 |---|---|---|
@@ -303,7 +311,4 @@ Snapshot cấu trúc, nguồn sinh và các trường cần theo dõi nằm tạ
 ## Tài liệu liên quan
 
 - [Agent graph chi tiết](docs/AGENT_GRAPH.md)
-- [Kiến trúc hệ thống](docs/ARCHITECTURE.md)
-- [Phương pháp benchmark](docs/BENCHMARK_METHODOLOGY.md)
-- [Production pipeline](docs/PRODUCTION_PIPELINE.md)
-- [Roadmap](docs/ROADMAP.md)
+- [Corpus snapshot](docs/CORPUS_SNAPSHOT.yaml)

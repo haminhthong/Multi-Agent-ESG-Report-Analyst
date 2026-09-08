@@ -379,6 +379,6 @@ class EvidenceCompletenessGate:
         )
 
     def is_satisfied(self, req_name: str, facts: list[ESGFact], citations: list[Citation]) -> bool:
-        """Kiểm tra nhanh tính thỏa mãn (hỗ trợ tương thích ngược)."""
+        """Kiểm tra nhanh yêu cầu đã đạt đầy đủ hay chưa."""
         res = self.evaluate_requirement(req_name, facts, citations)
-        return res.status in ("satisfied", "partial")
+        return res.status == "satisfied"

@@ -62,7 +62,11 @@ class CompanyComparisonService:
             cites = fact_citations(facts)
             matrix = self.evidence_matrix_builder.build(cites, facts, target_criteria)
             found_count = sum(1 for m in matrix if m.status == "found")
-            cov = round((found_count / max(1, len(matrix))) * 100, 1)
+            partial_count = sum(1 for m in matrix if m.status == "partial")
+            cov = round(
+                ((found_count + 0.5 * partial_count) / max(1, len(matrix))) * 100,
+                1,
+            )
             coverage_summary[company] = cov
 
         for crit in target_criteria:

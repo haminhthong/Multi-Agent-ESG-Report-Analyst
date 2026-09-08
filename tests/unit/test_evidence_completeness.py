@@ -53,6 +53,7 @@ def test_evidence_completeness_partial_when_missing_year():
     res = gate.evaluate_requirement("scope_1", facts, citations)
     assert res.status == "partial"
     assert "year" in res.missing_aspects
+    assert gate.is_satisfied("scope_1", facts, citations) is False
 
 
 def test_evidence_completeness_baseline_requirement():

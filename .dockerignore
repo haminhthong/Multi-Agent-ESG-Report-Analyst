@@ -6,5 +6,8 @@
 **/*.pyc
 *.egg-info
 data/*.db
+reports
+scratch
+.env
 tests
 Dataset_ESG
