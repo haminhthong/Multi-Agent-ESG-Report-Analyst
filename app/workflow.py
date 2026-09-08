@@ -702,10 +702,6 @@ class ESGAnalysisPipeline:
                 self.store,
                 metric=(state.plan.metrics[0] if state.plan.metrics else "scope_1_emissions"),
                 document_ids=state.document_ids,
-                facts=self.fact_repository.query_facts(
-                    company=company,
-                    metric=(state.plan.metrics[0] if state.plan.metrics else "scope_1_emissions"),
-                ),
             )
             details.update({"executed": True, "company": company, "analysis": "temporal"})
         elif state.plan.intent == "cross_document_compare":

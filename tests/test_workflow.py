@@ -1,5 +1,7 @@
 from pathlib import Path
+from unittest.mock import Mock
 
+from app.models import AnalysisState, RetrievalPlan, TemporalAnalysisResult
 from app.store import Store
 from app.workflow import ESGAnalysisPipeline
 
@@ -95,3 +97,38 @@ def test_supervisor_agent_graph_exposes_route_and_mode(tmp_path: Path):
         "EvidenceExtractionAgent",
     ]
     assert any("Supervisor: handoff" in item for item in result.trace)
+
+
+def test_temporal_specialized_stage_uses_store_scope_once(tmp_path: Path):
+    store = Store(tmp_path / "workflow.db")
+    store.add_document(
+        "acme-2023",
+        "Acme 2023.pdf",
+        [(1, "Acme Scope 1 emissions were 400 tCO2e in 2023.")],
+        company="Acme",
+        year=2023,
+    )
+    audit = Mock()
+    audit.run_temporal_analysis.return_value = TemporalAnalysisResult(
+        company="Acme",
+        metric="scope_1_emissions",
+    )
+    pipeline = ESGAnalysisPipeline(store, audit_service=audit)
+    state = AnalysisState(
+        request_id="test-request",
+        user_question="Show Scope 1 trend for Acme",
+        document_ids=["acme-2023"],
+        plan=RetrievalPlan(
+            intent="temporal_trend",
+            metrics=["scope_1_emissions"],
+        ),
+    )
+
+    pipeline._run_specialized_analysis(state)
+
+    audit.run_temporal_analysis.assert_called_once_with(
+        "Acme",
+        store,
+        metric="scope_1_emissions",
+        document_ids=["acme-2023"],
+    )
