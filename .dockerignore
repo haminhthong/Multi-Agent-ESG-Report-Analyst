@@ -8,6 +8,7 @@
 data/*.db
 reports
 scratch
+scripts
 .env
 tests
 Dataset_ESG

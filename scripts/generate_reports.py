@@ -1,3 +1,4 @@
+import atexit
 import hashlib
 import json
 import subprocess
@@ -8,18 +9,22 @@ from pathlib import Path
 if hasattr(sys.stdout, "reconfigure"):
     sys.stdout.reconfigure(encoding="utf-8")
 
-from app.answer_eval import evaluate_answer_quality, load_answer_eval_cases
-from app.agents import SupervisorAgent
-from app.demo import seed_demo
-from app.embeddings import embedding_engine
-from app.evaluation import (
+REPO_ROOT = Path(__file__).resolve().parents[1]
+if str(REPO_ROOT) not in sys.path:
+    sys.path.insert(0, str(REPO_ROOT))
+
+from app.answer_eval import evaluate_answer_quality, load_answer_eval_cases  # noqa: E402
+from app.agents import SupervisorAgent  # noqa: E402
+from app.demo import seed_demo  # noqa: E402
+from app.embeddings import embedding_engine  # noqa: E402
+from app.evaluation import (  # noqa: E402
     ExtractionEvalCase,
     evaluate_extraction,
     evaluate_retrieval_ablation,
     load_evaluation_cases,
 )
-from app.reranker import reranker
-from app.store import Store
+from app.reranker import reranker  # noqa: E402
+from app.store import Store  # noqa: E402
 
 
 def compute_file_hash(filepath: Path) -> str:
@@ -33,26 +38,30 @@ def compute_file_hash(filepath: Path) -> str:
 def get_git_sha() -> str:
     try:
         res = subprocess.run(
-            ["git", "rev-parse", "HEAD"], capture_output=True, text=True, check=True
+            ["git", "-C", str(REPO_ROOT), "rev-parse", "HEAD"],
+            capture_output=True,
+            text=True,
+            check=True,
         )
         return res.stdout.strip()
     except Exception:
-        return "f7da23acc724ac61fe5b17f2c4020329f3a2a44a"
+        return "unknown"
 
 
 def main():
-    reports_dir = Path("reports")
+    reports_dir = REPO_ROOT / "reports"
     reports_dir.mkdir(parents=True, exist_ok=True)
 
-    db_path = Path("scratch/benchmark_run.db")
+    db_path = REPO_ROOT / "scratch" / "benchmark_run.db"
     if db_path.exists():
         db_path.unlink()
+    atexit.register(db_path.unlink, missing_ok=True)
     store = Store(db_path)
     seed_demo(store)
 
-    cases_path = Path("data/evaluation/retrieval_cases.json")
-    ans_cases_path = Path("data/evaluation/answer_eval_cases.json")
-    demo_files = list(Path("data/demo").glob("*.txt"))
+    cases_path = REPO_ROOT / "data" / "evaluation" / "retrieval_cases.json"
+    ans_cases_path = REPO_ROOT / "data" / "evaluation" / "answer_eval_cases.json"
+    demo_files = list((REPO_ROOT / "data" / "demo").glob("*.txt"))
 
     dataset_hashes = {f.name: compute_file_hash(f) for f in demo_files}
     dataset_hashes["retrieval_cases.json"] = compute_file_hash(cases_path)
@@ -65,14 +74,7 @@ def main():
     ablation = evaluate_retrieval_ablation(store, cases, top_k=5)
     ablation_json = ablation.model_dump_json(indent=2)
     (reports_dir / "retrieval_ablation.json").write_text(ablation_json, encoding="utf-8")
-    (reports_dir / "retrieval_ablation.md").write_text(
-        "# Retrieval Ablation Benchmark Report\n\n"
-        "> Evaluation across 4 retrieval configurations on 21 ground-truth cases.\n\n"
-        + ablation.to_markdown_table()
-        + "\n",
-        encoding="utf-8",
-    )
-    print("   -> Saved reports/retrieval_ablation.json and reports/retrieval_ablation.md")
+    print("   -> Saved reports/retrieval_ablation.json")
 
     print("2. Running Structured Fact Extraction Benchmark...")
     supervisor = SupervisorAgent(store)

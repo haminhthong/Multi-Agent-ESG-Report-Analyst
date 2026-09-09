@@ -183,10 +183,15 @@ Multi-Agent-ESG-Report-Analyst/
 │  ├─ models.py               Pydantic request/response contracts
 │  ├─ store.py                SQLite, FTS5, documents, chunks, fact lifecycle
 │  ├─ document_service.py      PDF/OCR, quality gate, indexing
+│  ├─ document_intelligence.py parser PDF và layout blocks
+│  ├─ batch_ingest.py          nạp nhiều PDF theo metadata CSV
+│  ├─ agents.py                facade tương thích cho agent public
 │  ├─ capabilities/            planner, retrieval, verification, explanation
 │  ├─ domain/                  rubric, evidence matrix, audit, screening
+│  ├─ ingestion/               OCR và layout parser
 │  ├─ extraction/              ESG fact extraction và validators
 │  ├─ facts/repository.py      candidate/accepted fact repository
+│  ├─ services/                service facade cho audit và analysis
 │  ├─ evaluation.py            retrieval và structured extraction metrics
 │  ├─ answer_eval.py           answer grounding metrics
 │  └─ static/                  dashboard HTML/CSS/JavaScript
@@ -199,7 +204,7 @@ Multi-Agent-ESG-Report-Analyst/
 │  └─ CORPUS_SNAPSHOT.yaml     snapshot cấu trúc corpus
 ├─ tests/                      unit, API, workflow và lifecycle tests
 ├─ reports/                    benchmark snapshots và báo cáo đầu ra
-├─ scratch/                    tiện ích sinh báo cáo; database runtime không commit
+├─ scripts/                    tiện ích benchmark và sinh báo cáo
 ├─ infra/                      Terraform tùy chọn cho hạ tầng triển khai
 ├─ Dockerfile
 ├─ docker-compose.yml
@@ -306,7 +311,10 @@ esg-analyst evaluate
 esg-analyst benchmark
 esg-analyst evaluate-answer
 esg-analyst evaluate-extraction
+python scripts/generate_reports.py
 ```
+
+`scripts/generate_reports.py` tạo database benchmark tạm trong `scratch/`, tự dọn database khi kết thúc và chỉ giữ các artifact JSON trong `reports/`.
 
 Nếu package chưa được cài editable, có thể gọi tương đương bằng `python -m app.cli ...`.
 
