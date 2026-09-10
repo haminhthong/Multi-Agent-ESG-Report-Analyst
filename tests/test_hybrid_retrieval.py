@@ -1,6 +1,10 @@
 from pathlib import Path
+from unittest.mock import Mock
 
+from app.config import settings
 from app.evaluation import ExpectedCitation, RetrievalEvalCase, evaluate_retrieval_ablation
+from app.models import RetrievalPlan
+from app.retrieval import EvidenceRetriever
 from app.store import Store
 
 
@@ -71,3 +75,30 @@ def test_retrieval_ablation_report(tmp_path: Path):
     md_table = report.to_markdown_table()
     assert "| System |" in md_table
     assert "BM25" in md_table
+
+
+def test_plan_retrieval_uses_configured_rrf_constant(monkeypatch):
+    store = Mock()
+    store.search.return_value = [
+        {
+            "stable_id": "chunk-a",
+            "chunk_id": 1,
+            "document_id": "doc1",
+            "document_name": "Report.pdf",
+            "name": "Report.pdf",
+            "company": "Acme",
+            "year": 2024,
+            "page": 1,
+            "text": "Scope 1 emissions were 100 tCO2e in 2024.",
+        }
+    ]
+    monkeypatch.setattr(settings, "rrf_k", 9)
+
+    plan = RetrievalPlan(
+        original_question="What were Scope 1 emissions?",
+        canonical_query="Scope 1 emissions",
+        subqueries=["Scope 1 emissions"],
+    )
+    citations = EvidenceRetriever(store, mode="hybrid").run_plan(plan, top_k=1)
+
+    assert citations[0].score == 0.1

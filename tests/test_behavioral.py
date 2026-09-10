@@ -1,9 +1,9 @@
 from pathlib import Path
 
-from app.capabilities.planning import build_retrieval_plan
 from app.extraction.extractor import FactExtractor
 from app.facts.repository import FactRepository
 from app.models import Citation, ESGFact
+from app.query_plan import build_retrieval_plan
 from app.services.esg_analysis_service import ESGAnalysisService
 from app.store import Store
 

@@ -55,7 +55,7 @@ class EvidenceRetriever:
             return []
 
         sub_limit = max(top_k, 6)
-        rrf_k = 60.0
+        rrf_k = float(settings.rrf_k)
         rrf_scores: dict[Any, float] = {}
         candidates: dict[Any, dict] = {}
 

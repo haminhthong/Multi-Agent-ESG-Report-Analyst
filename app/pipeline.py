@@ -7,16 +7,11 @@ import time
 import uuid
 from typing import Any, Literal
 
-from app.capabilities import (
-    AnswerGenerator,
-    AnswerValidator,
-    CitationVerifier,
-    EvidenceRetriever,
-    build_retrieval_plan,
-)
+from app.answer import AnswerGenerator
 from app.config import settings
 from app.domain.evidence_completeness import EvidenceCompletenessGate
 from app.extraction.extractor import FactExtractor
+from app.grounding import AnswerValidator, CitationVerifier
 from app.llm import LLMClient
 from app.models import (
     AnalysisResponse,
@@ -27,6 +22,8 @@ from app.models import (
     PillarResult,
     RetrievalPlan,
 )
+from app.query_plan import build_retrieval_plan
+from app.retrieval import EvidenceRetriever
 from app.services.esg_analysis_service import ESGAnalysisService
 from app.store import Store
 

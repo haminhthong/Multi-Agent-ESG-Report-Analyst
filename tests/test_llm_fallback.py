@@ -28,6 +28,26 @@ def test_pipeline_falls_back_when_llm_is_disabled(tmp_path: Path):
     assert res.answer
 
 
+def test_audit_answer_cites_sources_not_computed_metrics(tmp_path: Path):
+    store = Store(tmp_path / "test.db")
+    store.add_document(
+        "d1",
+        "TestReport.pdf",
+        [(5, "Scope 1 direct emissions reached 100 metric tons in 2024.")],
+    )
+
+    result = ESGPipeline(store, retrieval_mode="bm25").run(
+        "Audit the reported emissions", top_k=3, mode="audit"
+    )
+    coverage_line = next(
+        line for line in result.answer.splitlines() if line.startswith("Disclosure coverage")
+    )
+
+    assert "computed from indexed evidence" in coverage_line
+    assert "[C1]" not in coverage_line
+    assert "Evidence reviewed: [C1]" in result.answer
+
+
 def test_pipeline_with_optional_llm_synthesis(tmp_path: Path):
     store = Store(tmp_path / "test.db")
     store.add_document(

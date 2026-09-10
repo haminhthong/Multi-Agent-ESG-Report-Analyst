@@ -836,7 +836,7 @@ class Store:
                 )
                 return self._diversify_results(raw, limit)
 
-            # Chế độ mặc định: hybrid_rerank
+            # Chế độ mặc định: BM25; các mode dense/hybrid là tùy chọn.
             candidate_limit = max(limit * 3, 15)
             candidates = self._search_hybrid(
                 db,

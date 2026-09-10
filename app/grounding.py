@@ -231,6 +231,7 @@ class AnswerValidator:
             # Tỷ lệ rubric do pipeline tính là hợp lệ dù excerpt không in đúng
             # con số phần trăm đó.
             check_numbers=False,
+            allow_computed_metrics=True,
         )
         return {"passed": passed, "issues": issues, "citations": len(citations)}
 

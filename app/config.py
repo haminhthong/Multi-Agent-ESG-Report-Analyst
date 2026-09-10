@@ -1,4 +1,5 @@
 from pathlib import Path
+from typing import Literal
 
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
@@ -35,12 +36,10 @@ class Settings(BaseSettings):
     llm_timeout: float = 3.0
     use_llm: bool = False
 
-    # Cấu hình truy xuất hybrid nâng cao và bộ xếp hạng lại.
+    # Semantic retrieval và reranking là phần mở rộng tùy chọn.
     embedding_model: str = "sentence-transformers/all-MiniLM-L6-v2"
     reranker_model: str = "cross-encoder/ms-marco-MiniLM-L-6-v2"
-    retrieval_mode: str = (
-        "hybrid"  # bm25 | dense | hybrid | hybrid_rerank (mặc định hybrid theo benchmark MRR/nDCG)
-    )
+    retrieval_mode: Literal["bm25", "dense", "hybrid", "hybrid_rerank"] = "bm25"
     rrf_k: int = 60
     retrieval_pipeline_version: str = "hybrid-rrf-v2"
     extractor_version: str = "esg-extractor-v2"

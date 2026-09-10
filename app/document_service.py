@@ -256,7 +256,13 @@ class DocumentIngestionService:
         recovered_count = 0
         doc = None
         try:
-            doc = fitz.open(stream=content, filetype="pdf")
+            try:
+                doc = fitz.open(stream=content, filetype="pdf")
+            except Exception:  # noqa: BLE001 - PDF lỗi không được làm vỡ fallback OCR
+                # Nội dung có thể đã được parser giả lập hoặc PDF bị hỏng. Khi
+                # đó bỏ qua bước render; bộ đo chất lượng phía trên sẽ quyết
+                # định có cần báo lỗi OCR hay không.
+                return pages, [], 0
             for page_no, text in pages:
                 if len((text or "").strip()) >= MIN_TEXT_CHARACTERS:
                     continue

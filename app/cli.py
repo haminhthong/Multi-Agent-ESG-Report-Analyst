@@ -5,7 +5,6 @@ from pathlib import Path
 
 from app.answer_eval import evaluate_answer_quality, load_answer_eval_cases
 from app.batch_ingest import ingest_dataset
-from app.capabilities import EvidenceRetriever
 from app.config import settings
 from app.demo import seed_demo
 from app.document_service import DocumentIngestionService
@@ -17,6 +16,7 @@ from app.evaluation import (
     load_evaluation_cases,
 )
 from app.pipeline import ESGPipeline
+from app.retrieval import EvidenceRetriever
 from app.store import Store
 
 DEFAULT_EVALUATION = Path("data/evaluation/retrieval_cases.json")
@@ -171,7 +171,11 @@ def _build_parser() -> argparse.ArgumentParser:
     evaluate = commands.add_parser("evaluate", help="Evaluate retrieval quality")
     evaluate.add_argument("--cases", type=Path, default=DEFAULT_EVALUATION)
     evaluate.add_argument("--top-k", type=int, default=5)
-    evaluate.add_argument("--mode", type=str, default="hybrid_rerank")
+    evaluate.add_argument(
+        "--mode",
+        choices=("bm25", "dense", "hybrid", "hybrid_rerank"),
+        default="bm25",
+    )
     evaluate.add_argument("--min-recall", type=float, default=0)
     evaluate.add_argument("--min-mrr", type=float, default=0)
 

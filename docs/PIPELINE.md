@@ -11,7 +11,7 @@ validate scope
     ↓
 RetrievalPlan
     ↓
-BM25 / dense / hybrid retrieval
+BM25 mặc định / dense-hybrid tùy chọn
     ↓
 raw citations → validated citations
     ↓
@@ -35,7 +35,7 @@ Các API và CLI chỉ là adapter. Chúng không tự lắp ráp retrieval, ext
 | Thành phần | Quyết định |
 |---|---|
 | PDF extraction, OCR, layout và chunking | Deterministic |
-| BM25, dense, hybrid, RRF và reranking | Deterministic theo cấu hình/model |
+| BM25 mặc định; dense, hybrid, RRF và reranking | Deterministic theo cấu hình/model |
 | Citation page/provenance validation | Deterministic |
 | Metric, unit, year normalization | Deterministic |
 | Candidate/accepted fact lifecycle | Deterministic + review |
@@ -95,4 +95,3 @@ Citation validation kiểm tra tính nhất quán của dữ liệu đã truy xu
 Nếu câu hỏi yêu cầu nhiều năm hoặc nhiều metric nhưng retrieval chỉ tìm thấy một phần, pipeline trả trạng thái partial/missing và thêm limitation. Pipeline không tự gắn nhãn trend hoàn chỉnh từ một năm duy nhất.
 
 Greenwashing screening chỉ tạo disclosure-risk signals cần analyst review. Nó không phải fraud detector, xác suất greenwashing hay kết luận pháp lý.
-

@@ -8,6 +8,7 @@ build/
 dist/
 data/*.db
 data/reports/*.pdf
+reports/*.docx
 .pytest_tmp/
 scratch/*.db
 scratch/__pycache__/

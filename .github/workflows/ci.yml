@@ -45,3 +45,31 @@ jobs:
 
       - name: Docker build
         run: docker build -t esg-report-analyst:${{ github.sha }} .
+
+      - name: Run container
+        run: >-
+          docker run --detach --name esg-ci --publish 8000:8000
+          --env DATABASE_PATH=/app/data/ci.db
+          --env RETRIEVAL_MODE=bm25
+          --env USE_LLM=false
+          esg-report-analyst:${{ github.sha }}
+
+      - name: Container health smoke test
+        run: |
+          for i in {1..20}; do
+            if python -c "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/health', timeout=2)"; then
+              echo "API is healthy"
+              exit 0
+            fi
+            sleep 1
+          done
+
+          echo "Container failed to become healthy"
+          docker logs esg-ci
+          exit 1
+
+      - name: Cleanup container
+        if: always()
+        run: |
+          docker logs esg-ci || true
+          docker rm -f esg-ci || true

@@ -6,7 +6,7 @@ from typing import Any
 
 from pydantic import BaseModel, Field
 
-from app.capabilities.retrieval import EvidenceRetriever
+from app.retrieval import EvidenceRetriever
 
 
 class ExpectedCitation(BaseModel):

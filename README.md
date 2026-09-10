@@ -13,16 +13,16 @@
 
 Báo cáo ESG thường dài, có bảng, OCR không đồng nhất và mô tả cùng một chỉ tiêu bằng nhiều tên khác nhau. Một câu trả lời hữu ích vì vậy không chỉ cần “tìm được đoạn văn bản”, mà còn phải giữ đúng tài liệu, trang, năm, đơn vị và phạm vi truy vấn.
 
-Dự án tập trung vào:
+Dự án được chia thành ba nhóm chức năng để mô tả luôn khớp với môi trường chạy:
 
-- PDF native extraction, layout metadata và OCR fallback cho trang ít text;
-- stable chunks có provenance, SQLite FTS5, dense retrieval tùy chọn và hybrid retrieval;
-- RRF/cross-encoder reranking khi dependency và model sẵn sàng;
-- trích xuất ESG fact có metric, value, unit, year, baseline/target year và evidence source;
-- lifecycle fact_candidate → validation/review → accepted fact;
-- citation/claim grounding, rubric audit, temporal analysis và company comparison;
-- disclosure-risk screening dạng heuristic, không phải greenwashing detector pháp lý;
-- FastAPI, CLI, dashboard, Docker và CI reproducible.
+- Core: PDF native extraction, layout metadata, OCR fallback, stable chunks, provenance,
+  SQLite FTS5/BM25, structured ESG fact extraction, fact validation và grounded Q&A/audit;
+- Extended analysis: rubric, evidence completeness, temporal analysis, company comparison và
+  disclosure-risk screening dạng heuristic;
+- Optional ML: SentenceTransformer dense retrieval, hybrid RRF, cross-encoder reranking và
+  local LLM synthesis khi cài thêm profile `[ml]`.
+
+FastAPI, CLI, dashboard, Docker và CI cung cấp cách chạy và kiểm thử reproducible cho pipeline.
 
 Phạm vi là screening bằng chứng trên corpus đã index. Hệ thống không xác minh độc lập tính trung thực của doanh nghiệp, không suy ra hiệu quả ESG thực tế và không thay thế analyst, auditor hoặc tư vấn pháp lý.
 
@@ -38,10 +38,11 @@ flowchart TD
     C -->|Không| E[Normalized page blocks]
     D --> E
     E --> F[Stable chunks + metadata]
-    F --> G[SQLite FTS5 + optional embeddings]
-    G --> H[BM25 / dense / hybrid retrieval]
-    H --> I[Validated evidence citations]
-    I --> J[Structured ESG fact extraction]
+    F --> G[SQLite FTS5 / BM25 mặc định]
+    F -. optional ML .-> H[Dense / hybrid RRF / reranker]
+    G --> I[Retrieved evidence]
+    H --> I
+    I --> J[Validated evidence citations]
     J --> K[Unit/year normalization + conflict checks]
     K --> L[Fact candidate repository]
     L --> M{Validator / human review}
@@ -64,7 +65,7 @@ Validate scope
   ↓
 Build RetrievalPlan
   ↓
-Retrieve BM25/dense/hybrid evidence
+Retrieve BM25 evidence (dense/hybrid optional)
   ↓
 Validate citations and extract temporary facts
   ↓
@@ -124,6 +125,10 @@ Fact candidate chưa phải sự thật canonical. Chỉ fact đã được vali
 
 ## Retrieval, grounding và evaluation
 
+BM25 là đường chạy mặc định vì có sẵn trong bộ cài đặt cơ bản. Dense retrieval, hybrid RRF
+và cross-encoder chỉ là phần mở rộng; deterministic feature hashing chỉ phục vụ development/
+testing và không được trình bày như semantic embedding.
+
 | Thành phần | Cách kiểm tra |
 |---|---|
 | Retrieval | Recall@K, MRR, Precision@K, nDCG@K |
@@ -155,7 +160,9 @@ Multi-Agent-ESG-Report-Analyst/
 │  ├─ store.py                SQLite, FTS5, chunks và fact lifecycle
 │  ├─ document_service.py     PDF/OCR ingestion và indexing
 │  ├─ document_intelligence.py parser, layout blocks và quality
-│  ├─ capabilities/           planning, retrieval và answer synthesis
+│  ├─ query_plan.py           nhận diện intent và tạo truy vấn
+│  ├─ retrieval.py            BM25/hybrid retrieval và citation mapping
+│  ├─ answer.py               tổng hợp câu trả lời có bằng chứng
 │  ├─ grounding.py             citation, claim và answer validation
 │  ├─ domain/                 rubric, completeness, temporal, screening
 │  ├─ extraction/             metric, unit, year và fact extraction
@@ -170,7 +177,7 @@ Multi-Agent-ESG-Report-Analyst/
 ├─ rubrics/                   rubric YAML versioned
 ├─ docs/                      pipeline và corpus snapshot
 ├─ tests/                     unit, API, integration và regression tests
-├─ reports/                   benchmark JSON sinh lại được
+├─ reports/                  evaluation JSON sinh lại được
 ├─ scripts/                   tiện ích ingest/evaluation/report
 ├─ Dockerfile
 ├─ docker-compose.yml
@@ -202,8 +209,10 @@ Cấu hình tùy chọn được đọc từ .env:
 | USE_LLM | false | Bật local LLM cho synthesis/grounding |
 | LLM_BASE_URL | http://localhost:11434/v1 | OpenAI-compatible endpoint |
 | LLM_MODEL | qwen2.5:7b | Tên model local |
-| RETRIEVAL_MODE | hybrid | bm25, dense, hybrid, hybrid_rerank |
-| RRF_K | 60 | Hằng số Reciprocal Rank Fusion |
+| RETRIEVAL_MODE | bm25 | bm25, dense, hybrid, hybrid_rerank |
+
+Để bật dense/hybrid/reranker, cài thêm `pip install -e ".[ml]"` rồi chọn mode tương ứng.
+Hằng số RRF mặc định là 60 và được giữ trong cấu hình nội bộ.
 
 Mặc định project chạy offline-first và không phụ thuộc API trả phí.
 
@@ -254,7 +263,8 @@ CI workflow .github/workflows/ci.yml chạy trên Python 3.12:
 3. chạy toàn bộ pytest;
 4. import smoke test ESGPipeline và FastAPI app;
 5. chạy retrieval gate với Recall@K và MRR;
-6. build Docker image.
+6. build Docker image;
+7. chạy container và gọi `GET /health`.
 
 Chạy tương đương local:
 
@@ -262,6 +272,8 @@ Chạy tương đương local:
 python -m ruff check app tests scripts
 python -m ruff format --check app tests scripts
 python -m pytest -q
+docker build -t esg-report-analyst:local .
+docker run --rm -p 8000:8000 -e RETRIEVAL_MODE=bm25 esg-report-analyst:local
 ~~~~
 
 ## Giới hạn diễn giải
@@ -271,7 +283,7 @@ python -m pytest -q
 - Citation validation kiểm tra metadata, page và excerpt, không phải assurance độc lập.
 - Temporal/comparison báo thiếu năm hoặc thiếu fact thay vì tự suy luận trend.
 - Greenwashing output chỉ là disclosure-risk screening signal, cần analyst review; không phải xác suất hay kết luận pháp lý.
-- Dense retrieval, reranker và local LLM đều optional; deterministic path vẫn là path mặc định.
+- Dense retrieval, reranker và local LLM đều optional; BM25 deterministic là path mặc định.
 
 ## Tài liệu
 

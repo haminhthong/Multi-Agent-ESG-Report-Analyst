@@ -160,6 +160,7 @@ def validate_answer_grounding(
     answer: str,
     valid_citations: list[dict[str, Any]],
     check_numbers: bool = True,
+    allow_computed_metrics: bool = False,
 ) -> tuple[bool, list[str]]:
     """Kiểm tra grounding: [Cn], số trang, và số liệu định lượng phải neo vào citation đã truy xuất.
 
@@ -177,7 +178,16 @@ def validate_answer_grounding(
         has_legacy_ref = bool(
             re.search(r"\[[^,\]]+,\s*(?:trang|page)\s*\d+\]", sentence, re.IGNORECASE)
         )
-        if not has_cid and not has_legacy_ref:
+        normalized_sentence = sentence.lower()
+        is_computed_metric = allow_computed_metrics and normalized_sentence.startswith(
+            (
+                "disclosure coverage computed from indexed evidence:",
+                "pillars:",
+                "screening risk:",
+                "coverage measures the presence of disclosure evidence",
+            )
+        )
+        if not has_cid and not has_legacy_ref and not is_computed_metric:
             issues.append("missing_evidence_ids")
             break
 

@@ -82,16 +82,18 @@ class AnswerGenerator:
         if mode == "qa":
             excerpt = citations[0].excerpt[:220].strip()
             return (
-                f"Evidence-grounded response to '{question}': {excerpt} [C1] "
-                f"Sources: {sources}. Screening risk: {risk}."
+                f"Evidence-grounded response to '{question}': {excerpt} [C1]\n\n"
+                f"Evidence sources: {sources}. Screening risk: {risk}."
             )
 
         pillar_summary = ", ".join(
-            f"{pillar.pillar} {pillar.disclosure_coverage}%" for pillar in pillars
+            f"{pillar.pillar}: {pillar.disclosure_coverage}%" for pillar in pillars
         )
         return (
-            f"Indexed-evidence disclosure coverage: {overall_coverage}%. [C1] "
-            f"Pillars: {pillar_summary}. [C1] Screening risk: {risk}. [C1] "
-            f"Sources: {sources}. [C1] Coverage measures disclosure evidence presence, "
-            "not the company's underlying ESG performance. [C1]"
+            f"Disclosure coverage computed from indexed evidence: {overall_coverage}%.\n"
+            f"Pillars: {pillar_summary}.\n"
+            f"Screening risk: {risk}.\n\n"
+            f"Evidence reviewed: {sources}.\n\n"
+            "Coverage measures the presence of disclosure evidence in the indexed "
+            "corpus, not the company's actual ESG performance."
         )

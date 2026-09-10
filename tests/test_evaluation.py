@@ -1,11 +1,11 @@
 from pathlib import Path
 
-from app.capabilities import EvidenceRetriever
 from app.evaluation import (
     ExpectedCitation,
     RetrievalEvalCase,
     evaluate_retrieval,
 )
+from app.retrieval import EvidenceRetriever
 from app.store import Store
 
 
