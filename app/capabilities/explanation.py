@@ -8,8 +8,8 @@ from app.llm import LLMClient, validate_answer_grounding
 from app.models import Citation, GreenwashingScreeningResult, PillarResult
 
 
-class ExplanationAgent:
-    """Synthesize a response only from retrieved evidence and audit outputs."""
+class AnswerGenerator:
+    """Sinh câu trả lời chỉ từ bằng chứng và kết quả audit đã có."""
 
     def __init__(self, llm_client: LLMClient | None = None) -> None:
         self.llm = llm_client
@@ -41,9 +41,9 @@ class ExplanationAgent:
             if answer and len(answer.strip()) > 20:
                 grounded, _ = validate_answer_grounding(answer, payload)
                 if grounded:
-                    from app.capabilities.verification import EvidenceVerificationAgent
+                    from app.capabilities.verification import CitationVerifier
 
-                    claim_grounded, _ = EvidenceVerificationAgent.verify_claim_grounding(
+                    claim_grounded, _ = CitationVerifier.verify_claim_grounding(
                         answer, citations[:6], llm_client=self.llm
                     )
                     if claim_grounded:

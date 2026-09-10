@@ -1,7 +1,7 @@
 import re
 from typing import Any
 
-from app.evidence_extractor import EvidenceExtractionAgent
+from app.extraction.extractor import FactExtractor
 from app.models import Citation, ESGFact, EvidenceConflict
 from app.rubric import (
     CRITERIA_DEFINITIONS,
@@ -147,9 +147,9 @@ class AgentTools:
     @staticmethod
     def extract_structured_facts(citations: list[Citation]) -> list[ESGFact]:
         """Tool 6: Trích xuất các sự thật ESG có cấu trúc (ESGFact) với đơn vị và năm chuẩn hóa."""
-        return EvidenceExtractionAgent.extract_facts(citations)
+        return FactExtractor.extract_facts(citations)
 
     @staticmethod
     def detect_conflicts(facts: list[ESGFact]) -> list[EvidenceConflict]:
         """Tool 7: Phát hiện mâu thuẫn số liệu công bố giữa các trang hoặc tài liệu."""
-        return EvidenceExtractionAgent.detect_conflicts(facts)
+        return FactExtractor.detect_conflicts(facts)

@@ -134,6 +134,3 @@ class ESGAnalysisService:
 
 
 # Backward compatibility aliases
-ESGAuditService = ESGAnalysisService
-ESGAuditAgent = ESGAnalysisService
-ESGAnalysisAgent = ESGAnalysisService

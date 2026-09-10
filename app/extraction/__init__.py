@@ -1,6 +1,6 @@
 """Structured ESG fact extraction sub-pipeline."""
 
-from app.extraction.extractor import EvidenceExtractionAgent, FactExtractor
+from app.extraction.extractor import FactExtractor
 from app.extraction.fact_validator import detect_conflicts
 from app.extraction.metric_detector import FACT_PATTERNS
 from app.extraction.unit_normalizer import UnitDefinition, UnitNormalizer
@@ -14,7 +14,6 @@ from app.extraction.year_resolver import (
 __all__ = [
     "FACT_PATTERNS",
     "_MAX_REPORTING_YEAR",
-    "EvidenceExtractionAgent",
     "FactExtractor",
     "UnitDefinition",
     "UnitNormalizer",

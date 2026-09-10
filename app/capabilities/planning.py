@@ -13,8 +13,8 @@ def _contains_any(text: str, keywords: tuple[str, ...]) -> bool:
     return any(keyword in text for keyword in keywords)
 
 
-class QueryPlanningAgent:
-    """Turn a natural-language ESG request into an explicit retrieval contract."""
+class QueryPlanner:
+    """Chuyển yêu cầu ESG thành hợp đồng truy xuất có kiểu dữ liệu rõ ràng."""
 
     def plan(
         self,

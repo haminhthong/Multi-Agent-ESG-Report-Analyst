@@ -6,7 +6,7 @@ from typing import Any
 
 from pydantic import BaseModel, Field
 
-from app.agents import RetrievalAgent
+from app.capabilities.retrieval import EvidenceRetriever
 
 
 class ExpectedCitation(BaseModel):
@@ -122,7 +122,7 @@ def load_evaluation_cases(path: Path) -> list[RetrievalEvalCase]:
 
 
 def evaluate_retrieval(
-    retrieval: RetrievalAgent,
+    retrieval: EvidenceRetriever,
     cases: list[RetrievalEvalCase],
     top_k: int = 5,
 ) -> RetrievalEvaluationReport:
@@ -141,7 +141,7 @@ def evaluate_retrieval(
 
 
 def _evaluate_case(
-    retrieval: RetrievalAgent,
+    retrieval: EvidenceRetriever,
     case: RetrievalEvalCase,
     top_k: int,
 ) -> EvaluationCaseResult:
@@ -187,7 +187,7 @@ def evaluate_retrieval_ablation(
     ]
     systems_results: list[AblationSystemResult] = []
     for label, mode in systems_config:
-        agent = RetrievalAgent(store, mode=mode)
+        agent = EvidenceRetriever(store, mode=mode)
         rep = evaluate_retrieval(agent, cases, top_k=top_k)
         systems_results.append(
             AblationSystemResult(

@@ -3,7 +3,7 @@ import hashlib
 import json
 import subprocess
 import sys
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 
 if hasattr(sys.stdout, "reconfigure"):
@@ -13,18 +13,18 @@ REPO_ROOT = Path(__file__).resolve().parents[1]
 if str(REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(REPO_ROOT))
 
-from app.answer_eval import evaluate_answer_quality, load_answer_eval_cases  # noqa: E402
-from app.agents import SupervisorAgent  # noqa: E402
-from app.demo import seed_demo  # noqa: E402
-from app.embeddings import embedding_engine  # noqa: E402
-from app.evaluation import (  # noqa: E402
+from app.answer_eval import evaluate_answer_quality, load_answer_eval_cases
+from app.demo import seed_demo
+from app.embeddings import embedding_engine
+from app.evaluation import (
     ExtractionEvalCase,
     evaluate_extraction,
     evaluate_retrieval_ablation,
     load_evaluation_cases,
 )
-from app.reranker import reranker  # noqa: E402
-from app.store import Store  # noqa: E402
+from app.reranker import reranker
+from app.store import Store
+from app.workflow import ESGAnalysisPipeline
 
 
 def compute_file_hash(filepath: Path) -> str:
@@ -44,7 +44,7 @@ def get_git_sha() -> str:
             check=True,
         )
         return res.stdout.strip()
-    except Exception:
+    except (OSError, subprocess.SubprocessError):
         return "unknown"
 
 
@@ -77,7 +77,7 @@ def main():
     print("   -> Saved reports/retrieval_ablation.json")
 
     print("2. Running Structured Fact Extraction Benchmark...")
-    supervisor = SupervisorAgent(store)
+    supervisor = ESGAnalysisPipeline(store)
     extraction_cases = [
         ExtractionEvalCase(
             id="boeing_suppliers_extracted",
@@ -145,7 +145,7 @@ def main():
         "manifest_version": "1.0.0",
         "platform": "Evidence-Grounded ESG Intelligence & Audit Platform",
         "git_commit": get_git_sha(),
-        "generated_at": datetime.now(timezone.utc).isoformat(),
+        "generated_at": datetime.now(UTC).isoformat(),
         "execution_backend": {
             "embedding_engine": emb_backend,
             "embedding_fallback_active": embedding_engine._is_fallback,

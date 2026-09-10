@@ -1,8 +1,8 @@
 from pathlib import Path
 
-from app.agents import SupervisorAgent
 from app.answer_eval import AnswerEvalCase, evaluate_answer_quality
 from app.store import Store
+from app.workflow import ESGAnalysisPipeline
 
 
 def test_answer_quality_evaluation(tmp_path: Path):
@@ -17,7 +17,7 @@ def test_answer_quality_evaluation(tmp_path: Path):
             )
         ],
     )
-    supervisor = SupervisorAgent(store)
+    supervisor = ESGAnalysisPipeline(store)
 
     cases = [
         AnswerEvalCase(

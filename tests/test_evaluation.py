@@ -1,6 +1,6 @@
 from pathlib import Path
 
-from app.agents import RetrievalAgent
+from app.capabilities import EvidenceRetriever
 from app.evaluation import (
     ExpectedCitation,
     RetrievalEvalCase,
@@ -27,7 +27,7 @@ def test_evaluation_calculates_recall_and_mrr(tmp_path: Path):
         )
     ]
 
-    report = evaluate_retrieval(RetrievalAgent(store), cases, top_k=3)
+    report = evaluate_retrieval(EvidenceRetriever(store), cases, top_k=3)
 
     assert report.recall_at_k == 1
     assert report.mrr == 1
@@ -35,6 +35,6 @@ def test_evaluation_calculates_recall_and_mrr(tmp_path: Path):
 
 
 def test_empty_evaluation_is_safe(tmp_path: Path):
-    report = evaluate_retrieval(RetrievalAgent(Store(tmp_path / "test.db")), [])
+    report = evaluate_retrieval(EvidenceRetriever(Store(tmp_path / "test.db")), [])
     assert report.cases == 0
     assert report.recall_at_k == 0

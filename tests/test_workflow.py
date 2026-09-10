@@ -45,13 +45,9 @@ def test_pipeline_runs_end_to_end_with_trace(tmp_path: Path):
     assert result.evidence_matrix
     assert result.evidence_completeness["status"] in {"complete", "incomplete"}
     assert result.trace_steps
-    assert [step.agent for step in result.trace_steps][:5] == [
-        "Workflow",
-        "QueryPlanningAgent",
-        "RetrievalAgent",
-        "EvidenceVerificationAgent",
-        "EvidenceExtractionAgent",
-    ]
+    assert result.agent_route == ["Planner", "Evidence", "Analysis", "Answer"]
+    trace_agents = {step.agent for step in result.trace_steps}
+    assert {"Workflow", "Planner", "Evidence", "Analysis", "Answer"} <= trace_agents
     assert any("not a legal" in limitation.lower() for limitation in result.limitations)
 
 
@@ -89,13 +85,7 @@ def test_supervisor_agent_graph_exposes_route_and_mode(tmp_path: Path):
     assert result.requested_agent_mode == "deterministic"
     assert result.agent_mode == "deterministic_fallback"
     assert result.agent_stop_reason == "completed"
-    assert result.agent_route[:5] == [
-        "ScopeAgent",
-        "QueryPlanningAgent",
-        "RetrievalAgent",
-        "EvidenceVerificationAgent",
-        "EvidenceExtractionAgent",
-    ]
+    assert result.agent_route == ["Planner", "Evidence", "Analysis", "Answer"]
     assert any("Supervisor: handoff" in item for item in result.trace)
 
 

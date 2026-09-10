@@ -3,7 +3,7 @@ from pathlib import Path
 import pytest
 
 import app.document_service as service_module
-from app.document_intelligence import DocumentAgent
+from app.document_intelligence import DocumentProcessor
 from app.document_service import (
     DocumentIngestionService,
     DocumentTooLargeError,
@@ -20,8 +20,10 @@ def service(tmp_path: Path) -> DocumentIngestionService:
 
 def test_ingest_returns_quality_and_persists_document(service, monkeypatch):
     pages = [(1, "a" * 50), (2, "b" * 50), (3, "")]
-    monkeypatch.setattr(DocumentAgent, "extract_pdf_blocks", classmethod(lambda cls, *_a, **_k: []))
-    monkeypatch.setattr(DocumentAgent, "extract_pdf", staticmethod(lambda _: pages))
+    monkeypatch.setattr(
+        DocumentProcessor, "extract_pdf_blocks", classmethod(lambda cls, *_a, **_k: [])
+    )
+    monkeypatch.setattr(DocumentProcessor, "extract_pdf", staticmethod(lambda _: pages))
 
     result = service.ingest(b"%PDF-demo", "Report.pdf", "application/pdf", "ACME")
 
@@ -34,9 +36,11 @@ def test_ingest_returns_quality_and_persists_document(service, monkeypatch):
 
 
 def test_ingest_rejects_pdf_that_needs_ocr(service, monkeypatch):
-    monkeypatch.setattr(DocumentAgent, "extract_pdf_blocks", classmethod(lambda cls, *_a, **_k: []))
     monkeypatch.setattr(
-        DocumentAgent,
+        DocumentProcessor, "extract_pdf_blocks", classmethod(lambda cls, *_a, **_k: [])
+    )
+    monkeypatch.setattr(
+        DocumentProcessor,
         "extract_pdf",
         staticmethod(lambda _: [(1, "scan"), (2, "")]),
     )
@@ -92,7 +96,7 @@ def test_ingest_uses_layout_blocks(service, monkeypatch):
         ),
     ]
     monkeypatch.setattr(
-        DocumentAgent,
+        DocumentProcessor,
         "extract_pdf_blocks",
         classmethod(lambda cls, source, document_id="doc": blocks),
     )
@@ -114,7 +118,7 @@ def test_ingest_uses_layout_blocks(service, monkeypatch):
 
 def test_document_blocks_do_not_fabricate_bbox(monkeypatch):
     """Exact coordinates must remain absent until a coordinate-aware parser is used."""
-    from app.document_intelligence import DocumentIntelligenceAgent
+    from app.document_intelligence import DocumentProcessor
 
     class FakePage:
         def extract_text(self):
@@ -125,7 +129,7 @@ def test_document_blocks_do_not_fabricate_bbox(monkeypatch):
             self.pages = [FakePage()]
 
     monkeypatch.setattr("pypdf.PdfReader", lambda _stream: FakeReader())
-    blocks = DocumentIntelligenceAgent.extract_pdf_blocks(b"%PDF-demo", "doc")
+    blocks = DocumentProcessor.extract_pdf_blocks(b"%PDF-demo", "doc")
 
     assert blocks
     assert all(block.bbox is None for block in blocks)

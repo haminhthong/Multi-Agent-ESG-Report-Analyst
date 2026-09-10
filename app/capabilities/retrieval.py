@@ -11,8 +11,8 @@ from app.rubric import RUBRICS
 from app.store import Store
 
 
-class RetrievalAgent:
-    """Retrieve, fuse, and diversify ESG evidence candidates without performing validation."""
+class EvidenceRetriever:
+    """Truy xuất, hợp nhất và đa dạng hóa bằng chứng ESG trước khi thẩm định."""
 
     def __init__(self, store: Store, mode: str | None = None) -> None:
         self.store = store

@@ -1,12 +1,10 @@
 from pathlib import Path
 
-from app.agents import (
-    ESGAuditAgent,
-    EvidenceExtractionAgent,
-    QueryPlanningAgent,
-)
+from app.capabilities.planning import QueryPlanner
+from app.extraction.extractor import FactExtractor
 from app.facts.repository import FactRepository
 from app.models import Citation, ESGFact
+from app.services.esg_analysis_service import ESGAnalysisService
 from app.store import Store
 
 
@@ -19,7 +17,7 @@ def test_target_with_baseline():
         page=15,
         excerpt="The company commits to reduce absolute Scope 1 emissions by 40% by 2030 compared to 2019 baseline year.",
     )
-    agent = ESGAuditAgent()
+    agent = ESGAnalysisService()
     res = agent.screen_greenwashing_signals([cite], [])
     assert any("Baseline Year" in s for s in res.target_credibility_signals)
     assert not any("thiếu năm cơ sở" in s.lower() for s in res.target_credibility_signals)
@@ -34,7 +32,7 @@ def test_target_without_baseline():
         page=3,
         excerpt="We proudly aspire to achieve net-zero carbon emissions by 2050 across our worldwide operations.",
     )
-    agent = ESGAuditAgent()
+    agent = ESGAnalysisService()
     res = agent.screen_greenwashing_signals([cite], [])
     assert any("thiếu năm cơ sở" in s.lower() for s in res.target_credibility_signals)
     assert res.risk_level in ("MEDIUM", "HIGH")
@@ -49,7 +47,7 @@ def test_negated_assurance_as_negative_evidence():
         page=70,
         excerpt="This sustainability report has not been independently assured or audited by an external third party.",
     )
-    agent = ESGAuditAgent()
+    agent = ESGAnalysisService()
     res = agent.screen_greenwashing_signals([cite], [])
     assert any("KHÔNG ĐƯỢC kiểm toán hoặc bảo đảm" in s for s in res.evidence_quality_signals)
 
@@ -63,7 +61,7 @@ def test_scope3_not_confused_with_scope2():
         page=22,
         excerpt="In 2023, market-based Scope 2 emissions were 412,000 MT CO2e. Upstream and downstream Scope 3 supply chain emissions reached 35,600,000 MT CO2e.",
     )
-    extractor = EvidenceExtractionAgent()
+    extractor = FactExtractor()
     facts = extractor.extract_facts([cite])
     metrics_found = {f.metric: f.value for f in facts}
 
@@ -83,7 +81,7 @@ def test_metric_wrong_unit():
         page=10,
         excerpt="Scope 1 direct greenhouse gas emissions totaled 580,000 metric tons CO2e in 2023.",
     )
-    facts = EvidenceExtractionAgent.extract_facts([cite])
+    facts = FactExtractor.extract_facts([cite])
     s1 = next((f for f in facts if f.metric == "scope_1_emissions"), None)
     assert s1 is not None
     assert s1.value == 580000.0
@@ -106,7 +104,7 @@ def test_conflicting_evidence_detection():
         page=45,
         excerpt="In 2023, Scope 1 greenhouse gas emissions reached 280,000 MT CO2e.",
     )
-    extractor = EvidenceExtractionAgent()
+    extractor = FactExtractor()
     facts = extractor.extract_facts([cite1, cite2])
     conflicts = extractor.detect_conflicts(facts)
 
@@ -150,7 +148,7 @@ def test_temporal_analysis(tmp_path: Path):
         ]
     )
 
-    agent = ESGAuditAgent()
+    agent = ESGAnalysisService()
     res = agent.run_temporal_analysis("Company", store, metric="scope_1_emissions")
 
     assert res.company == "Company"
@@ -175,7 +173,7 @@ def test_cross_company_comparison(tmp_path: Path):
         [(8, "BetaCorp Scope 1 direct greenhouse gas emissions reached 350,000 MT CO2e in 2023.")],
     )
 
-    agent = ESGAuditAgent()
+    agent = ESGAnalysisService()
     res = agent.run_comparison(["AlphaCorp", "BetaCorp"], store, criteria_ids=["E_GHG_SCOPE_1_2"])
 
     assert "AlphaCorp" in res.companies
@@ -188,7 +186,7 @@ def test_cross_company_comparison(tmp_path: Path):
 
 def test_query_planner_decomposition():
     """Kiểm tra Query Planning Agent phân rã câu hỏi phức tạp thành subqueries và required evidence."""
-    planner = QueryPlanningAgent()
+    planner = QueryPlanner()
     plan = planner.plan(
         "Compare Scope 1 emissions and renewable energy of Boeing and Airbus between 2022 and 2023"
     )

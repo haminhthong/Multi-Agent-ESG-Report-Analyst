@@ -417,7 +417,7 @@ class Store:
 
     def _extract_offline_candidates(self, document_id: str) -> None:
         """Trích xuất candidate ngay sau indexing; truy vấn online không ghi canonical store."""
-        from app.evidence_extractor import EvidenceExtractionAgent
+        from app.extraction.extractor import FactExtractor
         from app.models import Citation
 
         citations = [
@@ -440,7 +440,7 @@ class Store:
             for row in self.document_chunks(document_id)
             if (row.get("text") or "").strip()
         ]
-        candidates = EvidenceExtractionAgent.extract_facts(citations)
+        candidates = FactExtractor.extract_facts(citations)
         if candidates:
             self.save_fact_candidates(candidates)
 

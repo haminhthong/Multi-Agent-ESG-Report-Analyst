@@ -16,8 +16,8 @@ from app.chunking import is_table_content
 from app.models import LayoutBlock
 
 
-class DocumentIntelligenceAgent:
-    """Extract page text and heuristic text blocks while preserving page numbers."""
+class DocumentProcessor:
+    """Trích xuất text và block theo trang, đồng thời giữ provenance."""
 
     @staticmethod
     def classify_page(text: str) -> str:
@@ -52,6 +52,3 @@ class DocumentIntelligenceAgent:
             (page_number, page.extract_text() or "")
             for page_number, page in enumerate(PdfReader(stream).pages, start=1)
         ]
-
-
-DocumentAgent = DocumentIntelligenceAgent

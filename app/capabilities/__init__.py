@@ -1,23 +1,15 @@
-"""Bounded capabilities used by the application workflow.
+"""Các capability độc lập với orchestration của workflow."""
 
-The package keeps orchestration-independent responsibilities small and testable.
-Legacy classes in :mod:`app.agents` remain temporarily for backward compatibility.
-"""
-
-from app.capabilities.explanation import ExplanationAgent
-from app.capabilities.planning import QueryPlanningAgent
-from app.capabilities.retrieval import RetrievalAgent
-from app.capabilities.verification import (
-    AnswerReviewAgent,
-    EvidenceValidator,
-    EvidenceVerificationAgent,
-)
+from app.capabilities.explanation import AnswerGenerator
+from app.capabilities.planning import QueryPlanner
+from app.capabilities.retrieval import EvidenceRetriever
+from app.capabilities.verification import AnswerValidator, CitationVerifier, ClaimSplitter
 
 __all__ = [
-    "AnswerReviewAgent",
-    "EvidenceValidator",
-    "EvidenceVerificationAgent",
-    "ExplanationAgent",
-    "QueryPlanningAgent",
-    "RetrievalAgent",
+    "AnswerGenerator",
+    "AnswerValidator",
+    "CitationVerifier",
+    "ClaimSplitter",
+    "EvidenceRetriever",
+    "QueryPlanner",
 ]

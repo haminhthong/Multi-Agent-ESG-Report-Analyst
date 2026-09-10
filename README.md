@@ -2,10 +2,6 @@
 
 [![CI](https://github.com/haminhthong/Multi-Agent-ESG-Report-Analyst/actions/workflows/ci.yml/badge.svg)](https://github.com/haminhthong/Multi-Agent-ESG-Report-Analyst/actions/workflows/ci.yml)
 [![Python](https://img.shields.io/badge/Python-3.11%2B-3776AB.svg?logo=python&logoColor=white)](https://www.python.org/)
-[![FastAPI](https://img.shields.io/badge/FastAPI-0.115%2B-009688.svg?logo=fastapi&logoColor=white)](https://fastapi.tiangolo.com/)
-[![SQLite FTS5](https://img.shields.io/badge/SQLite-FTS5-003B57.svg?logo=sqlite&logoColor=white)](https://sqlite.org/fts5.html)
-[![Docker](https://img.shields.io/badge/Docker-ready-2496ED.svg?logo=docker&logoColor=white)](https://www.docker.com/)
-[![Tesseract OCR](https://img.shields.io/badge/OCR-Tesseract-5A5A5A.svg)](https://github.com/tesseract-ocr/tesseract)
 [![License](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
 Nền tảng local-first để phân tích báo cáo ESG theo nguyên tắc **evidence-first**. Mọi số liệu, nhận định và tín hiệu sàng lọc đều phải truy ngược được về tài liệu, trang PDF, chunk ổn định và `evidence_id`. Hệ thống có thể chạy deterministic hoàn toàn, hoặc dùng local LLM khi được bật.
@@ -22,7 +18,7 @@ Dự án giải quyết quy trình đó bằng cách:
 - trích xuất fact có cấu trúc và tách `fact_candidate` khỏi `esg_fact` đã duyệt;
 - audit công bố theo rubric `climate-disclosure-v1`;
 - phân tích temporal/comparison chỉ trên accepted facts;
-- trả về câu trả lời có claims, citations, độ đầy đủ, giới hạn và trace agent.
+- trả về câu trả lời có claims, citations, độ đầy đủ, giới hạn và workflow trace.
 
 Phạm vi hiện tại là **screening và phân tích bằng chứng trong corpus đã index**. Kết quả greenwashing chỉ là tín hiệu ưu tiên kiểm tra, không phải xác suất, kết luận pháp lý, kết luận gian lận hay kiểm toán độc lập.
 
@@ -51,30 +47,15 @@ flowchart TD
     end
 
     subgraph ONLINE[Nhánh phân tích và báo cáo]
-        B -->|Câu hỏi / audit| O[ScopeAgent kiểm tra phạm vi]
-        O --> P[QueryPlanningAgent tạo RetrievalPlan typed]
-        P --> Q[RetrievalAgent truy xuất và hợp nhất bằng chứng]
-        Q --> R[EvidenceVerificationAgent kiểm tra provenance]
-        R --> S[EvidenceExtractionAgent tạo facts tạm thời]
-        S --> T{EvidenceCompletenessGate: đủ?}
-        T -->|Đủ| U[ESGAuditAgent tạo rubric và evidence matrix]
-        T -->|Thiếu / partial| T1[Targeted retrieval retry và recheck trong Gate]
-        T1 --> U
-        U --> V{Temporal hoặc comparison?}
-        V -->|Có| W[Phân tích accepted facts]
-        V -->|Không| X[ClaimVerificationAgent]
-        W --> X
-        U --> Y{Audit mode?}
-        Y -->|Có| Z[Screening priority heuristic]
-        Y -->|Không| AA[Không chạy screening]
-        X --> AB[ExplanationAgent tổng hợp có citation]
-        Z --> AB
-        AA --> AB
-        AB --> AC[AnswerReviewAgent và LimitationsAgent]
-        AC --> AD[AnalysisResponse: claims, citations, coverage, versions, trace]
+        B -->|Câu hỏi / audit| O[Planner role]
+        O --> P[Evidence role: retrieve, verify, extract]
+        P --> Q[Completeness check và targeted retry]
+        Q --> R[Analysis role: rubric, temporal, comparison]
+        R --> S[Answer role: claims, synthesis, validation]
+        S --> T[Grounded response: citations, limitations, trace]
     end
 
-    N --> V
+    N -. accepted facts .-> R
 ```
 
 Quy tắc quan trọng của luồng:
@@ -108,23 +89,17 @@ Ranh giới dữ liệu quan trọng:
 
 ## Hướng agent
 
-README chỉ giữ route khái quát để dễ đọc:
+README chỉ giữ bốn role có trách nhiệm ở cấp workflow:
 
 ```text
 Question / audit request
         ↓
-Planner → Retrieval → Evidence verification
-        ↓
-Fact extraction + completeness gate
-        ↓
-ESG audit / accepted-fact analysis
-        ↓
-Claim verification → grounded answer
+Planner → Evidence → Analysis → Answer
 ```
 
-Graph đầy đủ, điều kiện rẽ nhánh, trách nhiệm của từng agent, giới hạn bước và các mode chạy được mô tả tại [docs/AGENT_GRAPH.md](docs/AGENT_GRAPH.md).
+Graph đầy đủ, trách nhiệm của từng role, service deterministic bên dưới và các mode chạy được mô tả tại [docs/AGENT_GRAPH.md](docs/AGENT_GRAPH.md).
 
-Agent chỉ điều phối và quyết định bước tiếp theo. PDF parsing, OCR, retrieval, extraction, validation, rubric và storage vẫn nằm trong các service deterministic để có thể kiểm thử và chạy offline.
+Role chỉ điều phối. PDF parsing, OCR, retrieval, extraction, citation validation, rubric và storage vẫn nằm trong service deterministic để có thể kiểm thử và chạy offline.
 
 ## Fact lifecycle và provenance
 
@@ -178,20 +153,19 @@ Các ID trong ví dụ là schematic; ID thực tế được trả trong `citat
 Multi-Agent-ESG-Report-Analyst/
 ├─ app/
 │  ├─ main.py                 FastAPI routes và lifespan
-│  ├─ workflow.py             pipeline và supervisor workflow
+│  ├─ workflow.py             pipeline bốn role và supervisor runtime
 │  ├─ agent_runtime.py        graph bounded, cycle detection, trace
 │  ├─ models.py               Pydantic request/response contracts
 │  ├─ store.py                SQLite, FTS5, documents, chunks, fact lifecycle
 │  ├─ document_service.py      PDF/OCR, quality gate, indexing
 │  ├─ document_intelligence.py parser PDF và layout blocks
 │  ├─ batch_ingest.py          nạp nhiều PDF theo metadata CSV
-│  ├─ agents.py                facade tương thích cho agent public
-│  ├─ capabilities/            planner, retrieval, verification, explanation
+│  ├─ capabilities/            planner, evidence, answer validation/generation
 │  ├─ domain/                  rubric, evidence matrix, audit, screening
 │  ├─ ingestion/               OCR và layout parser
 │  ├─ extraction/              ESG fact extraction và validators
 │  ├─ facts/repository.py      candidate/accepted fact repository
-│  ├─ services/                service facade cho audit và analysis
+│  ├─ services/                ESGAnalysisService và nghiệp vụ phân tích
 │  ├─ evaluation.py            retrieval và structured extraction metrics
 │  ├─ answer_eval.py           answer grounding metrics
 │  └─ static/                  dashboard HTML/CSS/JavaScript
@@ -200,12 +174,11 @@ Multi-Agent-ESG-Report-Analyst/
 │  └─ evaluation/              retrieval, answer và split dev/test
 ├─ rubrics/                    rubric YAML versioned
 ├─ docs/
-│  ├─ AGENT_GRAPH.md           graph agent chi tiết
+│  ├─ AGENT_GRAPH.md           bốn role và service boundaries
 │  └─ CORPUS_SNAPSHOT.yaml     snapshot cấu trúc corpus
 ├─ tests/                      unit, API, workflow và lifecycle tests
 ├─ reports/                    benchmark snapshots và báo cáo đầu ra
 ├─ scripts/                    tiện ích benchmark và sinh báo cáo
-├─ infra/                      Terraform tùy chọn cho hạ tầng triển khai
 ├─ Dockerfile
 ├─ docker-compose.yml
 ├─ pyproject.toml
@@ -332,8 +305,8 @@ Repo đã có bốn dòng đánh giá, không chỉ kiểm tra xem pipeline có 
 Kết quả lệnh được in dưới dạng JSON để lưu artifact hoặc dùng trong CI. Không ghi cứng benchmark score vào README vì score phụ thuộc corpus, model và cấu hình tại thời điểm chạy. Bộ test code là quality gate bổ sung:
 
 ```powershell
-python -m ruff check app tests
-python -m ruff format --check app tests
+python -m ruff check app tests scripts
+python -m ruff format --check app tests scripts
 python -m pytest
 ```
 

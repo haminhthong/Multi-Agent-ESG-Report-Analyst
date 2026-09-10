@@ -1,7 +1,7 @@
 """Canonical application workflow for evidence-grounded ESG analysis.
 
-HTTP and CLI adapters should call this module instead of assembling agents on
-their own. Orchestration is deterministic and observable; optional LLM usage is
+HTTP and CLI adapters should call this module instead of assembling components
+on their own. Orchestration is deterministic and observable; optional LLM usage is
 contained inside bounded capabilities.
 """
 
@@ -14,15 +14,15 @@ from typing import Any, Literal
 
 from app.agent_runtime import AgentGraphSupervisor, AgentNode
 from app.capabilities import (
-    AnswerReviewAgent,
-    EvidenceVerificationAgent,
-    ExplanationAgent,
-    QueryPlanningAgent,
-    RetrievalAgent,
+    AnswerGenerator,
+    AnswerValidator,
+    CitationVerifier,
+    EvidenceRetriever,
+    QueryPlanner,
 )
 from app.config import settings
 from app.domain.evidence_completeness import EvidenceCompletenessGate
-from app.evidence_extractor import EvidenceExtractionAgent
+from app.extraction.extractor import FactExtractor
 from app.facts.repository import FactRepository
 from app.llm import LLMClient
 from app.models import (
@@ -36,7 +36,7 @@ from app.models import (
     PillarResult,
     RetrievalPlan,
 )
-from app.services.audit_service import ESGAuditService
+from app.services.esg_analysis_service import ESGAnalysisService
 from app.store import Store
 from app.tools import AgentTools
 
@@ -79,9 +79,11 @@ class ESGAnalysisPipeline:
     """One runtime path for API, CLI, and evaluation adapters.
 
     Stages:
-    request validation -> query planning -> retrieval -> citation validation ->
-    structured extraction -> evidence completeness -> ESG rubric/screening ->
-    optional specialized analysis -> claim support check -> grounded synthesis.
+    Planner -> Evidence -> Analysis -> Answer.
+
+    Each role delegates deterministic work to a focused capability. The route
+    is intentionally short so the workflow remains observable without turning
+    every validation function into a separate agent.
     """
 
     def __init__(
@@ -89,22 +91,22 @@ class ESGAnalysisPipeline:
         store: Store,
         llm_client: LLMClient | None = None,
         retrieval_mode: str | None = None,
-        audit_service: ESGAuditService | None = None,
+        audit_service: ESGAnalysisService | None = None,
     ) -> None:
         self.store = store
         self.llm = llm_client or LLMClient()
         self.tools = AgentTools(store)
-        self.planner = QueryPlanningAgent()
-        self.retrieval = RetrievalAgent(store, mode=retrieval_mode)
-        self.verifier = EvidenceVerificationAgent()
-        self.answer_reviewer = AnswerReviewAgent()
-        self.extractor = EvidenceExtractionAgent()
-        self.audit = audit_service or ESGAuditService(llm_client=self.llm)
+        self.planner = QueryPlanner()
+        self.retrieval = EvidenceRetriever(store, mode=retrieval_mode)
+        self.verifier = CitationVerifier()
+        self.answer_validator = AnswerValidator()
+        self.extractor = FactExtractor()
+        self.audit = audit_service or ESGAnalysisService(llm_client=self.llm)
         self.analysis = self.audit
-        self.explanation = ExplanationAgent(llm_client=self.llm)
+        self.answer_generator = AnswerGenerator(llm_client=self.llm)
         self.completeness_gate = EvidenceCompletenessGate()
         self.fact_repository = FactRepository(store)
-        self.agent_supervisor = AgentGraphSupervisor(max_steps=16)
+        self.agent_supervisor = AgentGraphSupervisor(max_steps=8)
         self.retrieval_mode = retrieval_mode or settings.retrieval_mode
         self.last_response: AnalysisResponse | None = None
 
@@ -253,8 +255,8 @@ class ESGAnalysisPipeline:
 
         route_result = self.agent_supervisor.execute(
             state,
-            self._build_agent_nodes(state, focus_pillars, plan_extra_citations),
-            start="ScopeAgent",
+            self._build_role_nodes(state, focus_pillars, plan_extra_citations),
+            start="Planner",
         )
         state.agent_stop_reason = route_result.stop_reason
 
@@ -306,19 +308,19 @@ class ESGAnalysisPipeline:
         self.last_response = response
         return response
 
-    def _build_agent_nodes(
+    def _build_role_nodes(
         self,
         state: AnalysisState,
         focus_pillars: list[Literal["E", "S", "G"]] | None,
         plan_extra_citations: list[Citation],
     ) -> dict[str, AgentNode]:
-        """Build the explicit supervisor graph for one request.
+        """Build the four-role graph for one request.
 
         The graph is intentionally request-scoped so closures cannot leak data
         between concurrent API requests.
         """
 
-        def retrieve() -> None:
+        def evidence_stage() -> None:
             self._retrieve(state)
             if plan_extra_citations:
                 state.raw_citations = self._merge_citations(
@@ -327,92 +329,53 @@ class ESGAnalysisPipeline:
                     limit=max(state.top_k, 12),
                 )
 
-        def after_retrieval(current: AnalysisState) -> str:
-            return (
-                "EvidenceVerificationAgent" if current.raw_citations else "EvidenceCompletenessGate"
-            )
+        def planner_stage() -> None:
+            self._validate_scope(state)
+            self._plan(state)
 
-        def after_verification(current: AnalysisState) -> str:
-            return (
-                "EvidenceExtractionAgent"
-                if current.validated_citations
-                else "EvidenceCompletenessGate"
-            )
+        def evidence_role() -> None:
+            evidence_stage()
+            if state.raw_citations:
+                self._verify(state)
+            if state.validated_citations:
+                self._extract(state)
+            self._check_completeness(state)
+            if state.evidence_completeness.get("status") == "incomplete":
+                state.trace.append("Evidence role: continue with explicit evidence limitations")
 
-        def after_completeness(current: AnalysisState) -> str:
-            if current.evidence_completeness.get("status") == "incomplete":
-                current.trace.append(
-                    "Supervisor decision: continue with explicit evidence limitations"
-                )
-            return "ESGAuditAgent"
-
-        def after_audit(current: AnalysisState) -> str:
-            if current.plan and current.plan.intent in {
+        def analysis_role() -> None:
+            self._audit(state, focus_pillars)
+            if state.plan and state.plan.intent in {
                 "temporal_trend",
                 "cross_document_compare",
             }:
-                return "SpecializedAnalysisAgent"
-            return "ClaimVerificationAgent"
+                self._run_specialized_analysis(state)
+
+        def answer_role() -> None:
+            self._verify_claims(state)
+            self._synthesize(state)
+            self._review_answer(state)
+            self._build_limitations(state)
 
         return {
-            "ScopeAgent": AgentNode(
-                name="ScopeAgent",
-                run=lambda: self._validate_scope(state),
-                next_agent=lambda _: "QueryPlanningAgent",
+            "Planner": AgentNode(
+                name="Planner",
+                run=planner_stage,
+                next_agent=lambda _: "Evidence",
             ),
-            "QueryPlanningAgent": AgentNode(
-                name="QueryPlanningAgent",
-                run=lambda: self._plan(state),
-                next_agent=lambda _: "RetrievalAgent",
+            "Evidence": AgentNode(
+                name="Evidence",
+                run=evidence_role,
+                next_agent=lambda _: "Analysis",
             ),
-            "RetrievalAgent": AgentNode(
-                name="RetrievalAgent",
-                run=retrieve,
-                next_agent=after_retrieval,
+            "Analysis": AgentNode(
+                name="Analysis",
+                run=analysis_role,
+                next_agent=lambda _: "Answer",
             ),
-            "EvidenceVerificationAgent": AgentNode(
-                name="EvidenceVerificationAgent",
-                run=lambda: self._verify(state),
-                next_agent=after_verification,
-            ),
-            "EvidenceExtractionAgent": AgentNode(
-                name="EvidenceExtractionAgent",
-                run=lambda: self._extract(state),
-                next_agent=lambda _: "EvidenceCompletenessGate",
-            ),
-            "EvidenceCompletenessGate": AgentNode(
-                name="EvidenceCompletenessGate",
-                run=lambda: self._check_completeness(state),
-                next_agent=after_completeness,
-            ),
-            "ESGAuditAgent": AgentNode(
-                name="ESGAuditAgent",
-                run=lambda: self._audit(state, focus_pillars),
-                next_agent=after_audit,
-            ),
-            "SpecializedAnalysisAgent": AgentNode(
-                name="SpecializedAnalysisAgent",
-                run=lambda: self._run_specialized_analysis(state),
-                next_agent=lambda _: "ClaimVerificationAgent",
-            ),
-            "ClaimVerificationAgent": AgentNode(
-                name="ClaimVerificationAgent",
-                run=lambda: self._verify_claims(state),
-                next_agent=lambda _: "ExplanationAgent",
-            ),
-            "ExplanationAgent": AgentNode(
-                name="ExplanationAgent",
-                run=lambda: self._synthesize(state),
-                next_agent=lambda _: "AnswerReviewAgent",
-            ),
-            "AnswerReviewAgent": AgentNode(
-                name="AnswerReviewAgent",
-                run=lambda: self._review_answer(state),
-                next_agent=lambda _: "LimitationsAgent",
-            ),
-            "LimitationsAgent": AgentNode(
-                name="LimitationsAgent",
-                run=lambda: self._build_limitations(state),
+            "Answer": AgentNode(
+                name="Answer",
+                run=answer_role,
                 next_agent=lambda _: None,
             ),
         }
@@ -459,7 +422,7 @@ class ESGAnalysisPipeline:
         state.plan.canonical_query = state.user_question
         self._trace(
             state,
-            "QueryPlanningAgent",
+            "Planner",
             "Build retrieval plan",
             started,
             details={
@@ -511,7 +474,7 @@ class ESGAnalysisPipeline:
             state.raw_citations = self.retrieval.run_plan(state.plan, top_k=state.top_k)
         self._trace(
             state,
-            "RetrievalAgent",
+            "Evidence",
             "Retrieve hybrid evidence candidates (criterion-level audit)"
             if state.mode == "audit"
             else "Retrieve hybrid evidence candidates",
@@ -525,7 +488,7 @@ class ESGAnalysisPipeline:
         state.validated_citations = self.verifier.validate(state.raw_citations)
         self._trace(
             state,
-            "EvidenceVerificationAgent",
+            "Evidence",
             "Validate citation metadata and excerpt shape",
             started,
             retrieved_chunks=len(state.validated_citations),
@@ -544,7 +507,7 @@ class ESGAnalysisPipeline:
 
         self._trace(
             state,
-            "EvidenceExtractionAgent",
+            "Evidence",
             "Extract structured ESG facts and detect conflicts",
             started,
             retrieved_chunks=len(state.extracted_facts),
@@ -679,7 +642,7 @@ class ESGAnalysisPipeline:
         state.overall_coverage = overall_coverage
         self._trace(
             state,
-            "ESGAuditAgent",
+            "Analysis",
             "Evaluate rubric and screen greenwashing risk",
             started,
             retrieved_chunks=len(matrix),
@@ -720,7 +683,7 @@ class ESGAnalysisPipeline:
 
         self._trace(
             state,
-            "SpecializedAnalysis",
+            "Analysis",
             "Run intent-specific analysis when required",
             started,
             details=details,
@@ -755,7 +718,7 @@ class ESGAnalysisPipeline:
             claim["support_score"] = audit.get("keyword_overlap", 0.0)
         self._trace(
             state,
-            "EvidenceVerificationAgent",
+            "Answer",
             "Check extracted claim support in retrieved excerpts",
             started,
             details={
@@ -766,7 +729,7 @@ class ESGAnalysisPipeline:
 
     def _synthesize(self, state: AnalysisState) -> None:
         started = time.perf_counter()
-        state.answer = self.explanation.run(
+        state.answer = self.answer_generator.run(
             state.mode,
             state.pillars,
             state.overall_coverage,
@@ -776,7 +739,7 @@ class ESGAnalysisPipeline:
         )
         self._trace(
             state,
-            "ExplanationAgent",
+            "Answer",
             "Synthesize evidence-grounded response",
             started,
             details={
@@ -787,13 +750,13 @@ class ESGAnalysisPipeline:
 
     def _review_answer(self, state: AnalysisState) -> None:
         started = time.perf_counter()
-        review = self.answer_reviewer.review(state.answer, state.validated_citations)
+        review = self.answer_validator.review(state.answer, state.validated_citations)
         if not review["passed"]:
             state.warnings.append(
                 "[ANSWER_REVIEW] Answer was regenerated because it was not fully grounded: "
                 + ", ".join(review["issues"])
             )
-            state.answer = self.explanation._deterministic_answer(
+            state.answer = self.answer_generator._deterministic_answer(
                 state.mode,
                 state.pillars,
                 state.overall_coverage,
@@ -801,18 +764,18 @@ class ESGAnalysisPipeline:
                 state.user_question,
                 state.screening_result,
             )
-            review = self.answer_reviewer.review(state.answer, state.validated_citations)
+            review = self.answer_validator.review(state.answer, state.validated_citations)
             if not review["passed"]:
                 state.answer = (
                     "The retrieved evidence was insufficient to produce a fully grounded answer. "
                     "No ESG conclusion is made."
                 )
-                review = self.answer_reviewer.review(state.answer, state.validated_citations)
+                review = self.answer_validator.review(state.answer, state.validated_citations)
 
         state.verification_summary["answer_review"] = review
         self._trace(
             state,
-            "AnswerReviewAgent",
+            "Answer",
             "Review final answer references and grounding contract",
             started,
             details=review,
@@ -912,11 +875,6 @@ class ESGAnalysisPipeline:
             )
         )
         state.trace.append(f"{agent}: {step} ({latency_ms} ms)")
-
-
-SupervisorWorkflow = ESGAnalysisPipeline
-SupervisorAgent = ESGAnalysisPipeline
-AnalysisWorkflow = ESGAnalysisPipeline
 
 
 def _citation_key(citation: Citation) -> str:

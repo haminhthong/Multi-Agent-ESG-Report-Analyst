@@ -1,9 +1,9 @@
 from pathlib import Path
 from unittest.mock import MagicMock
 
-from app.agents import SupervisorAgent
 from app.llm import LLMClient, validate_answer_grounding
 from app.store import Store
+from app.workflow import ESGAnalysisPipeline
 
 
 def test_llm_client_fallback_when_disabled():
@@ -21,7 +21,7 @@ def test_supervisor_deterministic_fallback(tmp_path: Path):
         [(5, "Scope 1 direct emissions reached 100 metric tons in 2024.")],
     )
     llm = LLMClient(enabled=False)
-    supervisor = SupervisorAgent(store, llm_client=llm)
+    supervisor = ESGAnalysisPipeline(store, llm_client=llm)
 
     res = supervisor.run("What are the emissions?", top_k=3, mode="qa")
     assert res.agent_mode == "deterministic_fallback"
@@ -51,7 +51,7 @@ def test_supervisor_with_mock_llm(tmp_path: Path):
         "Based on [TestReport.pdf, trang 5], Scope 1 emissions were 100 metric tons in 2024."
     )
 
-    supervisor = SupervisorAgent(store, llm_client=mock_llm)
+    supervisor = ESGAnalysisPipeline(store, llm_client=mock_llm)
     res = supervisor.run("What are the emissions?", top_k=3, mode="qa")
 
     assert res.agent_mode == "agent_orchestrated"

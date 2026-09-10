@@ -1,5 +1,5 @@
 /**
- * Bộ điều khiển dashboard Evidence-Grounded ESG và hiển thị graph của agent.
+ * Bộ điều khiển dashboard Evidence-Grounded ESG và hiển thị workflow trace.
  */
 
 // Biến trạng thái toàn cục
@@ -39,25 +39,15 @@ const citationsCountText = document.querySelector('#citations-count-text');
 const traceLogsList = document.querySelector('#trace-logs-list');
 const limitationsList = document.querySelector('#limitations-list');
 
-// Các node của Supervisor Agent Graph
+// Bốn role ở cấp workflow; service chi tiết được gom trong từng role.
 const agentStepIds = [
-    'step-scope', 'step-plan', 'step-retrieval', 'step-verify',
-    'step-extract', 'step-completeness', 'step-audit', 'step-specialized',
-    'step-claim', 'step-synth', 'step-review', 'step-limitations'
+    'step-planner', 'step-evidence', 'step-analysis', 'step-answer'
 ];
 const agentRouteToStep = {
-    ScopeAgent: 'step-scope',
-    QueryPlanningAgent: 'step-plan',
-    RetrievalAgent: 'step-retrieval',
-    EvidenceVerificationAgent: 'step-verify',
-    EvidenceExtractionAgent: 'step-extract',
-    EvidenceCompletenessGate: 'step-completeness',
-    ESGAuditAgent: 'step-audit',
-    SpecializedAnalysisAgent: 'step-specialized',
-    ClaimVerificationAgent: 'step-claim',
-    ExplanationAgent: 'step-synth',
-    AnswerReviewAgent: 'step-review',
-    LimitationsAgent: 'step-limitations'
+    Planner: 'step-planner',
+    Evidence: 'step-evidence',
+    Analysis: 'step-analysis',
+    Answer: 'step-answer'
 };
 
 // Khởi tạo khi DOM sẵn sàng
@@ -224,7 +214,7 @@ uploadForm.addEventListener('submit', async (e) => {
     }
 });
 
-// Chạy Supervisor Agent Graph
+// Chạy workflow bốn role
 analyzeForm.addEventListener('submit', async (e) => {
     e.preventDefault();
     const question = questionInput.value.trim();
@@ -289,7 +279,7 @@ function resetAgentStepper() {
         const el = document.getElementById(id);
         if (el) el.classList.remove('active');
     });
-    const docEl = document.getElementById('step-scope');
+    const docEl = document.getElementById('step-planner');
     if (docEl) docEl.classList.add('active');
 }
 

@@ -1,9 +1,9 @@
 from app.models import Citation, ESGFact
-from app.services.audit_service import ESGAuditService
+from app.services.esg_analysis_service import ESGAnalysisService
 
 
-def test_audit_service_delegates_to_domain_components():
-    service = ESGAuditService()
+def test_analysis_service_delegates_to_domain_components():
+    service = ESGAnalysisService()
     citations = [
         Citation(
             chunk_id=1,

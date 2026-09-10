@@ -3,7 +3,7 @@ from io import BytesIO
 
 from app.chunking import pages_from_layout_blocks
 from app.config import settings
-from app.document_intelligence import DocumentAgent, DocumentIntelligenceAgent
+from app.document_intelligence import DocumentProcessor
 from app.ingestion.ocr import OCRProvider, TesseractOCRProvider
 from app.models import DocumentIngestResponse, ExtractionQualityReport, LayoutBlock
 from app.store import Store
@@ -47,7 +47,7 @@ class DocumentIngestionService:
     def __init__(self, store: Store, ocr_provider: OCRProvider | None = None):
         self.store = store
         self.ocr_provider = ocr_provider or TesseractOCRProvider()
-        self.doc_agent = DocumentIntelligenceAgent
+        self.doc_agent = DocumentProcessor
 
     def ingest(
         self,
@@ -78,7 +78,7 @@ class DocumentIngestionService:
         layout_blocks: list[LayoutBlock] = []
         layout_error: Exception | None = None
         try:
-            layout_blocks = DocumentAgent.extract_pdf_blocks(
+            layout_blocks = DocumentProcessor.extract_pdf_blocks(
                 content,
                 document_id=document_id,
             )
@@ -92,7 +92,7 @@ class DocumentIngestionService:
             )
         else:
             try:
-                pages = DocumentAgent.extract_pdf(content)
+                pages = DocumentProcessor.extract_pdf(content)
             except Exception as exc:
                 context = f"; block extraction also failed: {layout_error}" if layout_error else ""
                 raise DocumentExtractionError(f"Không thể trích xuất PDF: {exc}{context}") from exc
@@ -231,7 +231,7 @@ class DocumentIngestionService:
     def _try_extract_page_texts(content: bytes) -> list[tuple[int, str]]:
         """Best-effort page enumeration for layout parses that omit empty scan pages."""
         try:
-            return DocumentAgent.extract_pdf(content)
+            return DocumentProcessor.extract_pdf(content)
         except Exception:  # noqa: BLE001 - optional parser enrichment boundary
             return []
 

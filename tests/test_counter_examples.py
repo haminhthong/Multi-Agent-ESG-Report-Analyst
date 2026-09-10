@@ -1,4 +1,3 @@
-from app.agents import ESGAnalysisAgent
 from app.rubric import (
     ASSURANCE_PATTERN,
     BASELINE_PATTERN,
@@ -8,6 +7,7 @@ from app.rubric import (
     NEGATED_PERFORMANCE_PATTERN,
     TARGET_PATTERN,
 )
+from app.services.esg_analysis_service import ESGAnalysisService
 
 
 def test_percentage_metric_is_detected():
@@ -55,7 +55,7 @@ def test_increased_emissions_is_not_scored_as_improvement():
 
 
 def test_no_evidence_returns_abstention():
-    agent = ESGAnalysisAgent()
+    agent = ESGAnalysisService()
     pillars, coverage, signals = agent.run([])
 
     assert coverage == 0.0

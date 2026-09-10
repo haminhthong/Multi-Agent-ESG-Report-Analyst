@@ -10,13 +10,13 @@ from __future__ import annotations
 import re
 from typing import Any
 
-from app.evidence_extractor import EvidenceExtractionAgent
+from app.extraction.extractor import FactExtractor
 from app.models import Citation, ESGFact, EvidenceConflict
 from app.tools import AgentTools
 
 
-class EvidenceVerificationAgent:
-    """Validate retrieved evidence before downstream analysis."""
+class CitationVerifier:
+    """Kiểm tra citation trước khi chuyển sang phân tích downstream."""
 
     @staticmethod
     def validate(citations: list[Citation]) -> list[Citation]:
@@ -173,11 +173,11 @@ class EvidenceVerificationAgent:
 
     @staticmethod
     def detect_conflicts(facts: list[ESGFact]) -> list[EvidenceConflict]:
-        return EvidenceExtractionAgent.detect_conflicts(facts)
+        return FactExtractor.detect_conflicts(facts)
 
 
-class AnswerReviewAgent:
-    """Final safety reviewer for the answer emitted by the explanation agent."""
+class AnswerValidator:
+    """Kiểm tra grounding và citation của câu trả lời cuối."""
 
     @staticmethod
     def review(answer: str, citations: list[Citation]) -> dict[str, Any]:
@@ -228,6 +228,3 @@ class ClaimSplitter:
             cids = [int(m.group(1)) for m in re.finditer(r"\[C(\d+)\]", s, re.IGNORECASE)]
             claims.append((s, cids))
         return claims
-
-
-EvidenceValidator = EvidenceVerificationAgent

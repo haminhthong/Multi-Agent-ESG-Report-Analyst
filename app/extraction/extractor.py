@@ -157,9 +157,6 @@ class FactExtractor:
         return detect_conflicts(facts)
 
 
-EvidenceExtractionAgent = FactExtractor
-
-
 def _evidence_span_id(citation: Citation) -> str:
     """Build a deterministic evidence identity for fact lineage."""
     if citation.evidence_id:

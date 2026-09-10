@@ -1,8 +1,7 @@
-"""Small, bounded runtime for explicit multi-agent handoffs.
+"""Runtime nhỏ và có giới hạn cho các handoff của workflow.
 
-The runtime deliberately owns routing only. Domain work stays in the existing
-agents and services, which keeps the graph observable, testable, and safe to
-run without an LLM.
+Runtime chỉ phụ trách định tuyến. Nghiệp vụ vẫn nằm trong capability và
+service để graph dễ quan sát, dễ kiểm thử và chạy được khi không có LLM.
 """
 
 from __future__ import annotations
@@ -18,7 +17,7 @@ NextAgent = Callable[[AnalysisState], str | None]
 
 @dataclass(frozen=True)
 class AgentNode:
-    """A single stateful handoff in the supervisor graph."""
+    """Một handoff có state trong graph workflow."""
 
     name: str
     run: AgentHandler
@@ -34,11 +33,10 @@ class AgentRouteResult:
 
 
 class AgentGraphSupervisor:
-    """Execute an explicit agent graph with a hard step limit.
+    """Chạy graph workflow với giới hạn bước cứng.
 
-    A node can choose the next node from the shared ``AnalysisState``. This is
-    the key difference from a fixed service pipeline: a quality gate can stop,
-    skip, or redirect work while every handoff remains visible in the trace.
+    Node có thể chọn node tiếp theo từ ``AnalysisState``. Quality gate vì vậy
+    có thể dừng, bỏ qua hoặc chuyển hướng mà mọi handoff vẫn xuất hiện trong trace.
     """
 
     def __init__(self, max_steps: int = 16) -> None:

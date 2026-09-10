@@ -5,7 +5,7 @@ from pathlib import Path
 
 from app.answer_eval import evaluate_answer_quality, load_answer_eval_cases
 from app.batch_ingest import ingest_dataset
-from app.capabilities import RetrievalAgent
+from app.capabilities import EvidenceRetriever
 from app.config import settings
 from app.demo import seed_demo
 from app.document_service import DocumentIngestionService
@@ -44,7 +44,7 @@ def main() -> None:
         seed_demo(store)
         cases = load_evaluation_cases(args.cases)
         report = evaluate_retrieval(
-            RetrievalAgent(store, mode=args.mode),
+            EvidenceRetriever(store, mode=args.mode),
             cases,
             args.top_k,
         )

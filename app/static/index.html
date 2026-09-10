@@ -4,7 +4,7 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Evidence-Grounded ESG Intelligence & Audit System</title>
-    <meta name="description" content="Nền tảng trí tuệ và kiểm toán ESG dựa trên bằng chứng trang PDF minh bạch, sử dụng Supervisor Agent Graph, Hybrid Retrieval RRF và Ma trận Bằng chứng chuẩn mực.">
+    <meta name="description" content="Nền tảng phân tích ESG dựa trên bằng chứng trang PDF, hybrid retrieval và ma trận bằng chứng chuẩn mực.">
     <!-- Google Fonts -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -29,7 +29,7 @@
                     </svg>
                 </div>
                 <div>
-                    <span class="badge-tag">EVIDENCE-FIRST · SUPERVISOR AGENT GRAPH · MULTI-TIER AUDIT</span>
+                    <span class="badge-tag">EVIDENCE-FIRST · FOUR-ROLE WORKFLOW · ESG ANALYSIS</span>
                     <h1 class="brand-title">ESG Intelligence & Audit System</h1>
                 </div>
             </div>
@@ -48,7 +48,7 @@
                     <span class="stat-label">Doanh nghiệp</span>
                 </div>
                 <div class="status-indicator">
-                    <span class="pulse-dot"></span> Supervisor Graph Active
+                    <span class="pulse-dot"></span> Workflow Active
                 </div>
             </div>
         </header>
@@ -136,8 +136,8 @@
                             <label class="mode-radio-label" for="agent-mode-input">
                                 <span>Agent mode:</span>
                                 <select id="agent-mode-input" class="input-control input-sm">
-                                    <option value="agentic" selected>Agentic (LLM plan + graph)</option>
-                                    <option value="orchestrated">Orchestrated (graph)</option>
+                                    <option value="agentic" selected>Agentic (LLM plan + workflow)</option>
+                                    <option value="orchestrated">Orchestrated (workflow)</option>
                                     <option value="deterministic">Deterministic (no LLM)</option>
                                 </select>
                             </label>
@@ -171,30 +171,22 @@
                             </div>
                             <button type="submit" id="analyze-btn" class="btn btn-primary">
                                 <svg class="btn-sparkle" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m12 3-1.912 5.813a2 2 0 0 1-1.275 1.275L3 12l5.813 1.912a2 2 0 0 1 1.275 1.275L12 21l1.912-5.813a2 2 0 0 1 1.275-1.275L21 12l-5.813-1.912a2 2 0 0 1-1.275-1.275L12 3z"/></svg>
-                                Thực thi Supervisor Agent Graph
+                                Chạy Planner → Evidence → Analysis → Answer
                             </button>
                         </div>
                     </form>
 
-                    <!-- Tiến trình Supervisor Agent Graph -->
+                    <!-- Tiến trình bốn role của workflow -->
                     <div id="agent-trace-box" class="agent-trace-card hidden">
                         <div class="trace-header">
                             <div class="spinner"></div>
-                            <h3>Supervisor Agent đang điều phối graph...</h3>
+                            <h3>Workflow đang xử lý bốn role...</h3>
                         </div>
                         <div class="agent-stepper" id="agent-stepper-steps">
-                            <div class="step-item" id="step-scope"><span class="step-num">1</span> <span class="step-label">Scope</span></div>
-                            <div class="step-item" id="step-plan"><span class="step-num">2</span> <span class="step-label">Query Planner</span></div>
-                            <div class="step-item" id="step-retrieval"><span class="step-num">3</span> <span class="step-label">Hybrid RRF</span></div>
-                            <div class="step-item" id="step-verify"><span class="step-num">4</span> <span class="step-label">Verifier</span></div>
-                            <div class="step-item" id="step-extract"><span class="step-num">5</span> <span class="step-label">Facts & Conflicts</span></div>
-                            <div class="step-item" id="step-completeness"><span class="step-num">6</span> <span class="step-label">Completeness</span></div>
-                            <div class="step-item" id="step-audit"><span class="step-num">7</span> <span class="step-label">ESG Audit</span></div>
-                            <div class="step-item" id="step-specialized"><span class="step-num">8</span> <span class="step-label">Specialized</span></div>
-                            <div class="step-item" id="step-claim"><span class="step-num">9</span> <span class="step-label">Claim Review</span></div>
-                            <div class="step-item" id="step-synth"><span class="step-num">10</span> <span class="step-label">Synthesis</span></div>
-                            <div class="step-item" id="step-review"><span class="step-num">11</span> <span class="step-label">Answer Review</span></div>
-                            <div class="step-item" id="step-limitations"><span class="step-num">12</span> <span class="step-label">Limitations</span></div>
+                            <div class="step-item" id="step-planner"><span class="step-num">1</span> <span class="step-label">Planner</span></div>
+                            <div class="step-item" id="step-evidence"><span class="step-num">2</span> <span class="step-label">Evidence</span></div>
+                            <div class="step-item" id="step-analysis"><span class="step-num">3</span> <span class="step-label">Analysis</span></div>
+                            <div class="step-item" id="step-answer"><span class="step-num">4</span> <span class="step-label">Answer</span></div>
                         </div>
                     </div>
 
@@ -475,8 +467,8 @@
                 <div id="tab-trace" class="tab-content">
                     <div class="tab-inner-header">
                         <div>
-                            <h3>Observability: Vết Thực thi & Độ trễ Từng Agent (Latency Waterfall)</h3>
-                            <p class="panel-subtitle">Đo lường thời gian xử lý thực tế (ms) của từng node trong Supervisor Agent Graph.</p>
+                            <h3>Observability: Vết thực thi và độ trễ workflow</h3>
+                            <p class="panel-subtitle">Đo lường thời gian xử lý thực tế (ms) của bốn role và service bên dưới.</p>
                         </div>
                         <div class="stat-pill" style="flex-direction:row; gap:8px;">
                             <span class="stat-label">Tổng độ trễ:</span>
@@ -513,7 +505,7 @@
         </main>
 
         <footer class="main-footer">
-            <p>© 2026 Evidence-Grounded ESG Intelligence & Audit System · Supervisor Agent Graph · Offline-First Deterministic Engine ($0 Cost)</p>
+            <p>© 2026 Evidence-Grounded ESG Intelligence · Four-Role Workflow · Offline-First Deterministic Engine ($0 Cost)</p>
         </footer>
     </div>
 

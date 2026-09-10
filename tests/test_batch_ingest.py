@@ -1,7 +1,7 @@
 from pathlib import Path
 
 from app.batch_ingest import ingest_dataset
-from app.document_intelligence import DocumentAgent
+from app.document_intelligence import DocumentProcessor
 from app.document_service import DocumentIngestionService
 from app.store import Store
 
@@ -20,7 +20,7 @@ def test_batch_ingest_reports_indexed_missing_and_skipped(tmp_path: Path, monkey
         encoding="utf-8",
     )
     monkeypatch.setattr(
-        DocumentAgent,
+        DocumentProcessor,
         "extract_pdf",
         staticmethod(lambda _: [(1, "carbon emissions decreased 12% in 2024" * 3)]),
     )

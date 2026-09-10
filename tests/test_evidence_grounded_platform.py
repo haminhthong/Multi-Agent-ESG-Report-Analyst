@@ -1,13 +1,12 @@
 from pathlib import Path
 
-from app.agents import ESGAuditAgent, SupervisorAgent
-from app.evidence_extractor import (
-    EvidenceExtractionAgent,
-    UnitNormalizer,
-    extract_year_for_span,
-)
+from app.extraction.extractor import FactExtractor
+from app.extraction.unit_normalizer import UnitNormalizer
+from app.extraction.year_resolver import extract_year_for_span
 from app.models import Citation, RubricCriterion
+from app.services.esg_analysis_service import ESGAnalysisService
 from app.store import Store
+from app.workflow import ESGAnalysisPipeline
 
 
 def test_target_without_year_is_none_not_2030():
@@ -19,7 +18,7 @@ def test_target_without_year_is_none_not_2030():
         page=5,
         excerpt="The corporation commits to achieving net-zero carbon emissions across our global footprint.",
     )
-    facts = EvidenceExtractionAgent.extract_facts([cite])
+    facts = FactExtractor.extract_facts([cite])
     nz_fact = next((f for f in facts if f.metric == "net_zero_target"), None)
     assert nz_fact is not None
     # Giá trị không bao giờ là 2030 khi 2030 không xuất hiện trong text!
@@ -36,7 +35,7 @@ def test_target_with_explicit_year_preserves_year():
         page=6,
         excerpt="We aim to achieve net-zero carbon emissions by 2045.",
     )
-    facts = EvidenceExtractionAgent.extract_facts([cite])
+    facts = FactExtractor.extract_facts([cite])
     nz_fact = next((f for f in facts if f.metric == "net_zero_target"), None)
     assert nz_fact is not None
     assert nz_fact.value == 2045
@@ -97,8 +96,8 @@ def test_multidimensional_conflict_detection():
         page=21,
         excerpt="In 2023, location-based Scope 2 emissions were 850,000 tCO2e.",
     )
-    facts = EvidenceExtractionAgent.extract_facts([cite_mkt, cite_loc])
-    conflicts = EvidenceExtractionAgent.detect_conflicts(facts)
+    facts = FactExtractor.extract_facts([cite_mkt, cite_loc])
+    conflicts = FactExtractor.detect_conflicts(facts)
 
     # Do khác nhau về methodology (market-based vs location-based), không được coi là conflict
     assert len(conflicts) == 0
@@ -120,8 +119,8 @@ def test_genuine_conflict_detected():
         page=50,
         excerpt="In 2023, Scope 1 direct emissions reached 190,000 tCO2e.",
     )
-    facts = EvidenceExtractionAgent.extract_facts([cite1, cite2])
-    conflicts = EvidenceExtractionAgent.detect_conflicts(facts)
+    facts = FactExtractor.extract_facts([cite1, cite2])
+    conflicts = FactExtractor.detect_conflicts(facts)
 
     assert len(conflicts) > 0
     assert conflicts[0].metric == "scope_1_emissions"
@@ -149,7 +148,7 @@ def test_criterion_required_fields_completeness():
         excerpt="In 2023, Scope 1 emissions were 250,000 tCO2e.",
     )
 
-    agent = ESGAuditAgent()
+    agent = ESGAnalysisService()
     res = agent._evaluate_criterion(crit, [cite_partial])
 
     # Phải là partial vì thiếu scope_2_value
@@ -183,7 +182,7 @@ def test_criterion_aggregates_across_citations():
         page=5,
         excerpt="In 2023, Scope 2 emissions were 180,000 tCO2e.",
     )
-    agent = ESGAuditAgent()
+    agent = ESGAnalysisService()
     res = agent._evaluate_criterion(crit, [cite_s1, cite_s2])
     assert res.status == "found"
     assert not res.missing_fields
@@ -199,7 +198,7 @@ def test_evidence_completeness_gate(tmp_path: Path):
         "Doc.pdf",
         [(1, "Our company reduced emissions by 10% compared to baseline.")],
     )
-    supervisor = SupervisorAgent(store)
+    supervisor = ESGAnalysisPipeline(store)
     # Truy vấn hỏi về target và assurance (nhưng doc không có assurance)
     result = supervisor.run("Review climate target and external assurance", mode="qa")
     assert result.evidence_completeness is not None

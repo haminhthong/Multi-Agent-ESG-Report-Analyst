@@ -44,9 +44,6 @@ pipeline = ESGAnalysisPipeline(store)
 document_service = DocumentIngestionService(store)
 fact_repository = FactRepository(store)
 
-# Compatibility alias for older UI/tests that import ``supervisor`` from app.main.
-supervisor = pipeline
-
 INGEST_ERROR_STATUS = {
     UnsupportedDocumentError: (415, "PDF_INVALID"),
     DocumentTooLargeError: (413, "PDF_TOO_LARGE"),
