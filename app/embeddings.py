@@ -10,12 +10,12 @@ logger = logging.getLogger(__name__)
 
 
 class DenseEmbeddingEngine:
-    """Create dense embeddings with an offline deterministic fallback.
+    """Tạo dense embedding với fallback deterministic chạy offline.
 
-    Sentence Transformers is used when the optional ML dependencies are
-    available. Otherwise the engine falls back to deterministic feature hashing.
-    The fallback is lexical rather than truly semantic, so callers can use a
-    lower similarity threshold without pretending it has model-level semantics.
+    Dùng Sentence Transformers khi có các dependency ML tùy chọn. Nếu không,
+    engine chuyển sang feature hashing deterministic. Fallback này chỉ dựa trên
+    từ vựng, không thật sự hiểu ngữ nghĩa; vì vậy ngưỡng tương đồng phải được
+    cấu hình phù hợp và không được diễn giải như embedding cấp mô hình.
     """
 
     def __init__(self, model_name: str | None = None):
@@ -26,7 +26,7 @@ class DenseEmbeddingEngine:
 
     @property
     def is_fallback(self) -> bool:
-        """Return whether deterministic feature hashing is currently active."""
+        """Cho biết feature hashing deterministic có đang được dùng hay không."""
         return self._is_fallback
 
     @property
@@ -64,7 +64,7 @@ class DenseEmbeddingEngine:
         return self._model
 
     def embed_texts(self, texts: list[str]) -> list[list[float]]:
-        """Create normalized vectors for a list of texts."""
+        """Tạo vector đã chuẩn hóa cho danh sách text."""
         if not texts:
             return []
 
@@ -86,7 +86,7 @@ class DenseEmbeddingEngine:
         return self.embed_texts([text])[0]
 
     def _fallback_embed(self, text: str) -> list[float]:
-        """Hash whitespace tokens into a deterministic normalized vector."""
+        """Băm token phân cách bằng khoảng trắng thành vector chuẩn hóa."""
         words = text.lower().split()
         vec = np.zeros(self.dimension, dtype=np.float32)
         if not words:

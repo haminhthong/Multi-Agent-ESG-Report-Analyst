@@ -17,8 +17,8 @@ def test_target_with_baseline():
         page=15,
         excerpt="The company commits to reduce absolute Scope 1 emissions by 40% by 2030 compared to 2019 baseline year.",
     )
-    agent = ESGAnalysisService()
-    res = agent.screen_greenwashing_signals([cite], [])
+    analysis = ESGAnalysisService()
+    res = analysis.screen_greenwashing_signals([cite], [])
     assert any("Baseline Year" in s for s in res.target_credibility_signals)
     assert not any("thiếu năm cơ sở" in s.lower() for s in res.target_credibility_signals)
 
@@ -32,8 +32,8 @@ def test_target_without_baseline():
         page=3,
         excerpt="We proudly aspire to achieve net-zero carbon emissions by 2050 across our worldwide operations.",
     )
-    agent = ESGAnalysisService()
-    res = agent.screen_greenwashing_signals([cite], [])
+    analysis = ESGAnalysisService()
+    res = analysis.screen_greenwashing_signals([cite], [])
     assert any("thiếu năm cơ sở" in s.lower() for s in res.target_credibility_signals)
     assert res.risk_level in ("MEDIUM", "HIGH")
 
@@ -47,8 +47,8 @@ def test_negated_assurance_as_negative_evidence():
         page=70,
         excerpt="This sustainability report has not been independently assured or audited by an external third party.",
     )
-    agent = ESGAnalysisService()
-    res = agent.screen_greenwashing_signals([cite], [])
+    analysis = ESGAnalysisService()
+    res = analysis.screen_greenwashing_signals([cite], [])
     assert any("KHÔNG ĐƯỢC kiểm toán hoặc bảo đảm" in s for s in res.evidence_quality_signals)
 
 
@@ -132,7 +132,7 @@ def test_temporal_analysis(tmp_path: Path):
         [(10, "In 2023, Scope 1 emissions were 400,000 MT CO2e.")],
     )
 
-    # Temporal analysis chỉ đọc fact accepted; ingestion đã tạo candidate riêng.
+    # Phân tích thời gian chỉ đọc fact đã chấp nhận; ingestion đã tạo candidate riêng.
     FactRepository(store).save_facts(
         [
             ESGFact(
@@ -148,13 +148,13 @@ def test_temporal_analysis(tmp_path: Path):
         ]
     )
 
-    agent = ESGAnalysisService()
-    res = agent.run_temporal_analysis("Company", store, metric="scope_1_emissions")
+    analysis = ESGAnalysisService()
+    res = analysis.run_temporal_analysis("Company", store, metric="scope_1_emissions")
 
     assert res.company == "Company"
     assert len(res.timeline) >= 2
     assert len(res.yoy_changes) >= 1
-    # 500k -> 400k is a -20% reduction
+    # 500k -> 400k tương ứng mức giảm -20%.
     if res.baseline_to_current_change is not None:
         assert res.baseline_to_current_change < 0
 
@@ -173,8 +173,10 @@ def test_cross_company_comparison(tmp_path: Path):
         [(8, "BetaCorp Scope 1 direct greenhouse gas emissions reached 350,000 MT CO2e in 2023.")],
     )
 
-    agent = ESGAnalysisService()
-    res = agent.run_comparison(["AlphaCorp", "BetaCorp"], store, criteria_ids=["E_GHG_SCOPE_1_2"])
+    analysis = ESGAnalysisService()
+    res = analysis.run_comparison(
+        ["AlphaCorp", "BetaCorp"], store, criteria_ids=["E_GHG_SCOPE_1_2"]
+    )
 
     assert "AlphaCorp" in res.companies
     assert "BetaCorp" in res.companies

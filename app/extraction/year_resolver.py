@@ -1,4 +1,4 @@
-"""Year and temporal context resolution for ESG metrics."""
+"""Xác định năm báo cáo và ngữ cảnh thời gian cho metric ESG."""
 
 import re
 from datetime import UTC, datetime
@@ -33,7 +33,7 @@ def extract_year_for_span(
     # Tìm tất cả năm 4 chữ số trong cửa sổ cục bộ
     all_years = [int(m.group(0)) for m in re.finditer(r"\b20[1234]\d\b", window)]
 
-    # Loại bỏ năm cơ sở và các năm xa trong tương lai (thường là target year)
+    # Loại bỏ năm cơ sở và các năm xa trong tương lai (thường là năm mục tiêu).
     reporting_candidates = [y for y in all_years if y != baseline_year and y <= _MAX_REPORTING_YEAR]
 
     if reporting_candidates:
@@ -47,7 +47,7 @@ def extract_year_for_span(
         )
         return best_year, baseline_year
 
-    # Nếu trong window không có năm riêng, tìm trong toàn bộ text loại trừ baseline
+    # Nếu cửa sổ cục bộ không có năm riêng, tìm trong toàn văn bản và loại trừ năm cơ sở.
     global_years = [
         int(m.group(0))
         for m in re.finditer(r"\b20[1234]\d\b", text)

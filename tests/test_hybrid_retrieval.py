@@ -19,25 +19,25 @@ def test_hybrid_and_rerank_retrieval(tmp_path: Path):
         ],
     )
 
-    # BM25 retrieval is available in the base installation.
+    # BM25 có trong bộ cài đặt cơ bản.
     bm25_res = store.search("wind solar battery storage", limit=2, mode="bm25")
     assert len(bm25_res) > 0
     assert bm25_res[0]["page"] == 1
 
-    # Base CI does not install the optional sentence-transformers stack. This
-    # query therefore validates deterministic dense-vector plumbing using the
-    # feature-hashing fallback. Model-level semantic synonym tests belong in an
-    # ML integration profile with the optional dependencies installed.
+    # CI cơ bản không cài nhóm dependency sentence-transformers tùy chọn.
+    # Truy vấn này kiểm tra luồng vector dense deterministic bằng fallback
+    # feature hashing. Kiểm thử đồng nghĩa ở cấp mô hình thuộc profile tích hợp
+    # ML có cài đầy đủ dependency tùy chọn.
     dense_res = store.search("energy wind solar investment", limit=2, mode="dense")
     assert len(dense_res) > 0
     assert dense_res[0]["page"] == 1
 
-    # Hybrid retrieval combines lexical and dense candidate lists with RRF.
+    # Truy xuất hybrid kết hợp danh sách ứng viên lexical và dense bằng RRF.
     hybrid_res = store.search("clean energy battery", limit=2, mode="hybrid")
     assert len(hybrid_res) > 0
     assert "hybrid_score" in hybrid_res[0]
 
-    # Hybrid + reranker supports a deterministic fallback when the ML extra is absent.
+    # Hybrid kèm reranker vẫn có fallback deterministic khi thiếu ML extra.
     rerank_res = store.search("wind and solar investment", limit=2, mode="hybrid_rerank")
     assert len(rerank_res) > 0
     assert "rerank_score" in rerank_res[0]

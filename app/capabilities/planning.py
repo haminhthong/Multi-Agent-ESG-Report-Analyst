@@ -1,4 +1,4 @@
-"""Query intent classification and retrieval planning."""
+"""Phân loại ý định câu hỏi và lập kế hoạch truy xuất."""
 
 from __future__ import annotations
 

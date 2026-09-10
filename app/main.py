@@ -54,7 +54,7 @@ INGEST_ERROR_STATUS = {
 
 
 async def read_limited_file(file: UploadFile, max_bytes: int = settings.max_file_size) -> bytes:
-    """Read uploads in bounded chunks instead of trusting client-reported size."""
+    """Đọc tệp tải lên theo từng phần giới hạn, không tin kích thước client khai báo."""
     chunks: list[bytes] = []
     total = 0
     while block := await file.read(1024 * 1024):

@@ -29,7 +29,7 @@ KNOWN_FACT_TYPES = {
 
 
 def load_climate_rubric(path: Path | None = None) -> tuple[str, list[RubricCriterion]]:
-    """Load and validate the versioned climate rubric from one source of truth."""
+    """Nạp và kiểm tra rubric khí hậu phiên bản hóa từ một nguồn duy nhất."""
     rubric_path = path or CLIMATE_RUBRIC_PATH
     raw_text = rubric_path.read_text(encoding="utf-8")
     try:
@@ -37,8 +37,7 @@ def load_climate_rubric(path: Path | None = None) -> tuple[str, list[RubricCrite
 
         payload: dict[str, Any] = yaml.safe_load(raw_text) or {}
     except ImportError:
-        # The checked-in file is also valid JSON, which keeps lightweight local
-        # tooling usable before optional YAML dependencies are installed.
+        # File được commit cũng hợp lệ như JSON để công cụ nhẹ vẫn chạy khi chưa cài YAML.
         payload = json.loads(raw_text)
 
     version = str(payload.get("version") or "").strip()
@@ -101,13 +100,13 @@ class PillarRubric:
 
 
 # ==============================================================================
-# BỘ TIÊU CHÍ CẤU TRÚC CHUẨN MỰC (STRUCTURED ESG CRITERIA)
+# BỘ TIÊU CHÍ ESG CÓ CẤU TRÚC
 # Đã tách bạch:
 # - retrieval_keywords: Các từ khóa tìm kiếm văn bản tự nhiên trong tài liệu
 # - required_fields: Danh sách các trường dữ liệu định lượng cần trích xuất có cấu trúc
 # ==============================================================================
 DEFAULT_CRITERIA_DEFINITIONS: list[RubricCriterion] = [
-    # Environment
+    # Môi trường.
     RubricCriterion(
         id="E_GHG_SCOPE_1_2",
         pillar="E",
@@ -214,7 +213,7 @@ DEFAULT_CRITERIA_DEFINITIONS: list[RubricCriterion] = [
         metric_units=["MWh", "GWh", "GJ", "TJ", "m3", "m³", "ML", "%"],
         mandatory=False,
     ),
-    # Social
+    # Xã hội.
     RubricCriterion(
         id="S_WORK_SAFETY",
         pillar="S",
@@ -309,7 +308,7 @@ DEFAULT_CRITERIA_DEFINITIONS: list[RubricCriterion] = [
         metric_units=["suppliers", "%"],
         mandatory=False,
     ),
-    # Governance
+    # Quản trị.
     RubricCriterion(
         id="G_BOARD_OVERSIGHT",
         pillar="G",
@@ -476,10 +475,10 @@ RUBRICS = {
 VAGUE_WORDS = ("aim", "aspire", "committed", "ambition", "world-class", "leading", "strive")
 
 # ==============================================================================
-# CÁC MẪU BIỂU THỨC CHÍNH QUY (REGEX PATTERNS) NÂNG CAO
+# CÁC MẪU BIỂU THỨC CHÍNH QUY (REGEX) NÂNG CAO
 # ==============================================================================
 
-# Nhận diện số liệu đo lường cụ thể kèm đơn vị thực tế (%, tCO2e, ktCO2e, MtCO2e, MWh, GWh, GJ, TJ, m3, ML, hours...)
+# Nhận diện số liệu đo lường cụ thể kèm đơn vị thực tế (%, tCO2e, ktCO2e, MtCO2e, MWh, GWh, GJ, TJ, m3, ML, giờ...)
 METRIC_PATTERN = re.compile(
     r"\b\d+(?:[,.]\d+)*\s*"
     r"(?:%|tons?|tonnes?|tco2e|co2e|ktco2e|mtco2e|mwh|gwh|gj|tj|m3|m³|ml|hours?|"
@@ -497,7 +496,7 @@ TARGET_PATTERN = re.compile(
     re.IGNORECASE,
 )
 
-# Nhận diện có khai báo "năm cơ sở" (Baseline year)
+# Nhận diện có khai báo năm cơ sở.
 BASELINE_PATTERN = re.compile(
     r"\b(?:baseline|base year|compared (?:with|to)|from 20[12]\d)\b",
     re.IGNORECASE,
@@ -509,7 +508,7 @@ ASSURANCE_PATTERN = re.compile(
     re.IGNORECASE,
 )
 
-# Nhận diện Phủ định (Negation Patterns)
+# Nhận diện mẫu phủ định.
 NEGATED_ASSURANCE_PATTERN = re.compile(
     r"(?:\b(?:no|not|without|lack(?:s|ed)?)\b.{0,60}?\b(?:independent|external)?\s*(?:assurance|assured|audit|audited)\b|"
     r"\b(?:independent|external)?\s*(?:assurance|assured|audit|audited)\b.{0,60}?\b(?:was not|not|missing|unprovided|not provided|not conducted)\b)",
@@ -539,7 +538,7 @@ def normalize_number(text: str) -> str:
     return text
 
 
-# Active review criteria are loaded from the versioned climate rubric.
+# Tiêu chí review đang dùng được nạp từ rubric khí hậu phiên bản hóa.
 CLIMATE_RUBRIC_VERSION, CLIMATE_CRITERIA_DEFINITIONS = load_climate_rubric()
 CRITERIA_DEFINITIONS = CLIMATE_CRITERIA_DEFINITIONS
 
@@ -559,5 +558,5 @@ LEGACY_CRITERION_ALIASES: dict[str, str] = {
 
 
 def resolve_criterion_id(criterion_id: str) -> str:
-    """Resolve a legacy criterion id to the active versioned rubric id."""
+    """Đổi ID tiêu chí cũ sang ID của rubric phiên bản hiện hành."""
     return LEGACY_CRITERION_ALIASES.get(criterion_id, criterion_id)

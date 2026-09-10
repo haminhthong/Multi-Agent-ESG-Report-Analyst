@@ -1,4 +1,4 @@
-"""Company comparison service: evaluates cross-company ESG performance using scoped evidence."""
+"""So sánh công bố ESG giữa các công ty bằng evidence đúng phạm vi."""
 
 from __future__ import annotations
 
@@ -13,7 +13,7 @@ from app.store import Store
 
 
 class CompanyComparisonService:
-    """Evaluate and compare ESG disclosure quality across companies using standardized rubrics."""
+    """Đánh giá và so sánh chất lượng công bố ESG bằng rubric thống nhất."""
 
     def __init__(
         self,
@@ -109,7 +109,7 @@ class CompanyComparisonService:
         criteria_ids: list[str] | None = None,
         criteria_definitions: list[RubricCriterion] | None = None,
     ) -> CompanyComparisonResult:
-        """Backward-compatible entry point delegating to compare()."""
+        """Điểm vào công khai gọi lại phép so sánh chuẩn."""
         return self.compare(
             companies=companies,
             store=store,

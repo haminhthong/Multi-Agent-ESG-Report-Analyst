@@ -1,4 +1,4 @@
-"""Fact validation and multidimensional conflict detection."""
+"""Kiểm tra fact và phát hiện mâu thuẫn đa chiều."""
 
 from app.models import ESGFact, EvidenceConflict
 

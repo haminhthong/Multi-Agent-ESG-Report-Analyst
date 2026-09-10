@@ -23,16 +23,16 @@ def test_analysis_service_delegates_to_domain_components():
         )
     ]
 
-    # Test run
+    # Kiểm tra luồng đánh giá chính.
     pillars, overall_cov, signals = service.run(citations)
     assert len(pillars) == 3
     assert overall_cov >= 0.0
     assert len(signals) > 0
 
-    # Test screen_greenwashing_signals
+    # Kiểm tra sàng lọc tín hiệu rủi ro công bố.
     res = service.screen_greenwashing_signals(citations, facts)
     assert any("Baseline Year" in s for s in res.target_credibility_signals)
 
-    # Test build_evidence_matrix
-    matrix = service.build_evidence_matrix(citations, facts)
+    # Kiểm tra ma trận bằng chứng theo phạm vi mặc định.
+    matrix = service.build_scoped_evidence_matrix(citations, facts, [])
     assert len(matrix) > 0

@@ -1,4 +1,4 @@
-"""Grounded answer synthesis with a deterministic fallback."""
+"""Tổng hợp câu trả lời có bằng chứng với fallback deterministic."""
 
 from __future__ import annotations
 

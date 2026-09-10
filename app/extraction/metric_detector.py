@@ -1,4 +1,4 @@
-"""Metric regex detectors for ESG domain reporting."""
+"""Bộ nhận diện metric bằng regex cho dữ liệu ESG."""
 
 import re
 

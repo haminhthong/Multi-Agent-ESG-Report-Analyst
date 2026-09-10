@@ -28,14 +28,14 @@ class Settings(BaseSettings):
     # Demo data chỉ được nạp khi người vận hành chủ động bật cờ này.
     seed_demo_data: bool = False
 
-    # Cấu hình Local LLM / Ollama / OpenAI-compatible endpoint
+    # Cấu hình Local LLM / Ollama / endpoint tương thích OpenAI.
     llm_base_url: str = "http://localhost:11434/v1"
     llm_model: str = "qwen2.5:7b"
     llm_api_key: str = "ollama"
     llm_timeout: float = 3.0
     use_llm: bool = False
 
-    # Cấu hình Advanced Hybrid Retrieval & Reranker
+    # Cấu hình truy xuất hybrid nâng cao và bộ xếp hạng lại.
     embedding_model: str = "sentence-transformers/all-MiniLM-L6-v2"
     reranker_model: str = "cross-encoder/ms-marco-MiniLM-L-6-v2"
     retrieval_mode: str = (

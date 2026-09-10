@@ -100,7 +100,7 @@ def _evaluate_single_answer(response: Any, case: AnswerEvalCase) -> CaseAnswerMe
     answer_text = response.answer
     citations = response.citations
 
-    # 1. Đo lường Citation Correctness & Gold Evidence Grounding
+    # 1. Đo độ đúng của citation và mức neo vào bằng chứng chuẩn.
     cited_references = re.findall(r"\[([^,]+),\s*trang\s*(\d+)\]", answer_text, re.IGNORECASE)
     valid_citations = 0
     available_pages = {(c.document_name.lower(), c.page) for c in citations}
@@ -116,7 +116,7 @@ def _evaluate_single_answer(response: Any, case: AnswerEvalCase) -> CaseAnswerMe
     else:
         citation_corr = 1.0 if not citations else 0.5
 
-    # Gold Citation Metrics (Precision & Recall so với expected_evidence chuẩn vàng)
+    # Chỉ số citation chuẩn: Precision và Recall so với expected_evidence.
     gold_precision: float | None = None
     gold_recall: float | None = None
     if case.expected_evidence:
@@ -129,7 +129,7 @@ def _evaluate_single_answer(response: Any, case: AnswerEvalCase) -> CaseAnswerMe
         gold_precision = round(len(matched) / max(1, len(retrieved_set)), 4)
         gold_recall = round(len(matched) / max(1, len(expected_set)), 4)
 
-    # 2. Đo lường Faithfulness & Unsupported Claim Rate
+    # 2. Đo tính trung thành và tỷ lệ claim không có bằng chứng.
     sentences = [s.strip() for s in re.split(r"[.\n]+", answer_text) if len(s.strip()) > 15]
     factual_sentences = [
         s for s in sentences if any(char.isdigit() for char in s) or len(s.split()) >= 6
@@ -163,7 +163,7 @@ def _evaluate_single_answer(response: Any, case: AnswerEvalCase) -> CaseAnswerMe
     faithfulness = round(supported_count / total_facts, 4)
     unsupported_rate = round(len(unsupported) / total_facts, 4)
 
-    # 3. Đo lường Answer Completeness
+    # 3. Đo mức độ đầy đủ của câu trả lời.
     matched_topics = sum(1 for t in case.expected_topics if t.lower() in answer_text.lower())
     matched_numbers = sum(1 for n in case.expected_numbers if n.lower() in answer_text.lower())
     total_expectations = len(case.expected_topics) + len(case.expected_numbers)

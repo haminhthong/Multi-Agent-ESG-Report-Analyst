@@ -125,7 +125,7 @@ def test_pillar_evaluator_and_matrix_builder():
     assert pillar_res.pillar == "E"
     assert pillar_res.disclosure_coverage > 0.0
 
-    matrix = matrix_builder.build_evidence_matrix(citations, facts)
+    matrix = matrix_builder.build(citations, facts)
     assert len(matrix) == len(CRITERIA_DEFINITIONS)
     scope1_rows = [r for r in matrix if "scope_1" in r.criterion_id.lower()]
     assert len(scope1_rows) > 0

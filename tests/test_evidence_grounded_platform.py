@@ -1,11 +1,11 @@
 from pathlib import Path
 
+from app.domain.rubric_evaluator import RubricEvaluator
 from app.extraction.extractor import FactExtractor
 from app.extraction.unit_normalizer import UnitNormalizer
 from app.extraction.year_resolver import extract_year_for_span
 from app.models import Citation, RubricCriterion
 from app.pipeline import ESGPipeline
-from app.services.esg_analysis_service import ESGAnalysisService
 from app.store import Store
 
 
@@ -43,17 +43,17 @@ def test_target_with_explicit_year_preserves_year():
 
 def test_unit_normalizer_ghg_conversions():
     """P1: UnitNormalizer chuẩn hóa đúng các bậc đơn vị phát thải GHG về tCO2e."""
-    # ktCO2e -> x1,000 tCO2e
+    # ktCO2e -> nhân 1.000 tCO2e.
     norm_val, norm_unit = UnitNormalizer.normalize("scope_1_emissions", 12.5, "ktCO2e")
     assert norm_val == 12500.0
     assert norm_unit == "tCO2e"
 
-    # MtCO2e -> x1,000,000 tCO2e
+    # MtCO2e -> nhân 1.000.000 tCO2e.
     norm_val, norm_unit = UnitNormalizer.normalize("scope_2_emissions", 1.2, "MtCO2e")
     assert norm_val == 1200000.0
     assert norm_unit == "tCO2e"
 
-    # Standard tCO2e -> giữ nguyên giá trị
+    # tCO2e chuẩn -> giữ nguyên giá trị.
     norm_val, norm_unit = UnitNormalizer.normalize("scope_3_emissions", 500000.0, "tCO2e")
     assert norm_val == 500000.0
     assert norm_unit == "tCO2e"
@@ -61,7 +61,7 @@ def test_unit_normalizer_ghg_conversions():
 
 def test_unit_normalizer_energy_conversions():
     """P1: UnitNormalizer chuẩn hóa năng lượng về MWh."""
-    # GWh -> x1,000 MWh
+    # GWh -> nhân 1.000 MWh.
     norm_val, norm_unit = UnitNormalizer.normalize("renewable_energy", 34.0, "GWh")
     assert norm_val == 34000.0
     assert norm_unit == "MWh"
@@ -99,7 +99,7 @@ def test_multidimensional_conflict_detection():
     facts = FactExtractor.extract_facts([cite_mkt, cite_loc])
     conflicts = FactExtractor.detect_conflicts(facts)
 
-    # Do khác nhau về methodology (market-based vs location-based), không được coi là conflict
+    # Khác phương pháp luận nên không được coi là conflict.
     assert len(conflicts) == 0
 
 
@@ -148,8 +148,8 @@ def test_criterion_required_fields_completeness():
         excerpt="In 2023, Scope 1 emissions were 250,000 tCO2e.",
     )
 
-    agent = ESGAnalysisService()
-    res = agent._evaluate_criterion(crit, [cite_partial])
+    evaluator = RubricEvaluator()
+    res = evaluator.evaluate_criterion(crit, [cite_partial])
 
     # Phải là partial vì thiếu scope_2_value
     assert res.status == "partial"
@@ -182,8 +182,8 @@ def test_criterion_aggregates_across_citations():
         page=5,
         excerpt="In 2023, Scope 2 emissions were 180,000 tCO2e.",
     )
-    agent = ESGAnalysisService()
-    res = agent._evaluate_criterion(crit, [cite_s1, cite_s2])
+    evaluator = RubricEvaluator()
+    res = evaluator.evaluate_criterion(crit, [cite_s1, cite_s2])
     assert res.status == "found"
     assert not res.missing_fields
     assert "scope_1_value" in res.matched_fields
@@ -202,6 +202,6 @@ def test_evidence_completeness_gate(tmp_path: Path):
     # Truy vấn hỏi về target và assurance (nhưng doc không có assurance)
     result = pipeline.run("Review climate target and external assurance", mode="qa")
     assert result.evidence_completeness is not None
-    # Nếu missing evidence, limitations phải chứa thông báo rõ ràng
+    # Nếu thiếu bằng chứng, limitations phải chứa thông báo rõ ràng.
     if result.evidence_completeness.get("status") == "incomplete":
         assert any("MISSING_EVIDENCE" in lim for lim in result.limitations)

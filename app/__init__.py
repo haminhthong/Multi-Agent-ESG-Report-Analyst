@@ -1,1 +1,1 @@
-"""Evidence-Grounded ESG Report Analyst."""
+"""Ứng dụng phân tích ESG dựa trên bằng chứng."""

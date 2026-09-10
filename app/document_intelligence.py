@@ -1,9 +1,8 @@
-"""PDF text extraction and lightweight structural heuristics.
+"""Trích xuất text PDF và các heuristic cấu trúc nhẹ.
 
-PyPDF exposes page text but this project does not currently extract exact
-bounding boxes. Therefore ``LayoutBlock.bbox`` is intentionally left as
-``None``. Exact layout provenance should only be added when a parser that
-returns real coordinates is integrated.
+PyPDF chỉ cung cấp text theo trang; module này chưa lấy được bounding box chính
+xác. Vì vậy ``LayoutBlock.bbox`` được giữ là ``None``. Chỉ bổ sung provenance
+bố cục khi parser trả về tọa độ thực được tích hợp.
 """
 
 from __future__ import annotations
@@ -38,7 +37,7 @@ class DocumentProcessor:
         source: bytes | BinaryIO,
         document_id: str = "doc",
     ) -> list[LayoutBlock]:
-        """Extract layout blocks using PyMuPDF (genuine bboxes) with pypdf fallback."""
+        """Trích xuất block bố cục bằng PyMuPDF, fallback sang pypdf."""
         from app.ingestion.layout_parser import LayoutParser
 
         return LayoutParser.parse_blocks(source, document_id=document_id)

@@ -14,34 +14,34 @@ MIN_TEXT_PAGE_RATIO = 0.2
 
 
 class DocumentIngestError(ValueError):
-    """Base business exception for document ingestion failures."""
+    """Lỗi nghiệp vụ cơ sở khi nạp tài liệu thất bại."""
 
 
 class UnsupportedDocumentError(DocumentIngestError):
-    """Raised when the upload is not a valid PDF payload."""
+    """Lỗi khi tệp tải lên không phải payload PDF hợp lệ."""
 
 
 class DocumentTooLargeError(DocumentIngestError):
-    """Raised when the PDF exceeds the configured upload limit."""
+    """Lỗi khi PDF vượt giới hạn dung lượng cấu hình."""
 
 
 class DocumentTooManyPagesError(DocumentIngestError):
-    """Raised when a PDF exceeds the configured parser page limit."""
+    """Lỗi khi PDF vượt giới hạn số trang của bộ phân tích."""
 
 
 class DocumentExtractionError(DocumentIngestError):
-    """Raised when page text cannot be extracted."""
+    """Lỗi khi không thể trích xuất text của trang."""
 
 
 class OcrRequiredError(DocumentIngestError):
-    """Raised when too little native text is available for reliable indexing."""
+    """Lỗi khi text native quá ít để lập chỉ mục đáng tin cậy."""
 
 
 class DocumentIngestionService:
-    """Validate, extract, quality-check, and index ESG PDF reports.
+    """Kiểm tra, trích xuất, đánh giá chất lượng và lập chỉ mục PDF ESG.
 
-    Hỗ trợ cả trích xuất văn bản native qua PyMuPDF (với real bounding boxes)
-    và phục hồi qua OCRProvider (Tesseract) khi trang tài liệu là bản scan.
+    Hỗ trợ cả trích xuất văn bản native qua PyMuPDF (với bounding box thực)
+    và phục hồi qua bộ cung cấp OCR (Tesseract) khi trang tài liệu là bản scan.
     """
 
     def __init__(self, store: Store, ocr_provider: OCRProvider | None = None):
@@ -60,8 +60,7 @@ class DocumentIngestionService:
     ) -> DocumentIngestResponse:
         self._validate_file(content, filename, content_type)
 
-        # The document id is the full content hash so an artifact can be traced
-        # unambiguously across re-indexing and metadata changes.
+        # Document ID là hash toàn bộ nội dung để truy vết ổn định khi lập chỉ mục lại.
         document_id = hashlib.sha256(content).hexdigest()
         existing = self.store.get_document(document_id)
         if existing and not force and existing["extraction_quality"] is not None:
@@ -110,7 +109,7 @@ class DocumentIngestionService:
         ocr_applied_ratio = 0.0
         ocr_pages: list[int] = []
 
-        # Nếu chất lượng văn bản native thấp, thử phục hồi bằng OCR provider
+        # Nếu chất lượng văn bản native thấp, thử phục hồi bằng bộ cung cấp OCR.
         needs_page_ocr = any(len((text or "").strip()) < MIN_TEXT_CHARACTERS for _, text in pages)
         if needs_page_ocr and self._ocr_is_available():
             pages, ocr_blocks, ocr_count = self._recover_scanned_pages(content, pages, document_id)
@@ -217,7 +216,7 @@ class DocumentIngestionService:
         layout_pages: list[tuple[int, str]],
         extracted_pages: list[tuple[int, str]],
     ) -> list[tuple[int, str]]:
-        """Keep every page while preferring the richer native extraction."""
+        """Giữ đủ mọi trang nhưng ưu tiên kết quả native giàu thông tin hơn."""
         by_page = {page: text for page, text in layout_pages}
         for page, text in extracted_pages:
             if page not in by_page or len((text or "").strip()) > len(
@@ -228,7 +227,7 @@ class DocumentIngestionService:
 
     @staticmethod
     def _try_extract_page_texts(content: bytes) -> list[tuple[int, str]]:
-        """Best-effort page enumeration for layout parses that omit empty scan pages."""
+        """Liệt kê trang theo best-effort khi parser bố cục bỏ qua trang scan rỗng."""
         try:
             return DocumentProcessor.extract_pdf(content)
         except Exception:  # noqa: BLE001 - optional parser enrichment boundary
@@ -246,7 +245,7 @@ class DocumentIngestionService:
         pages: list[tuple[int, str]],
         document_id: str,
     ) -> tuple[list[tuple[int, str]], list[LayoutBlock], int]:
-        """Recover low-text pages and return replacement layout blocks for indexing."""
+        """Khôi phục trang ít text và trả block thay thế để lập chỉ mục."""
         try:
             import fitz
         except ImportError:

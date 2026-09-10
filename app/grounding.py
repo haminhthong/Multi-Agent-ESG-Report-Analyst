@@ -1,8 +1,7 @@
-"""Evidence validation and claim-support checks.
+"""Kiểm tra bằng chứng và mức hỗ trợ của claim.
 
-This capability validates citation metadata/excerpts and performs lightweight
-claim-to-evidence matching. It must not be described as independent factual
-verification of the issuer's ESG disclosure.
+Module này kiểm tra metadata/excerpt của citation và đối chiếu claim với bằng
+chứng ở mức nhẹ. Không được diễn giải thành xác minh độc lập báo cáo ESG.
 """
 
 from __future__ import annotations
@@ -51,7 +50,7 @@ class CitationVerifier:
 
     @staticmethod
     def audit_claims(claims: list[str], citations: list[Citation]) -> dict[str, Any]:
-        """Estimate whether claim tokens are supported by retrieved excerpts."""
+        """Ước lượng claim có được các excerpt đã truy xuất hỗ trợ hay không."""
         combined_text = " ".join(c.excerpt for c in citations)
         audits: list[dict[str, Any]] = []
         supported_count = 0
@@ -105,8 +104,8 @@ class CitationVerifier:
 
         for claim_text, cids in claims:
             if not cids:
-                # Legacy document/page references remain readable, but an
-                # unreferenced factual sentence is never considered grounded.
+                # Vẫn đọc được dạng tham chiếu tài liệu/trang cũ, nhưng câu nêu
+                # sự kiện không có bằng chứng luôn bị xem là chưa grounded.
                 cids = cls._legacy_source_refs(claim_text, citations)
                 if not cids:
                     all_grounded = False
@@ -133,7 +132,7 @@ class CitationVerifier:
                 cite = citations[cite_idx]
                 cite_text = cite.excerpt.lower()
 
-                # 1. Fast Path: Kiểm tra số liệu định lượng
+                # 1. Đường nhanh: kiểm tra số liệu định lượng.
                 claim_numbers = re.findall(r"\b\d+(?:[.,]\d+)?\b", claim_text)
                 for num in claim_numbers:
                     if num == str(cid) and f"[C{num}]" in claim_text:
@@ -146,7 +145,7 @@ class CitationVerifier:
                         claim_grounded = False
                         failure_reasons.append(f"unsupported_number_{num}_in_C{cid}")
 
-                # 2. NLI Path: Nếu LLM khả dụng
+                # 2. Đường NLI: chỉ dùng khi LLM khả dụng.
                 if llm_client and hasattr(llm_client, "is_available") and llm_client.is_available():
                     nli_ok = llm_client.verify_grounding(claim_text, cite.excerpt)
                     if not nli_ok:
@@ -169,7 +168,7 @@ class CitationVerifier:
 
     @staticmethod
     def _legacy_source_refs(claim: str, citations: list[Citation]) -> list[int]:
-        """Resolve old ``[Document, page N]`` references to citation positions."""
+        """Đổi tham chiếu cũ ``[Document, page N]`` thành vị trí citation."""
         page_numbers = [
             int(match.group(1))
             for match in re.finditer(r"(?:trang|page)\s*(\d+)", claim, re.IGNORECASE)
@@ -201,7 +200,7 @@ class AnswerValidator:
 
     @staticmethod
     def review(answer: str, citations: list[Citation]) -> dict[str, Any]:
-        """Check references after all answer augmentations have been applied."""
+        """Kiểm tra tham chiếu sau khi hoàn tất mọi bước bổ sung câu trả lời."""
         if not citations:
             is_abstention = any(
                 phrase in answer.lower()
@@ -213,7 +212,7 @@ class AnswerValidator:
                 "citations": 0,
             }
 
-        # Import lazily to avoid the llm -> capabilities dependency cycle.
+        # Import muộn để tránh vòng phụ thuộc giữa llm và các module xử lý.
         from app.llm import validate_answer_grounding
 
         payload = []
@@ -229,8 +228,8 @@ class AnswerValidator:
         passed, issues = validate_answer_grounding(
             answer,
             payload,
-            # Derived rubric percentages are valid pipeline outputs even when
-            # the exact percentage is not printed in a source excerpt.
+            # Tỷ lệ rubric do pipeline tính là hợp lệ dù excerpt không in đúng
+            # con số phần trăm đó.
             check_numbers=False,
         )
         return {"passed": passed, "issues": issues, "citations": len(citations)}

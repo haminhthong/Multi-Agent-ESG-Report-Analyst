@@ -988,7 +988,7 @@ class Store:
         pillar: str | None = None,
         year: int | None = None,
     ) -> list[dict]:
-        """Phương thức dự phòng (Lexical Fallback) khớp tần suất từ xuất hiện (term frequency)."""
+        """Phương thức dự phòng từ khóa, khớp theo tần suất xuất hiện."""
         sql = f"SELECT {SEARCH_COLUMNS}, 0.0 rank FROM chunks c JOIN documents d ON d.id=c.document_id"
         conditions: list[str] = []
         params: list[Any] = []
@@ -1017,7 +1017,7 @@ class Store:
 
     @staticmethod
     def _diversify_results(candidates: list[dict[str, Any]], limit: int) -> list[dict[str, Any]]:
-        """Khử trùng lặp ngữ nghĩa (Evidence Diversification):
+        """Khử trùng lặp theo ngữ nghĩa để đa dạng hóa bằng chứng:
 
         Ưu tiên tối đa 2 chunk / trang, tránh top-K bị chiếm bởi nhiều đoạn trùng từ 1 trang.
         """

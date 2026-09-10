@@ -7,17 +7,17 @@ from app.models import Citation, ESGFact
 
 
 def test_unit_normalizer():
-    # GHG normalization
+    # Chuẩn hóa GHG.
     val, unit = UnitNormalizer.normalize("scope_1_emissions", 120, "ktCO2e")
     assert val == 120000.0
     assert unit == "tCO2e"
 
-    # Energy normalization
+    # Chuẩn hóa năng lượng.
     val, unit = UnitNormalizer.normalize("renewable_energy", 5, "GWh")
     assert val == 5000.0
     assert unit == "MWh"
 
-    # Percentage normalization
+    # Chuẩn hóa phần trăm.
     val, unit = UnitNormalizer.normalize("diversity_percentage", "35.5", "%")
     assert val == 35.5
     assert unit == "%"

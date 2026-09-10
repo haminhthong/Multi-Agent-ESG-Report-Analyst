@@ -127,7 +127,7 @@ def main():
     (reports_dir / "answer_eval.json").write_text(ans_json, encoding="utf-8")
     print("   -> Saved reports/answer_eval.json")
 
-    # Backend status check
+    # Kiểm tra trạng thái backend.
     _ = embedding_engine._get_model()
     _ = reranker._get_model()
     emb_backend = (

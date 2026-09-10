@@ -1,4 +1,4 @@
-"""Ingestion module: OCR, document validation, and text extraction."""
+"""Module nạp dữ liệu: OCR, kiểm tra tài liệu và trích xuất text."""
 
 from app.ingestion.ocr import OCRProvider, TesseractOCRProvider
 

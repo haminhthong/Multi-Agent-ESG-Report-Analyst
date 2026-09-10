@@ -33,7 +33,7 @@ def test_negated_assurance_is_not_positive_evidence():
 
     assert has_assurance_claim is True
     assert has_negation is True
-    # Combined check rule:
+    # Quy tắc kiểm tra kết hợp:
     valid_assurance = has_assurance_claim and not has_negation
     assert valid_assurance is False
 
@@ -55,8 +55,8 @@ def test_increased_emissions_is_not_scored_as_improvement():
 
 
 def test_no_evidence_returns_abstention():
-    agent = ESGAnalysisService()
-    pillars, coverage, signals = agent.run([])
+    analysis = ESGAnalysisService()
+    pillars, coverage, signals = analysis.run([])
 
     assert coverage == 0.0
     assert "Chưa truy xuất được bằng chứng nguồn để thẩm định." in signals

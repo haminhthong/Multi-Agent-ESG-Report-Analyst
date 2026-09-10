@@ -1,4 +1,4 @@
-"""Fact extraction orchestrator from unstructured ESG evidence chunks."""
+"""Bộ điều phối trích xuất fact từ chunk bằng chứng ESG chưa cấu trúc."""
 
 import hashlib
 import re
@@ -158,7 +158,7 @@ class FactExtractor:
 
 
 def _evidence_span_id(citation: Citation) -> str:
-    """Build a deterministic evidence identity for fact lineage."""
+    """Tạo định danh bằng chứng deterministic cho lineage của fact."""
     if citation.evidence_id:
         return citation.evidence_id
     source_key = citation.stable_chunk_id or citation.block_id or str(citation.chunk_id or "")
@@ -177,7 +177,7 @@ def _chunk_reference(citation: Citation) -> str | None:
 
 
 def _fact_id(fact: ESGFact) -> str:
-    """Include all semantic dimensions so distinct disclosures cannot overwrite each other."""
+    """Gộp mọi chiều ngữ nghĩa để các công bố khác nhau không ghi đè lên nhau."""
     identity = "|".join(
         [
             str(fact.document_id or ""),

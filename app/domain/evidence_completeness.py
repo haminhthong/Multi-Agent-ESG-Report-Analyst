@@ -171,7 +171,7 @@ class EvidenceCompletenessGate:
                             sub_has_unit = True
                         break
 
-                # Fallback đối chiếu với Citations cho sub_req nếu fact chưa trích xuất
+                # Dự phòng đối chiếu với citation cho yêu cầu con nếu chưa trích xuất fact.
                 if not sub_matched_fact:
                     sub_kw = [req_sub.lower(), req_sub.lower().replace("_", " ")]
                     for c in citations:
@@ -240,7 +240,7 @@ class EvidenceCompletenessGate:
         has_year = False
         has_baseline = False
 
-        # 1. Kiểm tra đối chiếu với danh mục Facts
+        # 1. Kiểm tra đối chiếu với danh mục fact.
         for idx, f in enumerate(facts):
             fact_id = f.fact_id or f"fact_{idx}_{f.metric}"
             metric_l = f.metric.lower()
@@ -264,7 +264,7 @@ class EvidenceCompletenessGate:
                 if f.baseline_year is not None or BASELINE_PATTERN.search(fact_text.lower()):
                     has_baseline = True
 
-        # 2. Kiểm tra đối chiếu với danh mục Citations
+        # 2. Kiểm tra đối chiếu với danh mục citation.
         citation_keyword_hit = False
         for c in citations:
             text = c.excerpt.lower()

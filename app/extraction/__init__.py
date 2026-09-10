@@ -1,4 +1,4 @@
-"""Structured ESG fact extraction sub-pipeline."""
+"""Pipeline con để trích xuất fact ESG có cấu trúc."""
 
 from app.extraction.extractor import FactExtractor
 from app.extraction.fact_validator import detect_conflicts

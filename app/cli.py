@@ -24,7 +24,7 @@ DEFAULT_ANSWER_EVAL = Path("data/evaluation/answer_eval_cases.json")
 
 
 def main() -> None:
-    """Command-line adapter for ingestion, evaluation, and ESG analysis."""
+    """Bộ giao diện dòng lệnh cho nạp dữ liệu, đánh giá và phân tích ESG."""
     _enable_utf8_output()
     args = _build_parser().parse_args()
     store = Store(args.database)

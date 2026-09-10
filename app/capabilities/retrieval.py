@@ -1,4 +1,4 @@
-"""Hybrid evidence retrieval and multi-query fusion."""
+"""Truy xuất bằng chứng hybrid và hợp nhất nhiều truy vấn."""
 
 from __future__ import annotations
 
@@ -50,7 +50,7 @@ class EvidenceRetriever:
         return self._diversify_pages(citations, top_k)
 
     def run_plan(self, plan: RetrievalPlan, top_k: int) -> list[Citation]:
-        """Two-stage retrieval: RRF candidate pool generation followed by ONE optional Cross-Encoder reranking."""
+        """Truy xuất hai giai đoạn: tạo pool bằng RRF rồi rerank Cross-Encoder tối đa một lần."""
         if not plan.subqueries:
             return []
 
@@ -59,7 +59,7 @@ class EvidenceRetriever:
         rrf_scores: dict[Any, float] = {}
         candidates: dict[Any, dict] = {}
 
-        # Stage 1: Primitive multi-query retrieval (luôn dùng hybrid RRF primitive, không rerank ở store)
+        # Giai đoạn 1: truy xuất nhiều truy vấn bằng primitive hybrid RRF.
         primitive_mode = "hybrid" if self.mode in ("hybrid", "hybrid_rerank") else self.mode
         for subquery in plan.subqueries:
             rows = self.store.search(
@@ -82,7 +82,7 @@ class EvidenceRetriever:
             reverse=True,
         )
 
-        # Stage 2: Cross-Encoder Reranker đúng 1 LẦN trên Candidate Pool bằng Canonical Query
+        # Giai đoạn 2: chạy Cross-Encoder một lần trên candidate pool bằng query chuẩn.
         if self.mode == "hybrid_rerank" and len(ranked_rows) > 1:
             candidate_pool = ranked_rows[: max(top_k * 3, 20)]
             rerank_query = (
@@ -120,7 +120,7 @@ class EvidenceRetriever:
 
     @staticmethod
     def _extract_signature(row: dict) -> Any:
-        """Prioritize stable_id or chunk_id for provenance identity; fallback to document/page/block."""
+        """Ưu tiên stable_id hoặc chunk_id, fallback về document/page/block."""
         if row.get("stable_id") is not None:
             return row["stable_id"]
         if row.get("chunk_id") is not None:

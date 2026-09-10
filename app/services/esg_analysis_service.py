@@ -1,4 +1,4 @@
-"""ESG analysis service: orchestrates domain evaluators under clean dependency injection."""
+"""Điều phối các bộ đánh giá domain để phân tích ESG."""
 
 from __future__ import annotations
 
@@ -12,20 +12,17 @@ from app.models import (
     Citation,
     CompanyComparisonResult,
     CriterionEvidenceBundle,
-    CriterionResult,
     ESGFact,
     EvidenceMatrixRow,
     GreenwashingScreeningResult,
     PillarResult,
-    RubricCriterion,
     TemporalAnalysisResult,
 )
-from app.rubric import PillarRubric
 from app.store import Store
 
 
 class ESGAnalysisService:
-    """Orchestrate domain evaluators (Rubric, Matrix, Screening, Temporal, Comparison)."""
+    """Điều phối rubric, ma trận bằng chứng, sàng lọc và phân tích mở rộng."""
 
     def __init__(
         self,
@@ -61,28 +58,6 @@ class ESGAnalysisService:
             return pillars, overall_coverage, []
         screening = self.screening_service.screen(citations, facts or [])
         return pillars, overall_coverage, screening.all_signals
-
-    def evaluate_criterion(
-        self,
-        criterion: RubricCriterion,
-        citations: list[Citation],
-        facts: list[ESGFact] | None = None,
-    ) -> CriterionResult:
-        return self.rubric_evaluator.evaluate_criterion(criterion, citations, facts=facts)
-
-    _evaluate_criterion = evaluate_criterion
-
-    def evaluate_pillar(
-        self, pillar: str, rubric: PillarRubric, citations: list[Citation]
-    ) -> PillarResult:
-        return self.pillar_evaluator.evaluate_pillar(pillar, rubric, citations)
-
-    _score_pillar = evaluate_pillar
-
-    def build_evidence_matrix(
-        self, citations: list[Citation], facts: list[ESGFact]
-    ) -> list[EvidenceMatrixRow]:
-        return self.matrix_builder.build(citations, facts)
 
     def build_scoped_evidence_matrix(
         self,
@@ -131,6 +106,3 @@ class ESGAnalysisService:
             company_documents=company_documents,
             criteria_ids=criteria_ids,
         )
-
-
-# Backward compatibility aliases

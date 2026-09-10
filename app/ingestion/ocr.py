@@ -1,4 +1,4 @@
-"""OCR Provider interface and implementations for scanned PDF ingestion."""
+"""Giao diện và triển khai OCR cho PDF scan."""
 
 import logging
 from io import BytesIO
@@ -9,19 +9,19 @@ logger = logging.getLogger(__name__)
 
 @runtime_checkable
 class OCRProvider(Protocol):
-    """Protocol defining the interface for Optical Character Recognition providers."""
+    """Protocol định nghĩa giao diện của provider nhận dạng ký tự quang học."""
 
     def is_available(self) -> bool:
-        """Return whether the OCR engine is installed and callable."""
+        """Cho biết engine OCR đã cài và có thể gọi hay chưa."""
         ...
 
     def extract_text(self, page_image: Any) -> str:
-        """Extract text from an image or image bytes."""
+        """Trích xuất text từ ảnh hoặc bytes của ảnh."""
         ...
 
 
 class TesseractOCRProvider:
-    """Tesseract-based OCR provider with graceful fallback."""
+    """Provider OCR dùng Tesseract với fallback an toàn."""
 
     def __init__(self, lang: str = "eng+vie"):
         self.lang = lang
@@ -40,7 +40,7 @@ class TesseractOCRProvider:
         return self._available
 
     def extract_text(self, page_image: Any) -> str:
-        """Extract text from a PIL image or encoded image bytes."""
+        """Trích xuất text từ ảnh PIL hoặc bytes ảnh đã mã hóa."""
         if not self.is_available():
             logger.debug("Tesseract OCR is not available on this system.")
             return ""

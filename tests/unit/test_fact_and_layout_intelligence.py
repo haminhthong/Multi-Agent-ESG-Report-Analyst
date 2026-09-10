@@ -11,7 +11,7 @@ from app.store import Store
 
 def test_resolve_target_year_proximity_and_exclusion():
     """resolve_target_year phải tìm năm gần cụm target nhất và loại trừ reporting_year / baseline_year."""
-    # Case 1: In 2024, reaffirmed target for 2050
+    # Trường hợp 1: năm 2024 xác nhận lại mục tiêu cho năm 2050.
     text1 = "In 2024, the corporation proudly reaffirmed our net-zero target for 2050."
     target_idx1 = text1.index("target")
     resolved1 = resolve_target_year(
@@ -19,7 +19,7 @@ def test_resolve_target_year_proximity_and_exclusion():
     )
     assert resolved1 == 2050
 
-    # Case 2: Against 2019 baseline, achieve net-zero by 2040
+    # Trường hợp 2: so với mốc cơ sở 2019, đạt net-zero vào năm 2040.
     text2 = "Against our 2019 baseline, we aim to achieve net-zero carbon emissions by 2040."
     target_idx2 = text2.index("net-zero")
     resolved2 = resolve_target_year(
@@ -27,7 +27,7 @@ def test_resolve_target_year_proximity_and_exclusion():
     )
     assert resolved2 == 2040
 
-    # Case 3: No future target year present
+    # Trường hợp 3: không có năm mục tiêu trong tương lai.
     text3 = (
         "The company is committed to aggressive emissions reductions in our manufacturing plants."
     )
@@ -63,7 +63,7 @@ def test_cross_company_conflict_isolation():
     all_facts = facts_boeing + facts_alcoa
     conflicts = detect_conflicts(all_facts)
 
-    # Do company khác nhau ("Boeing" vs "Alcoa"), không có conflict!
+    # Do khác công ty ("Boeing" và "Alcoa"), không có conflict.
     assert len(conflicts) == 0
 
 
@@ -107,7 +107,7 @@ def test_fact_repository_and_store_integration(tmp_path: Path):
     saved_count = repo.save_facts([fact1, fact2])
     assert saved_count == 2
 
-    # Query temporal series
+    # Truy vấn chuỗi thời gian.
     series = repo.get_temporal_series("EcoCorp", "scope_1_emissions")
     assert len(series) == 2
     assert series[0].reporting_year == 2023
@@ -117,7 +117,7 @@ def test_fact_repository_and_store_integration(tmp_path: Path):
     assert series[0].normalized_value == 100000.0
     assert series[1].normalized_value == 90000.0
 
-    # Cross company query
+    # Truy vấn giữa nhiều công ty.
     comp_facts = repo.get_cross_company_facts(["EcoCorp"], "scope_1_emissions")
     assert len(comp_facts) == 2
     assert any(f.normalized_value == 90000.0 for f in comp_facts)

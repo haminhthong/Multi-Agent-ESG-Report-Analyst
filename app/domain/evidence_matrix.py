@@ -1,4 +1,4 @@
-"""Evidence matrix builder: maps retrieved citations and structured facts to rubric criteria."""
+"""Xây ma trận bằng chứng từ citation, fact cấu trúc và tiêu chí rubric."""
 
 from __future__ import annotations
 
@@ -18,7 +18,7 @@ if TYPE_CHECKING:
 
 
 class EvidenceMatrixBuilder:
-    """Build a comprehensive ESG evidence audit matrix across all rubric criteria."""
+    """Xây ma trận audit bằng chứng ESG cho toàn bộ tiêu chí rubric."""
 
     def __init__(self, rubric_evaluator: RubricEvaluator | Any | None = None) -> None:
         if rubric_evaluator is None:
@@ -33,7 +33,7 @@ class EvidenceMatrixBuilder:
         facts: list[ESGFact],
         criteria_definitions: list[RubricCriterion] | None = None,
     ) -> list[EvidenceMatrixRow]:
-        """Build the evidence matrix for the supplied citations and facts."""
+        """Xây ma trận từ citation và fact được truyền vào."""
         matrix: list[EvidenceMatrixRow] = []
         fact_by_metric: dict[str, ESGFact] = {}
         for f in facts:
@@ -96,15 +96,6 @@ class EvidenceMatrixBuilder:
                 )
             )
         return matrix
-
-    def build_evidence_matrix(
-        self,
-        citations: list[Citation],
-        facts: list[ESGFact],
-        criteria_definitions: list[RubricCriterion] | None = None,
-    ) -> list[EvidenceMatrixRow]:
-        """Backward-compatible alias for build()."""
-        return self.build(citations, facts, criteria_definitions=criteria_definitions)
 
     def build_scoped(
         self,

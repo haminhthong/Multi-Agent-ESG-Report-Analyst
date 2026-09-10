@@ -14,9 +14,9 @@ class LLMClient:
     """Client giao tiếp với Local LLM (Ollama: Qwen / Llama) hoặc OpenAI-compatible endpoint.
 
     Đặc tính cốt lõi:
-    - Zero-Cost First: Hỗ trợ Ollama cục bộ hoàn toàn miễn phí ($0 API cost).
-    - Graceful Fallback: Nếu endpoint không khả dụng hoặc tắt, tự động trả về None
-      để hệ thống chuyển sang Deterministic Heuristic Engine mà không gây lỗi.
+    - Ưu tiên không chi phí: hỗ trợ Ollama cục bộ, không phát sinh chi phí API.
+    - Dự phòng an toàn: nếu endpoint không khả dụng hoặc bị tắt, tự động trả về
+      None để hệ thống chuyển sang engine heuristic deterministic mà không lỗi.
     - Chỉ hỗ trợ tổng hợp câu trả lời và kiểm tra grounding khi được bật.
     """
 
@@ -92,7 +92,7 @@ class LLMClient:
             return None
 
     def verify_grounding(self, claim: str, evidence_text: str) -> bool:
-        """NLI-style verification: kiểm tra xem claim có được hỗ trợ trực tiếp bởi evidence hay không."""
+        """Kiểm tra kiểu NLI xem claim có được evidence hỗ trợ trực tiếp hay không."""
         if not self.is_available():
             return True
         system_prompt = (
@@ -170,8 +170,8 @@ def validate_answer_grounding(
 
     issues: list[str] = []
 
-    # Grounding is reference-by-construction: every non-empty answer sentence
-    # must carry a citation id (or the legacy explicit document/page form).
+    # Theo quy tắc grounding, mọi câu trả lời không rỗng phải có citation ID
+    # hoặc dạng tham chiếu tài liệu/trang cũ.
     for sentence in (part.strip() for part in re.split(r"(?<=[.!?])\s+", answer) if part.strip()):
         has_cid = bool(re.search(r"\[C\d+\]", sentence, re.IGNORECASE))
         has_legacy_ref = bool(
@@ -196,7 +196,7 @@ def validate_answer_grounding(
     cited_pages = [
         int(m.group(1)) for m in re.finditer(r"(?:trang|page)\s*(\d+)", answer, re.IGNORECASE)
     ]
-    # Dạng [Document, page 5] / [Document, trang 5]
+    # Hỗ trợ dạng [Document, page 5] / [Document, trang 5].
     cited_pages.extend(
         int(m.group(1))
         for m in re.finditer(r"\[\s*[^,\]]+,\s*(?:trang|page)\s*(\d+)\s*\]", answer, re.IGNORECASE)
@@ -220,7 +220,7 @@ def validate_answer_grounding(
             # Bỏ qua chỉ số citation ngắn (1, 2, …) khi đã có [Cn]
             if norm.isdigit() and int(norm) in cited_cid_set and len(norm) <= 2:
                 continue
-            # Chỉ kiểm tra số liệu substantive (>=3 chữ số hoặc thập phân)
+            # Chỉ kiểm tra số liệu chính (ít nhất 3 chữ số hoặc số thập phân).
             if len(norm.replace(".", "")) < 3 and "." not in norm:
                 continue
             if norm in excerpt_numbers:

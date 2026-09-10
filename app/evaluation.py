@@ -10,7 +10,7 @@ from app.capabilities.retrieval import EvidenceRetriever
 
 
 class ExpectedCitation(BaseModel):
-    """Citation chuẩn (Ground Truth) gồm mã tài liệu và số trang kỳ vọng được đánh giá."""
+    """Citation chuẩn gồm mã tài liệu và số trang kỳ vọng để đối chiếu."""
 
     document_id: str
     page: int = Field(ge=1)
@@ -35,7 +35,7 @@ class EvaluationCaseResult(BaseModel):
     - recall: Tỷ lệ citation chuẩn tìm được trong Top-K kết quả.
     - reciprocal_rank: Giá trị 1/vị_trí_xuất_hiện_đầu_tiên của citation đúng (dùng tính MRR).
     - precision: Tỷ lệ citation đúng trong tổng số kết quả trả về.
-    - ndcg: Normalized Discounted Cumulative Gain tại Top-K.
+    - ndcg: điểm lợi ích tích lũy giảm dần đã chuẩn hóa tại Top-K.
     """
 
     id: str
@@ -47,7 +47,7 @@ class EvaluationCaseResult(BaseModel):
 
 
 class RetrievalEvaluationReport(BaseModel):
-    """Báo cáo tổng hợp chất lượng truy xuất toàn bộ test suite (Quality Gate)."""
+    """Báo cáo tổng hợp chất lượng truy xuất của toàn bộ bộ kiểm thử."""
 
     cases: int
     top_k: int
@@ -59,7 +59,7 @@ class RetrievalEvaluationReport(BaseModel):
 
 
 class AblationSystemResult(BaseModel):
-    """Kết quả đo lường cho một hệ thống trong nghiên cứu thực nghiệm bóc tách (Ablation Study)."""
+    """Kết quả đo lường của một cấu hình trong thực nghiệm bóc tách."""
 
     system: str
     recall_at_k: float
@@ -69,7 +69,7 @@ class AblationSystemResult(BaseModel):
 
 
 class RetrievalAblationReport(BaseModel):
-    """Báo cáo tổng hợp Ablation Study so sánh BM25, Dense, Hybrid và Hybrid + Reranker."""
+    """Báo cáo so sánh BM25, Dense, Hybrid và Hybrid kèm Reranker."""
 
     cases: int
     top_k: int
@@ -89,7 +89,7 @@ class RetrievalAblationReport(BaseModel):
 
 
 # ==============================================================================
-# TIER 2: STRUCTURED EXTRACTION EVALUATION
+# TẦNG 2: ĐÁNH GIÁ TRÍCH XUẤT CÓ CẤU TRÚC
 # ==============================================================================
 class ExtractionEvalCase(BaseModel):
     """Ca kiểm thử năng lực trích xuất sự thật ESG có cấu trúc."""
@@ -116,7 +116,7 @@ class ExtractionEvaluationReport(BaseModel):
 
 
 def load_evaluation_cases(path: Path) -> list[RetrievalEvalCase]:
-    """Đọc tệp cấu hình JSON chứa danh sách câu hỏi kiểm thử và Ground Truth citations."""
+    """Đọc JSON chứa câu hỏi kiểm thử và citation chuẩn đối chiếu."""
     content = json.loads(path.read_text(encoding="utf-8"))
     return [RetrievalEvalCase.model_validate(item) for item in content]
 

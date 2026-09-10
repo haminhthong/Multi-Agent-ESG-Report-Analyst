@@ -62,11 +62,11 @@ def test_analyze_audit_mode():
 
 
 def test_analyze_validation_errors():
-    # Question too short
+    # Câu hỏi quá ngắn.
     response = client.post("/api/analyze", json={"question": "hi"})
     assert response.status_code == 422
 
-    # top_k out of bounds
+    # top_k vượt giới hạn.
     response2 = client.post("/api/analyze", json={"question": "Valid question text", "top_k": 100})
     assert response2.status_code == 422
 

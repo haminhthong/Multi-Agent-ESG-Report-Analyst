@@ -110,7 +110,7 @@ class RubricEvaluator:
             if matched_keywords:
                 relevant.append(cite)
 
-        # 1. Fact-First Evaluation: Kiểm tra trực tiếp trên structured ESGFact
+        # 1. Ưu tiên fact: kiểm tra trực tiếp trên ESGFact đã cấu trúc.
         matched_fields: list[str] = []
         missing_fields: list[str] = []
         value: str | None = None
@@ -238,7 +238,7 @@ class RubricEvaluator:
                     missing_fields=list(criterion.required_fields),
                 )
 
-        # 3. Fallback: Nếu Fact-first chưa đủ hoặc không có facts, quét regex bổ sung trên citations
+            # 3. Dự phòng: nếu fact chưa đủ, quét regex bổ sung trên citation.
         if missing_fields or not relevant_facts:
             remaining_missing = (
                 list(missing_fields) if relevant_facts else list(criterion.required_fields)
@@ -427,5 +427,3 @@ class PillarEvaluator:
             round(sum(p.disclosure_coverage for p in pillars) / len(pillars), 1) if pillars else 0.0
         )
         return pillars, overall_coverage
-
-    evaluate_all_pillars = evaluate_all

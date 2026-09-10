@@ -1,4 +1,4 @@
-"""Fact Store repository: single source of truth for structured ESG facts."""
+"""Repository quản lý vòng đời fact ESG có cấu trúc."""
 
 from __future__ import annotations
 
@@ -36,7 +36,7 @@ class FactRepository:
         return self.store.save_facts(accepted)
 
     def save_candidates(self, facts: list[ESGFact]) -> int:
-        """Persist extracted facts as unreviewed candidates."""
+        """Lưu fact đã trích xuất dưới dạng candidate chưa được review."""
         candidates = []
         for fact in facts:
             conflict = fact.status in {"CONFLICT", "conflict"} or fact.validation_status in {
@@ -61,7 +61,7 @@ class FactRepository:
         status: str = "ACCEPTED",
         reviewed_by: str | None = None,
     ) -> int:
-        """Apply an explicit validator or human-review decision."""
+        """Áp dụng quyết định rõ ràng của validator hoặc người review."""
         return self.store.promote_facts(fact_ids, status=status, reviewed_by=reviewed_by)
 
     def query_facts(

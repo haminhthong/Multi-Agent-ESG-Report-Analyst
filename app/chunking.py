@@ -104,8 +104,8 @@ def make_chunk(
 ) -> TextChunk:
     """Tạo đối tượng TextChunk kèm theo stable_chunk_id và content_hash dựa trên SHA-256."""
     c_hash = hashlib.sha256(text.encode("utf-8")).hexdigest()[:16]
-    # Provenance identity belongs to the content, not mutable document metadata.
-    # A company rename or corrected reporting year must not create a new chunk id.
+    # Định danh provenance thuộc về nội dung, không phụ thuộc metadata thay đổi.
+    # Đổi tên công ty hoặc sửa năm báo cáo không được tạo chunk ID mới.
     s_id = hashlib.sha256(f"{page}:{block_id or ''}:{chunk_index}:{c_hash}".encode()).hexdigest()[
         :16
     ]

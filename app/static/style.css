@@ -1,12 +1,12 @@
 /* ==============================================================================
-   MULTI-AGENT ESG REPORT ANALYST - MODERN DARK EMERALD DESIGN SYSTEM
+   HỆ THỐNG PHÂN TÍCH BÁO CÁO ESG - GIAO DIỆN XANH LỤC BẢO HIỆN ĐẠI
    ============================================================================== */
 
 :root {
     --font-primary: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, sans-serif;
     --font-mono: 'JetBrains Mono', monospace;
 
-    /* Palette Color System */
+    /* Bảng màu giao diện */
     --bg-dark: #070d0b;
     --bg-card: rgba(15, 27, 22, 0.75);
     --bg-card-hover: rgba(22, 38, 31, 0.85);
@@ -22,7 +22,7 @@
     --text-muted: #94a3b8;
     --text-dim: #64748b;
 
-    /* Status & Risk Colors */
+    /* Màu trạng thái và mức rủi ro */
     --risk-low-bg: rgba(16, 185, 129, 0.15);
     --risk-low-border: #10b981;
     --risk-medium-bg: rgba(245, 158, 11, 0.15);
@@ -48,7 +48,7 @@ body {
     line-height: 1.6;
 }
 
-/* Background Glowing Orbs */
+/* Các vùng sáng trang trí nền */
 .app-background {
     position: fixed;
     top: 0;
@@ -83,7 +83,7 @@ body {
     right: -100px;
 }
 
-/* Layout Container */
+/* Khung bố cục */
 .layout-wrapper {
     position: relative;
     z-index: 1;
@@ -566,7 +566,7 @@ body {
     color: var(--text-muted);
 }
 
-/* Results Display Area */
+/* Khu vực hiển thị kết quả */
 .results-area {
     display: flex;
     flex-direction: column;
@@ -735,7 +735,7 @@ body {
     padding-top: 10px;
 }
 
-/* Citations Cards */
+/* Thẻ trích dẫn nguồn */
 .citations-section {
     margin-top: 10px;
 }
@@ -940,7 +940,7 @@ body {
     outline: none;
 }
 
-/* Evidence Matrix Table */
+/* Bảng ma trận bằng chứng */
 .table-responsive-wrapper {
     overflow-x: auto;
     border-radius: 12px;
@@ -1026,7 +1026,7 @@ body {
 .pill-s { background: rgba(59, 130, 246, 0.2); color: #60a5fa; }
 .pill-g { background: rgba(168, 85, 247, 0.2); color: #c084fc; }
 
-/* Disclaimer & Greenwashing Grid */
+/* Lưới cảnh báo và tuyên bố giới hạn */
 .disclaimer-alert {
     background: rgba(245, 158, 11, 0.08);
     border-left: 3px solid #f59e0b;
@@ -1116,7 +1116,7 @@ body {
     font-size: 12px;
 }
 
-/* Inline Tool Forms */
+/* Biểu mẫu thao tác nhanh */
 .inline-tool-form {
     display: flex;
     gap: 10px;
@@ -1128,7 +1128,7 @@ body {
     flex: 1;
 }
 
-/* Waterfall Chart */
+/* Biểu đồ thác nước */
 .waterfall-chart-container {
     background: rgba(0, 0, 0, 0.35);
     border: 1px solid rgba(255, 255, 255, 0.08);
@@ -1179,7 +1179,7 @@ body {
     gap: 8px;
 }
 
-/* Responsive Breakpoints */
+/* Điểm ngắt hiển thị đáp ứng */
 @media (max-width: 1024px) {
     .dashboard-grid {
         grid-template-columns: 1fr;

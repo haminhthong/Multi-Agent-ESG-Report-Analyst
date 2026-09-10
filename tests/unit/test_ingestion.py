@@ -9,7 +9,7 @@ def test_ocr_provider_protocol():
 
 def test_tesseract_ocr_graceful_fallback():
     provider = TesseractOCRProvider()
-    # When tesseract is not available or mock image passed, should not crash
+    # Khi không có Tesseract hoặc truyền ảnh giả lập, hàm không được gây lỗi.
     result = provider.extract_text(b"mock_bytes")
     assert isinstance(result, str)
 

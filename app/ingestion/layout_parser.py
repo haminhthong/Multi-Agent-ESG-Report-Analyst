@@ -1,4 +1,4 @@
-"""Layout-aware PDF parsing using PyMuPDF (fitz) with real bounding boxes and fallback."""
+"""Phân tích bố cục PDF bằng PyMuPDF với bounding box và fallback."""
 
 from __future__ import annotations
 
@@ -14,7 +14,7 @@ logger = logging.getLogger(__name__)
 
 
 class LayoutParser:
-    """Extract structural layout blocks with genuine bounding boxes from PDF documents."""
+    """Trích xuất block bố cục có bounding box từ tài liệu PDF."""
 
     @classmethod
     def is_pymupdf_available(cls) -> bool:
@@ -29,7 +29,7 @@ class LayoutParser:
         source: bytes | BinaryIO,
         document_id: str = "doc",
     ) -> list[LayoutBlock]:
-        """Attempt extraction using PyMuPDF (fitz) for authentic bboxes; fallback to pypdf."""
+        """Thử PyMuPDF để lấy bbox thật, fallback sang pypdf khi cần."""
         data_bytes = source.read() if hasattr(source, "read") else source
         if not data_bytes:
             return []
@@ -96,8 +96,8 @@ class LayoutParser:
             except Exception as exc:  # noqa: BLE001 - optional table extraction boundary
                 logger.debug("Table detection error on page %d: %s", page_no, exc)
 
-            # 2. Trích xuất text blocks với real bounding box
-            # get_text("blocks") -> (x0, y0, x1, y1, text, block_no, block_type)
+                # 2. Trích xuất block text cùng bounding box thật.
+                # get_text("blocks") trả về x0, y0, x1, y1, text, block_no, block_type.
             page_blocks = page.get_text("blocks")
             for b_idx, block in enumerate(page_blocks, start=1):
                 if len(block) < 5:
@@ -105,7 +105,7 @@ class LayoutParser:
                 x0, y0, x1, y1, text = block[0], block[1], block[2], block[3], block[4]
                 block_type_code = block[6] if len(block) >= 7 else 0
 
-                # Bỏ qua image blocks (code 1) hoặc text quá ngắn
+                # Bỏ qua block ảnh (code 1) hoặc text quá ngắn.
                 if block_type_code != 0:
                     continue
                 clean_text = text.strip()
@@ -160,7 +160,7 @@ class LayoutParser:
 
     @classmethod
     def _fallback_parse_pypdf(cls, content: bytes, document_id: str) -> list[LayoutBlock]:
-        """Heuristic fallback using pypdf when PyMuPDF is not available."""
+        """Fallback heuristic bằng pypdf khi không có PyMuPDF."""
         from pypdf import PdfReader
 
         stream = BytesIO(content)

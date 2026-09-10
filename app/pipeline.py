@@ -218,7 +218,7 @@ class ESGPipeline:
         if state.mode == "audit":
             from app.rubric import CRITERIA_DEFINITIONS
 
-            # Criterion-level audit retrieval: đảm bảo mọi tiêu chí chuẩn mực đều được truy xuất bằng chứng chuyên biệt
+            # Truy xuất ở cấp tiêu chí: bảo đảm mỗi tiêu chí có bằng chứng chuyên biệt.
             criterion_cites: list[Citation] = []
             state.criterion_bundles = []
             for crit in CRITERIA_DEFINITIONS:
@@ -370,7 +370,7 @@ class ESGPipeline:
             state.validated_citations,
         )
 
-        # Active Completeness Gate: Tự động chạy targeted retry nếu thiếu bằng chứng
+        # Cổng đầy đủ bằng chứng: tự động thử lại có mục tiêu khi còn thiếu evidence.
         if state.evidence_completeness.status == "incomplete" and (
             state.evidence_completeness.missing or state.evidence_completeness.partial
         ):

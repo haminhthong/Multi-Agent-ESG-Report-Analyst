@@ -1,4 +1,4 @@
-"""Value parsing and conversion helpers for ESG metrics."""
+"""Hàm hỗ trợ phân tích và chuyển đổi giá trị metric ESG."""
 
 from app.rubric import normalize_number
 
