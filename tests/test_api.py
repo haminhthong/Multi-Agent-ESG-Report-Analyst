@@ -71,14 +71,10 @@ def test_analyze_validation_errors():
     assert response2.status_code == 422
 
 
-def test_analyze_accepts_explicit_agent_mode():
-    response = client.post(
-        "/api/analyze",
-        json={"question": "What were Scope 1 emissions?", "agent_mode": "deterministic"},
-    )
+def test_analysis_response_exposes_evidence_not_orchestration_state():
+    response = client.post("/api/analyze", json={"question": "What were Scope 1 emissions?"})
     assert response.status_code == 200
     data = response.json()
-    assert data["requested_agent_mode"] == "deterministic"
-    assert data["agent_mode"] == "deterministic_fallback"
-    assert data["agent_route"]
-    assert data["agent_stop_reason"] == "completed"
+    assert isinstance(data["citations"], list)
+    assert "agent_route" not in data
+    assert "agent_mode" not in data

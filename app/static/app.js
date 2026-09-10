@@ -1,5 +1,5 @@
 /**
- * Bộ điều khiển dashboard Evidence-Grounded ESG và hiển thị workflow trace.
+ * Bộ điều khiển dashboard Evidence-Grounded ESG và hiển thị pipeline trace.
  */
 
 // Biến trạng thái toàn cục
@@ -23,9 +23,8 @@ const analyzeForm = document.querySelector('#analyze-form');
 const questionInput = document.querySelector('#question-input');
 const topKInput = document.querySelector('#top-k-input');
 const analyzeBtn = document.querySelector('#analyze-btn');
-const agentModeInput = document.querySelector('#agent-mode-input');
 
-const agentTraceBox = document.querySelector('#agent-trace-box');
+const pipelineTraceBox = document.querySelector('#pipeline-trace-box');
 const resultsDisplayArea = document.querySelector('#results-display-area');
 
 const analysisAnswerText = document.querySelector('#analysis-answer-text');
@@ -39,17 +38,10 @@ const citationsCountText = document.querySelector('#citations-count-text');
 const traceLogsList = document.querySelector('#trace-logs-list');
 const limitationsList = document.querySelector('#limitations-list');
 
-// Bốn role ở cấp workflow; service chi tiết được gom trong từng role.
-const agentStepIds = [
-    'step-planner', 'step-evidence', 'step-analysis', 'step-answer'
+// Bốn bước hiển thị bám theo pipeline xử lý cố định.
+const pipelineStepIds = [
+    'step-plan', 'step-evidence', 'step-analysis', 'step-answer'
 ];
-const agentRouteToStep = {
-    Planner: 'step-planner',
-    Evidence: 'step-evidence',
-    Analysis: 'step-analysis',
-    Answer: 'step-answer'
-};
-
 // Khởi tạo khi DOM sẵn sàng
 document.addEventListener('DOMContentLoaded', () => {
     setupTabNavigation();
@@ -214,30 +206,29 @@ uploadForm.addEventListener('submit', async (e) => {
     }
 });
 
-// Chạy workflow bốn role
+// Chạy pipeline phân tích cố định
 analyzeForm.addEventListener('submit', async (e) => {
     e.preventDefault();
     const question = questionInput.value.trim();
     const topK = parseInt(topKInput.value) || 6;
     const modeRadio = document.querySelector('input[name="analysis_mode"]:checked');
     const mode = modeRadio ? modeRadio.value : 'qa';
-    const agentMode = agentModeInput ? agentModeInput.value : 'agentic';
 
     if (!question) return;
 
     // Hiển thị tiến trình
     analyzeBtn.disabled = true;
-    agentTraceBox.classList.remove('hidden');
+    pipelineTraceBox.classList.remove('hidden');
     resultsDisplayArea.classList.add('hidden');
-    resetAgentStepper();
+    resetPipelineStepper();
 
-    const stepInterval = animateAgentSteps();
+    const stepInterval = animatePipelineSteps();
 
     try {
         const response = await fetch('/api/analyze', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ question, top_k: topK, mode: mode, agent_mode: agentMode })
+            body: JSON.stringify({ question, top_k: topK, mode: mode })
         });
 
         clearInterval(stepInterval);
@@ -245,62 +236,59 @@ analyzeForm.addEventListener('submit', async (e) => {
             const errObj = await response.json().catch(() => ({}));
             const msg = errObj.error ? errObj.error.message : 'Lỗi không xác định';
             alert(`Lỗi phân tích: ${msg}`);
-            agentTraceBox.classList.add('hidden');
+            pipelineTraceBox.classList.add('hidden');
             return;
         }
 
         const data = await response.json();
-        completeAgentStepper(data.agent_route || []);
+        completePipelineStepper();
         currentAnalysisResponse = data;
         currentEvidenceMatrix = data.evidence_matrix || [];
 
         renderAnalysisResults(data);
         renderEvidenceMatrix(currentEvidenceMatrix);
         renderGreenwashingScreening(data.screening_result, data.conflicts);
-        renderTraceWaterfall(data.trace_steps, data.trace, data.limitations);
+        renderTraceWaterfall(data.trace, data.limitations);
 
         setTimeout(() => {
-            agentTraceBox.classList.add('hidden');
+            pipelineTraceBox.classList.add('hidden');
             resultsDisplayArea.classList.remove('hidden');
         }, 400);
 
     } catch (err) {
         clearInterval(stepInterval);
         alert(`Lỗi kết nối: ${err.message}`);
-        agentTraceBox.classList.add('hidden');
+        pipelineTraceBox.classList.add('hidden');
     } finally {
         analyzeBtn.disabled = false;
     }
 });
 
 // Điều khiển Stepper
-function resetAgentStepper() {
-    agentStepIds.forEach(id => {
+function resetPipelineStepper() {
+    pipelineStepIds.forEach(id => {
         const el = document.getElementById(id);
         if (el) el.classList.remove('active');
     });
-    const docEl = document.getElementById('step-planner');
+    const docEl = document.getElementById('step-plan');
     if (docEl) docEl.classList.add('active');
 }
 
-function animateAgentSteps() {
+function animatePipelineSteps() {
     let currentStep = 0;
     return setInterval(() => {
-        currentStep = (currentStep + 1) % agentStepIds.length;
-        agentStepIds.forEach(id => {
+        currentStep = (currentStep + 1) % pipelineStepIds.length;
+        pipelineStepIds.forEach(id => {
             const el = document.getElementById(id);
             if (el) el.classList.remove('active');
         });
-        const activeEl = document.getElementById(agentStepIds[currentStep]);
+        const activeEl = document.getElementById(pipelineStepIds[currentStep]);
         if (activeEl) activeEl.classList.add('active');
     }, 350);
 }
 
-function completeAgentStepper(route = []) {
-    const completedSteps = route.length
-        ? route.map(agent => agentRouteToStep[agent]).filter(Boolean)
-        : agentStepIds;
-    completedSteps.forEach(id => {
+function completePipelineStepper() {
+    pipelineStepIds.forEach(id => {
         const el = document.getElementById(id);
         if (el) el.classList.add('active');
     });
@@ -323,7 +311,7 @@ function renderAnalysisResults(data) {
     }
 
     if (engineBadge) {
-        engineBadge.textContent = (data.agent_mode || 'deterministic').toUpperCase();
+        engineBadge.textContent = 'OPTIONAL LLM / DETERMINISTIC CORE';
     }
 
     // Ba trụ cột E, S, G
@@ -618,38 +606,35 @@ function renderTemporalResults(data, container) {
     `;
 }
 
-// 5. Hiển thị kết quả Tab 5 (Latency Waterfall & Observability)
-function renderTraceWaterfall(traceSteps, logs, limitations) {
+// 5. Hiển thị trace tuần tự của pipeline
+function renderTraceWaterfall(logs, limitations) {
     const container = document.getElementById('waterfall-container');
     const totalLatencyEl = document.getElementById('total-trace-latency');
 
-    if (!traceSteps || traceSteps.length === 0) {
+    if (!logs || logs.length === 0) {
         if (container) container.innerHTML = '<p class="upload-note">Chưa có vết thực thi để hiển thị.</p>';
         return;
     }
 
-    const totalLat = traceSteps.reduce((acc, step) => acc + (step.latency_ms || 0), 0);
-    if (totalLatencyEl) totalLatencyEl.textContent = `${totalLat.toFixed(2)} ms`;
-
-    const maxLat = Math.max(...traceSteps.map(s => s.latency_ms || 0), 1);
+    if (totalLatencyEl) totalLatencyEl.textContent = `${logs.length} bước`;
 
     if (container) {
-        container.innerHTML = traceSteps.map(s => {
-            const pct = Math.min(100, Math.max(8, (s.latency_ms / maxLat) * 100));
+        container.innerHTML = logs.map((log, index) => {
+            const pct = Math.max(12, ((index + 1) / logs.length) * 100);
             return `
                 <div class="waterfall-row">
-                    <div class="waterfall-agent-name">${escapeHtml(s.agent)}</div>
+                    <div class="waterfall-step-name">${escapeHtml(log)}</div>
                     <div class="waterfall-bar-track">
                         <div class="waterfall-bar-fill" style="width: ${pct}%"></div>
                     </div>
-                    <div class="waterfall-latency-text">${s.latency_ms.toFixed(1)} ms</div>
+                    <div class="waterfall-latency-text">Bước ${index + 1}</div>
                 </div>
             `;
         }).join('');
     }
 
     if (traceLogsList) {
-        traceLogsList.innerHTML = (logs || []).map(t => `<li>${escapeHtml(t)}</li>`).join('');
+        traceLogsList.innerHTML = logs.map(t => `<li>${escapeHtml(t)}</li>`).join('');
     }
 
     if (limitationsList) {

@@ -4,9 +4,9 @@ from app.extraction.extractor import FactExtractor
 from app.extraction.unit_normalizer import UnitNormalizer
 from app.extraction.year_resolver import extract_year_for_span
 from app.models import Citation, RubricCriterion
+from app.pipeline import ESGPipeline
 from app.services.esg_analysis_service import ESGAnalysisService
 from app.store import Store
-from app.workflow import ESGAnalysisPipeline
 
 
 def test_target_without_year_is_none_not_2030():
@@ -198,9 +198,9 @@ def test_evidence_completeness_gate(tmp_path: Path):
         "Doc.pdf",
         [(1, "Our company reduced emissions by 10% compared to baseline.")],
     )
-    supervisor = ESGAnalysisPipeline(store)
+    pipeline = ESGPipeline(store)
     # Truy vấn hỏi về target và assurance (nhưng doc không có assurance)
-    result = supervisor.run("Review climate target and external assurance", mode="qa")
+    result = pipeline.run("Review climate target and external assurance", mode="qa")
     assert result.evidence_completeness is not None
     # Nếu missing evidence, limitations phải chứa thông báo rõ ràng
     if result.evidence_completeness.get("status") == "incomplete":

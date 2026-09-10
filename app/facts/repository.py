@@ -176,10 +176,3 @@ class FactRepository:
             conflict_status=row.get("conflict_status", "none") or "none",
             extractor_version=row.get("extractor_version", "esg-extractor-v2"),
         )
-
-
-class FactCandidateRepository(FactRepository):
-    """Named repository used by the extraction workflow for candidate facts."""
-
-    def save(self, candidates: list[ESGFact]) -> int:
-        return self.save_candidates(candidates)

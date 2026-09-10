@@ -1,6 +1,6 @@
 from pathlib import Path
 
-from app.capabilities.planning import QueryPlanner
+from app.capabilities.planning import build_retrieval_plan
 from app.extraction.extractor import FactExtractor
 from app.facts.repository import FactRepository
 from app.models import Citation, ESGFact
@@ -185,9 +185,8 @@ def test_cross_company_comparison(tmp_path: Path):
 
 
 def test_query_planner_decomposition():
-    """Kiểm tra Query Planning Agent phân rã câu hỏi phức tạp thành subqueries và required evidence."""
-    planner = QueryPlanner()
-    plan = planner.plan(
+    """Kiểm tra hàm lập kế hoạch phân rã câu hỏi thành subqueries và evidence."""
+    plan = build_retrieval_plan(
         "Compare Scope 1 emissions and renewable energy of Boeing and Airbus between 2022 and 2023"
     )
 

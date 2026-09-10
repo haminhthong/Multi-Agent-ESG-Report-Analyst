@@ -499,8 +499,8 @@ body {
     text-align: center;
 }
 
-/* Tiến trình thực thi agent */
-.agent-trace-card {
+/* Tiến trình thực thi pipeline */
+.pipeline-trace-card {
     background: rgba(0, 0, 0, 0.35);
     border: 1px solid rgba(16, 185, 129, 0.3);
     border-radius: 16px;
@@ -533,9 +533,9 @@ body {
     to { transform: rotate(360deg); }
 }
 
-.agent-stepper {
+.pipeline-stepper {
     display: grid;
-    grid-template-columns: repeat(5, 1fr);
+    grid-template-columns: repeat(4, 1fr);
     gap: 8px;
 }
 
@@ -1147,7 +1147,7 @@ body {
     font-size: 12px;
 }
 
-.waterfall-agent-name {
+.waterfall-step-name {
     font-weight: 600;
     color: var(--text-main);
     font-family: var(--font-mono);

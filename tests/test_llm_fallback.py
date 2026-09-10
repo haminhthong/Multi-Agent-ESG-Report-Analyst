@@ -2,18 +2,17 @@ from pathlib import Path
 from unittest.mock import MagicMock
 
 from app.llm import LLMClient, validate_answer_grounding
+from app.pipeline import ESGPipeline
 from app.store import Store
-from app.workflow import ESGAnalysisPipeline
 
 
 def test_llm_client_fallback_when_disabled():
     client = LLMClient(enabled=False)
     assert client.is_available() is False
-    assert client.generate_plan("question") is None
     assert client.synthesize_answer("question", []) is None
 
 
-def test_supervisor_deterministic_fallback(tmp_path: Path):
+def test_pipeline_falls_back_when_llm_is_disabled(tmp_path: Path):
     store = Store(tmp_path / "test.db")
     store.add_document(
         "d1",
@@ -21,16 +20,15 @@ def test_supervisor_deterministic_fallback(tmp_path: Path):
         [(5, "Scope 1 direct emissions reached 100 metric tons in 2024.")],
     )
     llm = LLMClient(enabled=False)
-    supervisor = ESGAnalysisPipeline(store, llm_client=llm)
+    pipeline = ESGPipeline(store, llm_client=llm)
 
-    res = supervisor.run("What are the emissions?", top_k=3, mode="qa")
-    assert res.agent_mode == "deterministic_fallback"
+    res = pipeline.run("What are the emissions?", top_k=3, mode="qa")
     assert len(res.citations) > 0
     assert res.citations[0].page == 5
-    assert any("Deterministic Heuristic Engine" in t for t in res.trace)
+    assert res.answer
 
 
-def test_supervisor_with_mock_llm(tmp_path: Path):
+def test_pipeline_with_optional_llm_synthesis(tmp_path: Path):
     store = Store(tmp_path / "test.db")
     store.add_document(
         "d1",
@@ -40,24 +38,15 @@ def test_supervisor_with_mock_llm(tmp_path: Path):
 
     mock_llm = MagicMock(spec=LLMClient)
     mock_llm.is_available.return_value = True
-    mock_llm.generate_plan.return_value = [
-        {"tool": "search_document", "args": {"query": "emissions", "top_k": 3}},
-        {
-            "tool": "extract_metric",
-            "args": {"text": "Scope 1 direct emissions reached 100 metric tons"},
-        },
-    ]
     mock_llm.synthesize_answer.return_value = (
         "Based on [TestReport.pdf, trang 5], Scope 1 emissions were 100 metric tons in 2024."
     )
 
-    supervisor = ESGAnalysisPipeline(store, llm_client=mock_llm)
-    res = supervisor.run("What are the emissions?", top_k=3, mode="qa")
+    pipeline = ESGPipeline(store, llm_client=mock_llm)
+    res = pipeline.run("What are the emissions?", top_k=3, mode="qa")
 
-    assert res.agent_mode == "agent_orchestrated"
     assert "Based on [TestReport.pdf, trang 5]" in res.answer
-    assert any("LLM Structured Planning" in t for t in res.trace)
-    assert any("Tool search_document" in t for t in res.trace)
+    mock_llm.synthesize_answer.assert_called_once()
 
 
 def test_validate_answer_grounding_accepts_cid_and_rejects_bad_page():

@@ -6,7 +6,7 @@ from typing import Any
 
 from pydantic import BaseModel, Field
 
-from app.tools import AgentTools
+from app.grounding import CitationVerifier
 
 
 class AnswerEvalCase(BaseModel):
@@ -54,7 +54,7 @@ def load_answer_eval_cases(path: Path) -> list[AnswerEvalCase]:
 
 
 def evaluate_answer_quality(
-    supervisor: Any,
+    pipeline: Any,
     cases: list[AnswerEvalCase],
     top_k: int = 5,
 ) -> AnswerEvaluationReport:
@@ -66,7 +66,7 @@ def evaluate_answer_quality(
     """
     results: list[CaseAnswerMetric] = []
     for case in cases:
-        resp = supervisor.run(
+        resp = pipeline.run(
             question=case.question,
             top_k=top_k,
             document_ids=case.query_scope,
@@ -140,7 +140,7 @@ def _evaluate_single_answer(response: Any, case: AnswerEvalCase) -> CaseAnswerMe
     unsupported: list[str] = []
 
     for s in factual_sentences:
-        res = AgentTools.verify_claim(s, combined_evidence)
+        res = CitationVerifier.verify_claim(s, combined_evidence)
         if res["supported"]:
             supported_count += 1
         else:

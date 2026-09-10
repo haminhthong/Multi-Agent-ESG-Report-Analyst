@@ -16,8 +16,8 @@ from app.evaluation import (
     evaluate_retrieval_ablation,
     load_evaluation_cases,
 )
+from app.pipeline import ESGPipeline
 from app.store import Store
-from app.workflow import ESGAnalysisPipeline
 
 DEFAULT_EVALUATION = Path("data/evaluation/retrieval_cases.json")
 DEFAULT_ANSWER_EVAL = Path("data/evaluation/answer_eval_cases.json")
@@ -61,7 +61,7 @@ def main() -> None:
         print(ablation.model_dump_json(indent=2))
         return
 
-    pipeline = ESGAnalysisPipeline(store)
+    pipeline = ESGPipeline(store)
 
     if args.command == "evaluate-answer":
         seed_demo(store)
@@ -129,7 +129,6 @@ def main() -> None:
             top_k=args.top_k,
             document_ids=doc_ids,
             mode="audit",
-            agent_mode=args.agent_mode,
         )
         print("\n=== ESG DISCLOSURE EVIDENCE MATRIX ===")
         print("| Criterion | Pillar | Status | Value | Year | Page |")
@@ -194,12 +193,6 @@ def _build_parser() -> argparse.ArgumentParser:
     audit = commands.add_parser("audit", help="Run ESG disclosure audit")
     audit.add_argument("--document-id", type=str)
     audit.add_argument("--top-k", type=int, default=12)
-    audit.add_argument(
-        "--agent-mode",
-        choices=("agentic", "orchestrated", "deterministic"),
-        default="agentic",
-        help="Choose LLM-assisted planning, bounded orchestration, or deterministic execution",
-    )
 
     compare = commands.add_parser("compare", help="Compare disclosure evidence")
     compare.add_argument("--companies", type=str, default="Boeing,NextEra Energy,Alcoa")

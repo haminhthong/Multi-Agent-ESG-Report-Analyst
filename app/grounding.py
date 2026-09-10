@@ -12,7 +12,7 @@ from typing import Any
 
 from app.extraction.extractor import FactExtractor
 from app.models import Citation, ESGFact, EvidenceConflict
-from app.tools import AgentTools
+from app.rubric import NEGATED_PERFORMANCE_PATTERN
 
 
 class CitationVerifier:
@@ -57,7 +57,7 @@ class CitationVerifier:
         supported_count = 0
 
         for claim in claims:
-            result = AgentTools.verify_claim(claim, combined_text)
+            result = CitationVerifier.verify_claim(claim, combined_text)
             audits.append({"claim": claim, **result})
             if result["supported"]:
                 supported_count += 1
@@ -69,6 +69,26 @@ class CitationVerifier:
             "total_claims": len(claims),
             "unsupported_claims": [a["claim"] for a in audits if not a["supported"]],
             "verification_scope": "retrieved_excerpt_support",
+        }
+
+    @staticmethod
+    def verify_claim(claim: str, excerpt: str) -> dict[str, Any]:
+        """Kiểm tra nhanh số liệu và mức trùng khớp từ khóa giữa claim và excerpt."""
+        claim_lower = claim.lower()
+        excerpt_lower = excerpt.lower()
+        has_contradiction = bool(NEGATED_PERFORMANCE_PATTERN.search(excerpt_lower))
+        claim_numbers = set(re.findall(r"\b\d+(?:[\.,]\d+)?\b", claim_lower))
+        excerpt_numbers = set(re.findall(r"\b\d+(?:[\.,]\d+)?\b", excerpt_lower))
+        numbers_supported = claim_numbers.issubset(excerpt_numbers) if claim_numbers else True
+        claim_words = [word for word in re.findall(r"\w+", claim_lower) if len(word) > 3]
+        matched_words = [word for word in claim_words if word in excerpt_lower]
+        keyword_overlap = len(matched_words) / max(1, len(claim_words))
+        return {
+            "supported": (not has_contradiction) and numbers_supported and keyword_overlap >= 0.3,
+            "has_contradiction": has_contradiction,
+            "numbers_supported": numbers_supported,
+            "keyword_overlap": round(keyword_overlap, 2),
+            "unmatched_numbers": list(claim_numbers - excerpt_numbers),
         }
 
     @classmethod
@@ -209,7 +229,7 @@ class AnswerValidator:
         passed, issues = validate_answer_grounding(
             answer,
             payload,
-            # Derived rubric percentages are valid workflow outputs even when
+            # Derived rubric percentages are valid pipeline outputs even when
             # the exact percentage is not printed in a source excerpt.
             check_numbers=False,
         )

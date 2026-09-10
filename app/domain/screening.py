@@ -275,6 +275,3 @@ def _citation_key(citation: Citation) -> str:
             f"{citation.document_id}:p{citation.page}:{citation.block_id or citation.chunk_id or 'text'}"
         )
     )
-
-
-ScreeningService = GreenwashingScreeningService

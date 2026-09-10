@@ -35,8 +35,8 @@ jobs:
       - name: Unit and integration tests
         run: pytest -q
 
-      - name: Canonical workflow import smoke test
-        run: python -c "from app.workflow import ESGAnalysisPipeline; from app.main import app; print(app.title, ESGAnalysisPipeline.__name__)"
+      - name: Canonical pipeline import smoke test
+        run: python -c "from app.pipeline import ESGPipeline; from app.main import app; print(app.title, ESGPipeline.__name__)"
 
       - name: Retrieval quality gate
         run: >-

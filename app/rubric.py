@@ -106,7 +106,7 @@ class PillarRubric:
 # - retrieval_keywords: Các từ khóa tìm kiếm văn bản tự nhiên trong tài liệu
 # - required_fields: Danh sách các trường dữ liệu định lượng cần trích xuất có cấu trúc
 # ==============================================================================
-CRITERIA_DEFINITIONS: list[RubricCriterion] = [
+DEFAULT_CRITERIA_DEFINITIONS: list[RubricCriterion] = [
     # Environment
     RubricCriterion(
         id="E_GHG_SCOPE_1_2",
@@ -539,9 +539,7 @@ def normalize_number(text: str) -> str:
     return text
 
 
-# Active review criteria are loaded from the versioned climate rubric. Keep the
-# historical definitions available only for compatibility with older clients.
-LEGACY_CRITERIA_DEFINITIONS = CRITERIA_DEFINITIONS
+# Active review criteria are loaded from the versioned climate rubric.
 CLIMATE_RUBRIC_VERSION, CLIMATE_CRITERIA_DEFINITIONS = load_climate_rubric()
 CRITERIA_DEFINITIONS = CLIMATE_CRITERIA_DEFINITIONS
 

@@ -116,6 +116,3 @@ class CompanyComparisonService:
             criteria_ids=criteria_ids,
             criteria_definitions=criteria_definitions,
         )
-
-
-CompanyComparator = CompanyComparisonService

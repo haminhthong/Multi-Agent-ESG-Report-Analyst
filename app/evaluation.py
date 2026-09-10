@@ -187,8 +187,8 @@ def evaluate_retrieval_ablation(
     ]
     systems_results: list[AblationSystemResult] = []
     for label, mode in systems_config:
-        agent = EvidenceRetriever(store, mode=mode)
-        rep = evaluate_retrieval(agent, cases, top_k=top_k)
+        retriever = EvidenceRetriever(store, mode=mode)
+        rep = evaluate_retrieval(retriever, cases, top_k=top_k)
         systems_results.append(
             AblationSystemResult(
                 system=label,
@@ -202,7 +202,7 @@ def evaluate_retrieval_ablation(
 
 
 def evaluate_extraction(
-    supervisor: Any,
+    pipeline: Any,
     cases: list[ExtractionEvalCase],
     top_k: int = 6,
 ) -> ExtractionEvaluationReport:
@@ -214,7 +214,7 @@ def evaluate_extraction(
     year_count = 0
 
     for case in cases:
-        resp = supervisor.run(
+        resp = pipeline.run(
             question=case.question,
             top_k=top_k,
             document_ids=case.query_scope,

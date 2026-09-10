@@ -18,8 +18,6 @@ FactStatus = Literal[
     "unverified",
 ]
 
-AgentExecutionMode = Literal["agentic", "orchestrated", "deterministic"]
-
 
 class Citation(BaseModel):
     """Đoạn bằng chứng trích xuất từ tài liệu PDF, gắn liền với số trang cụ thể và provenance sâu.
@@ -337,16 +335,6 @@ class CompanyComparisonResult(BaseModel):
     findings: list[str] = Field(default_factory=list)
 
 
-class AgentTraceStep(BaseModel):
-    """Bản ghi vết thực thi chi tiết của một Agent kèm độ trễ (latency)."""
-
-    agent: str
-    step: str
-    latency_ms: float = 0.0
-    retrieved_chunks: int = 0
-    details: dict[str, Any] = Field(default_factory=dict)
-
-
 class EvidenceMatrixRow(BaseModel):
     """Hàng dữ liệu biểu diễn trực quan ma trận kiểm toán bằng chứng ESG."""
 
@@ -387,10 +375,6 @@ class AnalysisRequest(BaseModel):
     top_k: int = Field(default=8, ge=1, le=25)
     mode: Literal["qa", "audit"] = Field(default="qa")
     focus_pillars: list[Literal["E", "S", "G"]] | None = None
-    agent_mode: AgentExecutionMode = Field(
-        default="agentic",
-        description="agentic uses optional LLM planning; orchestrated uses the bounded graph; deterministic disables the LLM.",
-    )
 
 
 class SearchRequest(BaseModel):
@@ -429,7 +413,6 @@ class AuditRequest(BaseModel):
     document_ids: list[str] | None = None
     top_k: int = Field(default=12, ge=1, le=30)
     focus_pillars: list[Literal["E", "S", "G"]] | None = None
-    agent_mode: AgentExecutionMode = "agentic"
 
 
 class DocumentIngestResponse(BaseModel):
@@ -445,15 +428,9 @@ class DocumentIngestResponse(BaseModel):
 
 
 class AnalysisResponse(BaseModel):
-    """Schema kết quả tổng hợp hoàn chỉnh do Supervisor Agent trả về."""
+    """Kết quả phân tích có bằng chứng và provenance tới báo cáo nguồn."""
 
     mode: Literal["qa", "audit"] = "qa"
-    agent_mode: Literal["llm_agentic", "deterministic_fallback", "agent_orchestrated"] = (
-        "deterministic_fallback"
-    )
-    requested_agent_mode: AgentExecutionMode = "agentic"
-    agent_route: list[str] = Field(default_factory=list)
-    agent_stop_reason: str = "completed"
     request_id: str = ""
     status: Literal["completed", "incomplete", "failed"] = "completed"
     answer: str
@@ -479,23 +456,18 @@ class AnalysisResponse(BaseModel):
     evidence_completeness: EvidenceCompletenessResult | dict[str, Any] = Field(
         default_factory=EvidenceCompletenessResult
     )
-    trace_steps: list[AgentTraceStep] = Field(default_factory=list)
     claims: list[dict[str, Any]] = Field(default_factory=list)
-    versions: dict[str, str] = Field(default_factory=dict)
     criterion_bundles: list[CriterionEvidenceBundle] = Field(default_factory=list)
 
 
 class AnalysisState(BaseModel):
-    """Trạng thái chia sẻ trung tâm được điều phối bởi Supervisor Agent."""
+    """Context nội bộ dùng xuyên suốt pipeline phân tích tuần tự."""
 
     request_id: str
     user_question: str
     mode: Literal["qa", "audit"] = "qa"
     document_ids: list[str] | None = None
     top_k: int = 8
-    agent_mode: AgentExecutionMode = "agentic"
-    agent_route: list[str] = Field(default_factory=list)
-    agent_stop_reason: str = "pending"
     plan: RetrievalPlan | None = None
     raw_citations: list[Citation] = Field(default_factory=list)
     validated_citations: list[Citation] = Field(default_factory=list)
@@ -516,7 +488,6 @@ class AnalysisState(BaseModel):
     warnings: list[str] = Field(default_factory=list)
     limitations: list[str] = Field(default_factory=list)
     trace: list[str] = Field(default_factory=list)
-    trace_steps: list[AgentTraceStep] = Field(default_factory=list)
     claims: list[dict[str, Any]] = Field(default_factory=list)
     criterion_bundles: list[CriterionEvidenceBundle] = Field(default_factory=list)
 

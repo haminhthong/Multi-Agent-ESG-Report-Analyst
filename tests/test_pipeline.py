@@ -2,12 +2,12 @@ from pathlib import Path
 from unittest.mock import Mock
 
 from app.models import AnalysisState, RetrievalPlan, TemporalAnalysisResult
+from app.pipeline import ESGPipeline
 from app.store import Store
-from app.workflow import ESGAnalysisPipeline
 
 
 def test_pipeline_runs_end_to_end_with_trace(tmp_path: Path):
-    store = Store(tmp_path / "workflow.db")
+    store = Store(tmp_path / "pipeline.db")
     store.add_document(
         "acme-2024",
         "Acme Sustainability Report 2024.pdf",
@@ -32,7 +32,7 @@ def test_pipeline_runs_end_to_end_with_trace(tmp_path: Path):
         year=2024,
     )
 
-    result = ESGAnalysisPipeline(store, retrieval_mode="bm25").run(
+    result = ESGPipeline(store, retrieval_mode="bm25").run(
         "Assess Acme ESG emissions, target, safety, governance and assurance",
         top_k=6,
         document_ids=["acme-2024"],
@@ -44,18 +44,17 @@ def test_pipeline_runs_end_to_end_with_trace(tmp_path: Path):
     assert result.extracted_facts is not None
     assert result.evidence_matrix
     assert result.evidence_completeness["status"] in {"complete", "incomplete"}
-    assert result.trace_steps
-    assert result.agent_route == ["Planner", "Evidence", "Analysis", "Answer"]
-    trace_agents = {step.agent for step in result.trace_steps}
-    assert {"Workflow", "Planner", "Evidence", "Analysis", "Answer"} <= trace_agents
+    assert result.trace
+    assert any("Build retrieval plan" in item for item in result.trace)
+    assert any("Retrieve hybrid evidence" in item for item in result.trace)
     assert any("not a legal" in limitation.lower() for limitation in result.limitations)
 
 
 def test_unknown_document_scope_is_reported_not_silently_used(tmp_path: Path):
-    store = Store(tmp_path / "workflow.db")
+    store = Store(tmp_path / "pipeline.db")
     store.add_document("known", "Known.pdf", [(1, "Scope 1 emissions were 100 tCO2e in 2024.")])
 
-    result = ESGAnalysisPipeline(store, retrieval_mode="bm25").run(
+    result = ESGPipeline(store, retrieval_mode="bm25").run(
         "What were Scope 1 emissions?",
         top_k=3,
         document_ids=["missing-id"],
@@ -65,8 +64,8 @@ def test_unknown_document_scope_is_reported_not_silently_used(tmp_path: Path):
     assert any("unknown document ids" in item.lower() for item in result.limitations)
 
 
-def test_supervisor_agent_graph_exposes_route_and_mode(tmp_path: Path):
-    store = Store(tmp_path / "workflow.db")
+def test_pipeline_uses_one_fixed_execution_path(tmp_path: Path):
+    store = Store(tmp_path / "pipeline.db")
     store.add_document(
         "acme-2024",
         "Acme Sustainability Report 2024.pdf",
@@ -75,22 +74,16 @@ def test_supervisor_agent_graph_exposes_route_and_mode(tmp_path: Path):
         year=2024,
     )
 
-    result = ESGAnalysisPipeline(store, retrieval_mode="bm25").run(
-        "What were Acme Scope 1 emissions?",
-        top_k=3,
-        document_ids=["acme-2024"],
-        agent_mode="deterministic",
+    result = ESGPipeline(store, retrieval_mode="bm25").run(
+        "What were Acme Scope 1 emissions?", top_k=3, document_ids=["acme-2024"]
     )
 
-    assert result.requested_agent_mode == "deterministic"
-    assert result.agent_mode == "deterministic_fallback"
-    assert result.agent_stop_reason == "completed"
-    assert result.agent_route == ["Planner", "Evidence", "Analysis", "Answer"]
-    assert any("Supervisor: handoff" in item for item in result.trace)
+    assert result.answer
+    assert all("Supervisor" not in item for item in result.trace)
 
 
 def test_temporal_specialized_stage_uses_store_scope_once(tmp_path: Path):
-    store = Store(tmp_path / "workflow.db")
+    store = Store(tmp_path / "pipeline.db")
     store.add_document(
         "acme-2023",
         "Acme 2023.pdf",
@@ -103,7 +96,7 @@ def test_temporal_specialized_stage_uses_store_scope_once(tmp_path: Path):
         company="Acme",
         metric="scope_1_emissions",
     )
-    pipeline = ESGAnalysisPipeline(store, audit_service=audit)
+    pipeline = ESGPipeline(store, audit_service=audit)
     state = AnalysisState(
         request_id="test-request",
         user_question="Show Scope 1 trend for Acme",

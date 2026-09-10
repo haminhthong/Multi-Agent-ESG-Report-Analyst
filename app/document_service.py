@@ -47,7 +47,6 @@ class DocumentIngestionService:
     def __init__(self, store: Store, ocr_provider: OCRProvider | None = None):
         self.store = store
         self.ocr_provider = ocr_provider or TesseractOCRProvider()
-        self.doc_agent = DocumentProcessor
 
     def ingest(
         self,

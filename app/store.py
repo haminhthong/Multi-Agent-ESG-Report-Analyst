@@ -1043,7 +1043,3 @@ class Store:
             selected.extend(overflow[: limit - len(selected)])
 
         return selected
-
-
-# Alias phục vụ khái niệm pluggable retrieval backends trong README
-SQLiteFTSStore = Store

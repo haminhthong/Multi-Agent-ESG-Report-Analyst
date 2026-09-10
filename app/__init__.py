@@ -1,1 +1,1 @@
-"""Multi-Agent ESG Report Analyst."""
+"""Evidence-Grounded ESG Report Analyst."""

@@ -22,9 +22,9 @@ from app.evaluation import (
     evaluate_retrieval_ablation,
     load_evaluation_cases,
 )
+from app.pipeline import ESGPipeline
 from app.reranker import reranker
 from app.store import Store
-from app.workflow import ESGAnalysisPipeline
 
 
 def compute_file_hash(filepath: Path) -> str:
@@ -77,7 +77,7 @@ def main():
     print("   -> Saved reports/retrieval_ablation.json")
 
     print("2. Running Structured Fact Extraction Benchmark...")
-    supervisor = ESGAnalysisPipeline(store)
+    pipeline = ESGPipeline(store)
     extraction_cases = [
         ExtractionEvalCase(
             id="boeing_suppliers_extracted",
@@ -116,13 +116,13 @@ def main():
             expected_year=2024,
         ),
     ]
-    ext_report = evaluate_extraction(supervisor, extraction_cases)
+    ext_report = evaluate_extraction(pipeline, extraction_cases)
     ext_json = ext_report.model_dump_json(indent=2)
     (reports_dir / "extraction_eval.json").write_text(ext_json, encoding="utf-8")
     print("   -> Saved reports/extraction_eval.json")
 
     print("3. Running Answer Quality & Faithfulness Benchmark...")
-    ans_report = evaluate_answer_quality(supervisor, ans_cases, top_k=6)
+    ans_report = evaluate_answer_quality(pipeline, ans_cases, top_k=6)
     ans_json = ans_report.model_dump_json(indent=2)
     (reports_dir / "answer_eval.json").write_text(ans_json, encoding="utf-8")
     print("   -> Saved reports/answer_eval.json")

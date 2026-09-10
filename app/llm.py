@@ -17,7 +17,7 @@ class LLMClient:
     - Zero-Cost First: Hỗ trợ Ollama cục bộ hoàn toàn miễn phí ($0 API cost).
     - Graceful Fallback: Nếu endpoint không khả dụng hoặc tắt, tự động trả về None
       để hệ thống chuyển sang Deterministic Heuristic Engine mà không gây lỗi.
-    - Hỗ trợ Structured JSON Generation và Agentic Planning.
+    - Chỉ hỗ trợ tổng hợp câu trả lời và kiểm tra grounding khi được bật.
     """
 
     def __init__(
@@ -90,38 +90,6 @@ class LLMClient:
         except Exception as exc:  # noqa: BLE001 - optional LLM request boundary
             logger.debug("LLM call failed with exception: %s. Falling back.", exc)
             return None
-
-    def generate_plan(self, question: str, mode: str = "qa") -> list[dict[str, Any]] | None:
-        """Sinh kế hoạch hành động cấu trúc (Structured Tool Planning) cho Supervisor Agent."""
-        system_prompt = (
-            "You are an AI Supervisor for an ESG report analysis platform. "
-            "Given a user query and mode, generate a JSON object with a 'plan' list of tools to call. "
-            "Available tools:\n"
-            "- search_document(query: str, top_k: int)\n"
-            "- retrieve_evidence(chunk_ids: list[int])\n"
-            "- extract_metric(text: str)\n"
-            "- score_rubric(pillar: str)\n"
-            "- verify_claim(claim: str, excerpt: str)\n\n"
-            'Respond strictly with valid JSON: {"plan": [{"tool": "...", "args": {...}}]}'
-        )
-        user_prompt = f"User Question: '{question}'\nMode: '{mode}'"
-        raw = self.chat_completion(
-            [
-                {"role": "system", "content": system_prompt},
-                {"role": "user", "content": user_prompt},
-            ],
-            temperature=0.1,
-            response_json=True,
-        )
-        if not raw:
-            return None
-        try:
-            parsed = json.loads(raw)
-            if isinstance(parsed, dict) and "plan" in parsed and isinstance(parsed["plan"], list):
-                return parsed["plan"]
-        except Exception as exc:  # noqa: BLE001 - malformed optional LLM response
-            logger.debug("LLM plan parsing failed: %s", exc)
-        return None
 
     def verify_grounding(self, claim: str, evidence_text: str) -> bool:
         """NLI-style verification: kiểm tra xem claim có được hỗ trợ trực tiếp bởi evidence hay không."""

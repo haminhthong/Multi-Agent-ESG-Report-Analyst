@@ -41,7 +41,7 @@ class AnswerGenerator:
             if answer and len(answer.strip()) > 20:
                 grounded, _ = validate_answer_grounding(answer, payload)
                 if grounded:
-                    from app.capabilities.verification import CitationVerifier
+                    from app.grounding import CitationVerifier
 
                     claim_grounded, _ = CitationVerifier.verify_claim_grounding(
                         answer, citations[:6], llm_client=self.llm

@@ -36,11 +36,11 @@ from app.models import (
     TemporalAnalysisResult,
     TemporalRequest,
 )
+from app.pipeline import ESGPipeline
 from app.store import Store
-from app.workflow import ESGAnalysisPipeline
 
 store = Store(settings.database_path)
-pipeline = ESGAnalysisPipeline(store)
+pipeline = ESGPipeline(store)
 document_service = DocumentIngestionService(store)
 fact_repository = FactRepository(store)
 
@@ -75,9 +75,9 @@ async def lifespan(_: FastAPI) -> AsyncIterator[None]:
 
 
 app = FastAPI(
-    title="Multi-Agent ESG Report Analyst — Evidence-Grounded ESG Intelligence",
+    title="Evidence-Grounded ESG Report Analyst",
     description=(
-        "Evidence-first ESG report analysis with an explicit application workflow, "
+        "Evidence-grounded ESG report analysis with an explicit application pipeline, "
         "hybrid retrieval, structured fact extraction, disclosure auditing, and "
         "heuristic greenwashing screening."
     ),
@@ -113,8 +113,8 @@ def index() -> FileResponse:
 def health() -> dict[str, Any]:
     return {
         "status": "ok",
-        "system": "Multi-Agent ESG Report Analyst",
-        "pipeline": "explicit-application-workflow",
+        "system": "Evidence-Grounded ESG Report Analyst",
+        "pipeline": "extract-retrieve-validate-analyze-answer",
         **store.stats(),
     }
 
@@ -164,7 +164,7 @@ async def upload_document(
         ) from exc
 
 
-@app.post("/api/analyze", response_model=AnalysisResponse, summary="Run ESG analysis workflow")
+@app.post("/api/analyze", response_model=AnalysisResponse, summary="Run ESG analysis pipeline")
 def analyze(request: AnalysisRequest) -> AnalysisResponse:
     return pipeline.run(
         question=request.question,
@@ -172,7 +172,6 @@ def analyze(request: AnalysisRequest) -> AnalysisResponse:
         document_ids=request.document_ids,
         mode=request.mode,
         focus_pillars=request.focus_pillars,
-        agent_mode=request.agent_mode,
     )
 
 
@@ -184,7 +183,6 @@ def query_endpoint(request: AnalysisRequest) -> AnalysisResponse:
         document_ids=request.document_ids,
         mode="qa",
         focus_pillars=request.focus_pillars,
-        agent_mode=request.agent_mode,
     )
 
 
@@ -199,7 +197,6 @@ def audit_endpoint(request: AuditRequest) -> AnalysisResponse:
         document_ids=request.document_ids,
         mode="audit",
         focus_pillars=request.focus_pillars,
-        agent_mode=request.agent_mode,
     )
 
 
@@ -269,7 +266,7 @@ def document_audit_matrix(document_id: str) -> list[EvidenceMatrixRow]:
     return response.evidence_matrix
 
 
-@app.get("/api/analysis/recent/trace", summary="Inspect the most recent workflow trace")
+@app.get("/api/analysis/recent/trace", summary="Inspect the most recent pipeline trace")
 def recent_trace() -> dict[str, Any]:
     last = pipeline.last_response
     if last is None:
@@ -285,14 +282,8 @@ def recent_trace() -> dict[str, Any]:
         "request_id": last.request_id,
         "analysis_status": last.status,
         "mode": last.mode,
-        "agent_mode": last.agent_mode,
-        "requested_agent_mode": last.requested_agent_mode,
-        "agent_route": last.agent_route,
-        "agent_stop_reason": last.agent_stop_reason,
-        "versions": last.versions,
         "intent": last.plan.intent if last.plan else None,
         "trace": last.trace,
-        "trace_steps": [step.model_dump() for step in last.trace_steps],
         "evidence_completeness": last.evidence_completeness,
         "disclosure_coverage": last.disclosure_coverage,
         "retrieval_mode": settings.retrieval_mode,

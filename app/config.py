@@ -4,7 +4,7 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
 class Settings(BaseSettings):
-    """Cấu hình toàn cục cho ứng dụng Multi-Agent ESG Report Analyst.
+    """Cấu hình toàn cục cho Evidence-Grounded ESG Report Analyst.
 
     Cung cấp các giá trị mặc định cho đường dẫn cơ sở dữ liệu SQLite và tham số
     truy xuất. Các giá trị này có thể được ghi đè thông qua biến môi trường

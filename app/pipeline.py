@@ -1,9 +1,4 @@
-"""Canonical application workflow for evidence-grounded ESG analysis.
-
-HTTP and CLI adapters should call this module instead of assembling components
-on their own. Orchestration is deterministic and observable; optional LLM usage is
-contained inside bounded capabilities.
-"""
+"""Pipeline tuần tự cho phân tích ESG có bằng chứng."""
 
 from __future__ import annotations
 
@@ -12,22 +7,18 @@ import time
 import uuid
 from typing import Any, Literal
 
-from app.agent_runtime import AgentGraphSupervisor, AgentNode
 from app.capabilities import (
     AnswerGenerator,
     AnswerValidator,
     CitationVerifier,
     EvidenceRetriever,
-    QueryPlanner,
+    build_retrieval_plan,
 )
 from app.config import settings
 from app.domain.evidence_completeness import EvidenceCompletenessGate
 from app.extraction.extractor import FactExtractor
-from app.facts.repository import FactRepository
 from app.llm import LLMClient
 from app.models import (
-    AgentExecutionMode,
-    AgentTraceStep,
     AnalysisResponse,
     AnalysisState,
     Citation,
@@ -38,7 +29,6 @@ from app.models import (
 )
 from app.services.esg_analysis_service import ESGAnalysisService
 from app.store import Store
-from app.tools import AgentTools
 
 AUDIT_SUBQUERIES = [
     "Scope 1 Scope 2 direct indirect greenhouse gas emissions tCO2e",
@@ -75,16 +65,8 @@ _EVIDENCE_ALIASES: dict[str, tuple[str, ...]] = {
 }
 
 
-class ESGAnalysisPipeline:
-    """One runtime path for API, CLI, and evaluation adapters.
-
-    Stages:
-    Planner -> Evidence -> Analysis -> Answer.
-
-    Each role delegates deterministic work to a focused capability. The route
-    is intentionally short so the workflow remains observable without turning
-    every validation function into a separate agent.
-    """
+class ESGPipeline:
+    """Đường chạy chung cho API, CLI và evaluation adapters."""
 
     def __init__(
         self,
@@ -95,109 +77,15 @@ class ESGAnalysisPipeline:
     ) -> None:
         self.store = store
         self.llm = llm_client or LLMClient()
-        self.tools = AgentTools(store)
-        self.planner = QueryPlanner()
         self.retrieval = EvidenceRetriever(store, mode=retrieval_mode)
         self.verifier = CitationVerifier()
         self.answer_validator = AnswerValidator()
         self.extractor = FactExtractor()
         self.audit = audit_service or ESGAnalysisService(llm_client=self.llm)
-        self.analysis = self.audit
         self.answer_generator = AnswerGenerator(llm_client=self.llm)
         self.completeness_gate = EvidenceCompletenessGate()
-        self.fact_repository = FactRepository(store)
-        self.agent_supervisor = AgentGraphSupervisor(max_steps=8)
         self.retrieval_mode = retrieval_mode or settings.retrieval_mode
         self.last_response: AnalysisResponse | None = None
-
-    def _execute_llm_plan_steps(
-        self,
-        llm_plan: list[dict[str, Any]],
-        question: str,
-        document_ids: list[str] | None,
-        top_k: int,
-    ) -> tuple[list[Citation], list[str], int]:
-        """Execute subset of tools proposed by LLM plan."""
-        extra_citations: list[Citation] = []
-        logs: list[str] = []
-        executed = 0
-
-        for step in llm_plan[:6]:
-            if not isinstance(step, dict):
-                continue
-            tool = step.get("tool")
-            args = step.get("args") if isinstance(step.get("args"), dict) else {}
-            try:
-                if tool == "search_document":
-                    query = str(args.get("query") or question)
-                    limit = int(args.get("top_k") or args.get("limit") or top_k)
-                    hits = self.tools.search_document(
-                        query=query,
-                        limit=max(1, min(limit, 15)),
-                        document_ids=document_ids,
-                    )
-                    extra_citations.extend(hits)
-                    executed += 1
-                    logs.append(f"Tool search_document: {len(hits)} hits for '{query[:80]}'")
-                elif tool == "retrieve_evidence":
-                    chunk_ids = args.get("chunk_ids") or []
-                    if isinstance(chunk_ids, list) and chunk_ids:
-                        rows = self.tools.retrieve_evidence([int(x) for x in chunk_ids[:20]])
-                        for row in rows:
-                            extra_citations.append(
-                                Citation(
-                                    chunk_id=row["chunk_id"],
-                                    document_id=row["document_id"],
-                                    document_name=row.get("name") or row["document_id"],
-                                    page=row["page"],
-                                    excerpt=" ".join((row.get("text") or "").split())[:700],
-                                    section=row.get("section_title"),
-                                    block_id=row.get("block_id"),
-                                    block_type=row.get("block_type", "text"),
-                                    evidence_id=(
-                                        f"{row['document_id']}:p{row['page']}:{row.get('stable_id') or row.get('block_id') or row['chunk_id']}"
-                                    ),
-                                )
-                            )
-                        executed += 1
-                        logs.append(f"Tool retrieve_evidence: {len(rows)} chunks")
-                elif tool == "extract_metric":
-                    text = str(args.get("text") or "")
-                    if text:
-                        result = AgentTools.extract_metric(text)
-                        executed += 1
-                        logs.append(
-                            f"Tool extract_metric: metrics={len(result.get('metrics', []))}, "
-                            f"years={result.get('years')}"
-                        )
-                elif tool == "score_rubric":
-                    pillar = str(args.get("pillar") or "E").upper()
-                    if pillar not in ("E", "S", "G"):
-                        pillar = "E"
-                    texts = args.get("evidence_texts") or []
-                    if not isinstance(texts, list):
-                        texts = []
-                    result = AgentTools.score_rubric(pillar, [str(t) for t in texts])
-                    executed += 1
-                    logs.append(
-                        f"Tool score_rubric({pillar}): coverage={result.get('disclosure_coverage')}%"
-                    )
-                elif tool == "verify_claim":
-                    claim = str(args.get("claim") or "")
-                    excerpt = str(args.get("excerpt") or "")
-                    if claim and excerpt:
-                        result = AgentTools.verify_claim(claim, excerpt)
-                        executed += 1
-                        logs.append(
-                            f"Tool verify_claim: supported={result.get('supported')} "
-                            f"overlap={result.get('keyword_overlap')}"
-                        )
-                else:
-                    logs.append(f"Tool skipped (unsupported): {tool}")
-            except Exception as exc:  # noqa: BLE001 - bounded optional tool boundary
-                logs.append(f"Tool {tool} failed: {exc}")
-
-        return extra_citations, logs, executed
 
     def run(
         self,
@@ -206,59 +94,34 @@ class ESGAnalysisPipeline:
         document_ids: list[str] | None = None,
         mode: Literal["qa", "audit"] = "qa",
         focus_pillars: list[Literal["E", "S", "G"]] | None = None,
-        agent_mode: AgentExecutionMode = "orchestrated",
     ) -> AnalysisResponse:
-        requested_agent_mode: AgentExecutionMode = (
-            agent_mode
-            if agent_mode in {"agentic", "orchestrated", "deterministic"}
-            else "orchestrated"
-        )
-        is_llm_active = requested_agent_mode != "deterministic" and self.llm.is_available()
-        resolved_agent_mode: Literal["llm_agentic", "deterministic_fallback", "agent_orchestrated"]
-        if requested_agent_mode == "deterministic":
-            resolved_agent_mode = "deterministic_fallback"
-        elif requested_agent_mode == "agentic" and is_llm_active:
-            resolved_agent_mode = "llm_agentic"
-        elif is_llm_active:
-            resolved_agent_mode = "agent_orchestrated"
-        else:
-            resolved_agent_mode = "deterministic_fallback"
-
         state = AnalysisState(
             request_id=str(uuid.uuid4()),
             user_question=question,
             mode=mode,
             document_ids=document_ids,
             top_k=top_k,
-            agent_mode=requested_agent_mode,
         )
         state.trace.append(
-            f"workflow.start request_id={state.request_id} mode={mode} retrieval={self.retrieval_mode}"
+            f"pipeline.start request_id={state.request_id} mode={mode} retrieval={self.retrieval_mode}"
         )
 
-        plan_extra_citations: list[Citation] = []
-        if requested_agent_mode == "deterministic" or not is_llm_active:
-            state.trace.append(
-                "Supervisor: Chạy chế độ Deterministic Heuristic Engine ($0 API Cost Fallback)"
-            )
-        else:
-            state.trace.append(
-                "Supervisor: LLM Structured Planning — sinh và thực thi tool plan (nếu có)"
-            )
-            llm_plan = self.llm.generate_plan(question, mode=mode)
-            if llm_plan:
-                extra_cites, tool_logs, _ = self._execute_llm_plan_steps(
-                    llm_plan, question, document_ids, top_k
-                )
-                plan_extra_citations.extend(extra_cites)
-                state.trace.extend(tool_logs)
-
-        route_result = self.agent_supervisor.execute(
-            state,
-            self._build_role_nodes(state, focus_pillars, plan_extra_citations),
-            start="Planner",
-        )
-        state.agent_stop_reason = route_result.stop_reason
+        # Luồng chính cố định giúp dễ kiểm thử và không để LLM điều khiển pipeline.
+        self._validate_scope(state)
+        self._plan(state)
+        self._retrieve(state)
+        if state.raw_citations:
+            self._verify(state)
+        if state.validated_citations:
+            self._extract(state)
+        self._check_completeness(state)
+        self._audit(state, focus_pillars)
+        if state.plan and state.plan.intent in {"temporal_trend", "cross_document_compare"}:
+            self._run_specialized_analysis(state)
+        self._verify_claims(state)
+        self._synthesize(state)
+        self._review_answer(state)
+        self._build_limitations(state)
 
         evidence_quality, data_completeness, confidence = _aggregate_pillar_metrics(state.pillars)
         response_status = (
@@ -268,10 +131,6 @@ class ESGAnalysisPipeline:
         )
         response = AnalysisResponse(
             mode=state.mode,
-            agent_mode=resolved_agent_mode,
-            requested_agent_mode=requested_agent_mode,
-            agent_route=state.agent_route,
-            agent_stop_reason=state.agent_stop_reason,
             request_id=state.request_id,
             status=response_status,
             answer=state.answer,
@@ -295,90 +154,11 @@ class ESGAnalysisPipeline:
             temporal_analysis=state.temporal_analysis,
             comparison=state.comparison,
             evidence_completeness=state.evidence_completeness,
-            trace_steps=state.trace_steps,
             claims=state.claims,
-            versions={
-                "planner": "retrieval-plan-v2",
-                "retrieval": "hybrid-rerank-v1",
-                "extractor": "esg-extractor-v2",
-                "rubric": "climate-disclosure-v1",
-            },
             criterion_bundles=state.criterion_bundles,
         )
         self.last_response = response
         return response
-
-    def _build_role_nodes(
-        self,
-        state: AnalysisState,
-        focus_pillars: list[Literal["E", "S", "G"]] | None,
-        plan_extra_citations: list[Citation],
-    ) -> dict[str, AgentNode]:
-        """Build the four-role graph for one request.
-
-        The graph is intentionally request-scoped so closures cannot leak data
-        between concurrent API requests.
-        """
-
-        def evidence_stage() -> None:
-            self._retrieve(state)
-            if plan_extra_citations:
-                state.raw_citations = self._merge_citations(
-                    state.raw_citations,
-                    plan_extra_citations,
-                    limit=max(state.top_k, 12),
-                )
-
-        def planner_stage() -> None:
-            self._validate_scope(state)
-            self._plan(state)
-
-        def evidence_role() -> None:
-            evidence_stage()
-            if state.raw_citations:
-                self._verify(state)
-            if state.validated_citations:
-                self._extract(state)
-            self._check_completeness(state)
-            if state.evidence_completeness.get("status") == "incomplete":
-                state.trace.append("Evidence role: continue with explicit evidence limitations")
-
-        def analysis_role() -> None:
-            self._audit(state, focus_pillars)
-            if state.plan and state.plan.intent in {
-                "temporal_trend",
-                "cross_document_compare",
-            }:
-                self._run_specialized_analysis(state)
-
-        def answer_role() -> None:
-            self._verify_claims(state)
-            self._synthesize(state)
-            self._review_answer(state)
-            self._build_limitations(state)
-
-        return {
-            "Planner": AgentNode(
-                name="Planner",
-                run=planner_stage,
-                next_agent=lambda _: "Evidence",
-            ),
-            "Evidence": AgentNode(
-                name="Evidence",
-                run=evidence_role,
-                next_agent=lambda _: "Analysis",
-            ),
-            "Analysis": AgentNode(
-                name="Analysis",
-                run=analysis_role,
-                next_agent=lambda _: "Answer",
-            ),
-            "Answer": AgentNode(
-                name="Answer",
-                run=answer_role,
-                next_agent=lambda _: None,
-            ),
-        }
 
     @staticmethod
     def _merge_citations(
@@ -405,7 +185,7 @@ class ESGAnalysisPipeline:
                 state.document_ids = [doc_id for doc_id in state.document_ids if doc_id in existing]
         self._trace(
             state,
-            "Workflow",
+            "Pipeline",
             "Validate request and document scope",
             started,
             details={"document_scope": state.document_ids or [], "warnings": state.warnings},
@@ -413,7 +193,7 @@ class ESGAnalysisPipeline:
 
     def _plan(self, state: AnalysisState) -> None:
         started = time.perf_counter()
-        state.plan = self.planner.plan(
+        state.plan = build_retrieval_plan(
             state.user_question,
             mode=state.mode,
             document_ids=state.document_ids,
@@ -858,23 +638,15 @@ class ESGAnalysisPipeline:
     @staticmethod
     def _trace(
         state: AnalysisState,
-        agent: str,
+        stage: str,
         step: str,
         started: float,
         retrieved_chunks: int = 0,
         details: dict[str, Any] | None = None,
     ) -> None:
         latency_ms = round((time.perf_counter() - started) * 1000, 2)
-        state.trace_steps.append(
-            AgentTraceStep(
-                agent=agent,
-                step=step,
-                latency_ms=latency_ms,
-                retrieved_chunks=retrieved_chunks,
-                details=details or {},
-            )
-        )
-        state.trace.append(f"{agent}: {step} ({latency_ms} ms)")
+        suffix = f", chunks={retrieved_chunks}" if retrieved_chunks else ""
+        state.trace.append(f"{stage}: {step} ({latency_ms} ms{suffix})")
 
 
 def _citation_key(citation: Citation) -> str:
