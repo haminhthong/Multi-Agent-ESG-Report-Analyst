@@ -307,7 +307,6 @@ class Store:
 
     def close(self) -> None:
         """Đóng tài nguyên kho dữ liệu nếu có."""
-        pass
 
     def add_document(
         self,
