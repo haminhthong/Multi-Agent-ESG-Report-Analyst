@@ -49,7 +49,7 @@ class AnswerGenerator:
                     if claim_grounded:
                         return answer
 
-        return self._deterministic_answer(
+        return self.build_deterministic_answer(
             mode,
             pillars,
             overall_coverage,
@@ -59,7 +59,7 @@ class AnswerGenerator:
         )
 
     @staticmethod
-    def _deterministic_answer(
+    def build_deterministic_answer(
         mode: Literal["qa", "audit"],
         pillars: list[PillarResult],
         overall_coverage: float,

@@ -3,7 +3,6 @@
 import hashlib
 import re
 
-from app.extraction.fact_validator import detect_conflicts
 from app.extraction.metric_detector import FACT_PATTERNS
 from app.extraction.unit_normalizer import UnitNormalizer
 from app.extraction.value_parser import parse_numeric_value
@@ -12,19 +11,19 @@ from app.extraction.year_resolver import (
     extract_year_for_span,
     resolve_target_year,
 )
-from app.models import Citation, ESGFact, EvidenceConflict
+from app.models import Citation, ESGFact
 from app.rubric import TARGET_PATTERN, YEAR_PATTERN
 
 
 class FactExtractor:
-    """Năng lực Trích xuất Sự thật ESG có Cấu trúc (Structured ESG Fact Extraction).
+    """Bộ trích xuất fact ESG có cấu trúc.
 
     Nhiệm vụ:
-    1. Quét các đoạn trích dẫn (Citations) được truy xuất để trích xuất số liệu ESG có cấu trúc.
-    2. Chuẩn hóa đơn vị đo lường (tCO2e, %, MWh, etc.) và lưu vết song song raw và normalized.
-    3. Xác định năm báo cáo cục bộ theo metric span (tránh nhầm năm cơ sở).
-    4. Gắn citation nguồn (Provenance) và tính độ tin cậy trích xuất (Confidence Score).
-    5. Phát hiện mâu thuẫn số liệu đa chiều (Multidimensional Conflict Detection).
+    1. Trích xuất số liệu ESG có cấu trúc từ các đoạn bằng chứng.
+    2. Chuẩn hóa đơn vị và giữ cả giá trị nguyên bản lẫn giá trị đã chuẩn hóa.
+    3. Xác định năm báo cáo theo phạm vi xuất hiện của metric.
+    4. Gắn nguồn và tính độ tin cậy của fact được trích xuất.
+    5. Phát hiện mâu thuẫn giữa các fact bằng validator chuyên biệt.
     """
 
     @classmethod
@@ -150,11 +149,6 @@ class FactExtractor:
                 facts.append(fact)
 
         return facts
-
-    @classmethod
-    def detect_conflicts(cls, facts: list[ESGFact]) -> list[EvidenceConflict]:
-        """Phát hiện mâu thuẫn số liệu công bố đa chiều."""
-        return detect_conflicts(facts)
 
 
 def _evidence_span_id(citation: Citation) -> str:

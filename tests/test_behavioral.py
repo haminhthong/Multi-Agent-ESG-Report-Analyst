@@ -1,6 +1,7 @@
 from pathlib import Path
 
 from app.extraction.extractor import FactExtractor
+from app.extraction.fact_validator import detect_conflicts
 from app.facts.repository import FactRepository
 from app.models import Citation, ESGFact
 from app.query_plan import build_retrieval_plan
@@ -106,7 +107,7 @@ def test_conflicting_evidence_detection():
     )
     extractor = FactExtractor()
     facts = extractor.extract_facts([cite1, cite2])
-    conflicts = extractor.detect_conflicts(facts)
+    conflicts = detect_conflicts(facts)
 
     assert len(conflicts) > 0
     assert any(c.metric == "scope_1_emissions" for c in conflicts)

@@ -2,6 +2,7 @@ from pathlib import Path
 
 from app.domain.rubric_evaluator import RubricEvaluator
 from app.extraction.extractor import FactExtractor
+from app.extraction.fact_validator import detect_conflicts
 from app.extraction.unit_normalizer import UnitNormalizer
 from app.extraction.year_resolver import extract_year_for_span
 from app.models import Citation, RubricCriterion
@@ -97,7 +98,7 @@ def test_multidimensional_conflict_detection():
         excerpt="In 2023, location-based Scope 2 emissions were 850,000 tCO2e.",
     )
     facts = FactExtractor.extract_facts([cite_mkt, cite_loc])
-    conflicts = FactExtractor.detect_conflicts(facts)
+    conflicts = detect_conflicts(facts)
 
     # Khác phương pháp luận nên không được coi là conflict.
     assert len(conflicts) == 0
@@ -120,7 +121,7 @@ def test_genuine_conflict_detected():
         excerpt="In 2023, Scope 1 direct emissions reached 190,000 tCO2e.",
     )
     facts = FactExtractor.extract_facts([cite1, cite2])
-    conflicts = FactExtractor.detect_conflicts(facts)
+    conflicts = detect_conflicts(facts)
 
     assert len(conflicts) > 0
     assert conflicts[0].metric == "scope_1_emissions"

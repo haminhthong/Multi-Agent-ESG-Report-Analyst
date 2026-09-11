@@ -7,7 +7,6 @@ from app.domain.evidence_matrix import EvidenceMatrixBuilder
 from app.domain.rubric_evaluator import PillarEvaluator, RubricEvaluator
 from app.domain.screening import GreenwashingScreeningService
 from app.domain.temporal_analysis import TemporalAnalyzer
-from app.llm import LLMClient
 from app.models import (
     Citation,
     CompanyComparisonResult,
@@ -32,7 +31,6 @@ class ESGAnalysisService:
         matrix_builder: EvidenceMatrixBuilder | None = None,
         temporal_analyzer: TemporalAnalyzer | None = None,
         comparison_service: CompanyComparisonService | None = None,
-        llm_client: LLMClient | None = None,
     ) -> None:
         self.rubric_evaluator = rubric_evaluator or RubricEvaluator()
         self.pillar_evaluator = pillar_evaluator or PillarEvaluator(self.rubric_evaluator)
@@ -42,7 +40,6 @@ class ESGAnalysisService:
         self.comparison_service = comparison_service or CompanyComparisonService(
             self.rubric_evaluator, self.matrix_builder
         )
-        self.llm = llm_client
 
     def run(
         self,

@@ -1,8 +1,5 @@
-from app.domain.rubric_evaluator import (
-    EvidenceMatrixBuilder,
-    PillarEvaluator,
-    RubricEvaluator,
-)
+from app.domain.evidence_matrix import EvidenceMatrixBuilder
+from app.domain.rubric_evaluator import PillarEvaluator, RubricEvaluator
 from app.models import Citation, ESGFact, RubricCriterion
 from app.rubric import CLIMATE_RUBRIC_PATH, CRITERIA_DEFINITIONS, RUBRICS
 

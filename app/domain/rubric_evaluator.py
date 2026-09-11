@@ -1,6 +1,5 @@
 from typing import Literal
 
-from app.domain.evidence_matrix import EvidenceMatrixBuilder
 from app.models import (
     Citation,
     CriterionCitationRef,
@@ -23,12 +22,6 @@ from app.rubric import (
     PillarRubric,
     resolve_criterion_id,
 )
-
-__all__ = [
-    "EvidenceMatrixBuilder",
-    "PillarEvaluator",
-    "RubricEvaluator",
-]
 
 
 def _contains_any(text: str, keywords: tuple[str, ...]) -> bool:

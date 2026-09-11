@@ -96,7 +96,7 @@ def test_temporal_specialized_stage_uses_store_scope_once(tmp_path: Path):
         company="Acme",
         metric="scope_1_emissions",
     )
-    pipeline = ESGPipeline(store, audit_service=audit)
+    pipeline = ESGPipeline(store, analysis_service=audit)
     state = AnalysisState(
         request_id="test-request",
         user_question="Show Scope 1 trend for Acme",

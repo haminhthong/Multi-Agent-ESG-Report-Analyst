@@ -180,7 +180,7 @@ SEARCH_COLUMNS = (
 class Store:
     """Kho lưu trữ dữ liệu SQLite FTS5 quản lý metadata báo cáo, danh sách chunk phân tầng và vector embedding.
 
-    Triển khai chuẩn mực theo giao diện `RetrievalStore` (Local-First Architecture).
+    Triển khai lưu trữ cục bộ theo giao diện `RetrievalStore`.
     """
 
     def __init__(self, path: Path):

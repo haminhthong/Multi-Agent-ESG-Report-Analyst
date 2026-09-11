@@ -202,7 +202,7 @@ def audit_endpoint(request: AuditRequest) -> AnalysisResponse:
 
 @app.post("/api/compare", response_model=CompanyComparisonResult, summary="Compare companies")
 def compare_endpoint(request: ComparisonRequest) -> CompanyComparisonResult:
-    return pipeline.audit.run_comparison(
+    return pipeline.analysis.run_comparison(
         companies=request.companies,
         store=pipeline.store,
         criteria_ids=request.criteria_ids,
@@ -211,7 +211,7 @@ def compare_endpoint(request: ComparisonRequest) -> CompanyComparisonResult:
 
 @app.post("/api/temporal", response_model=TemporalAnalysisResult, summary="Analyze ESG trend")
 def temporal_endpoint(request: TemporalRequest) -> TemporalAnalysisResult:
-    return pipeline.audit.run_temporal_analysis(
+    return pipeline.analysis.run_temporal_analysis(
         company=request.company,
         store=pipeline.store,
         metric=request.metric,
@@ -264,29 +264,3 @@ def document_audit_matrix(document_id: str) -> list[EvidenceMatrixRow]:
         mode="audit",
     )
     return response.evidence_matrix
-
-
-@app.get("/api/analysis/recent/trace", summary="Inspect the most recent pipeline trace")
-def recent_trace() -> dict[str, Any]:
-    last = pipeline.last_response
-    if last is None:
-        return {
-            "status": "empty",
-            "message": "No analysis has been executed in this process.",
-            "retrieval_mode": settings.retrieval_mode,
-            "embedding_model": settings.embedding_model,
-            "reranker_model": settings.reranker_model,
-        }
-    return {
-        "status": "ok",
-        "request_id": last.request_id,
-        "analysis_status": last.status,
-        "mode": last.mode,
-        "intent": last.plan.intent if last.plan else None,
-        "trace": last.trace,
-        "evidence_completeness": last.evidence_completeness,
-        "disclosure_coverage": last.disclosure_coverage,
-        "retrieval_mode": settings.retrieval_mode,
-        "embedding_model": settings.embedding_model,
-        "reranker_model": settings.reranker_model,
-    }

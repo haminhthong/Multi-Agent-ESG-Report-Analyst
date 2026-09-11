@@ -45,7 +45,7 @@ class TemporalAnalyzer:
 
     @classmethod
     def _metric_aliases(cls, metric: str) -> tuple[str, ...]:
-        """Sinh các tên tương thích để đọc dữ liệu legacy trong Fact Store."""
+        """Sinh các tên tương đương để truy vấn cùng một loại metric."""
         normalized = re.sub(r"[^a-z0-9]+", "_", metric.casefold()).strip("_")
         canonical = cls._normalise_metric(metric)
         aliases = [metric.strip(), normalized, canonical]

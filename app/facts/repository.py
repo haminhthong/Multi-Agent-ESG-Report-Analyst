@@ -13,13 +13,13 @@ logger = logging.getLogger(__name__)
 
 
 class FactRepository:
-    """Repository quản lý vòng đời và truy vấn Fact Store chuẩn kiểm toán."""
+    """Quản lý vòng đời và truy vấn các fact ESG đã chuẩn hóa."""
 
     def __init__(self, store: Store) -> None:
         self.store = store
 
     def save_facts(self, facts: list[ESGFact]) -> int:
-        """Ghi các fact đã được xác nhận vào canonical Fact Store.
+        """Ghi các fact đã được xác nhận vào bảng fact chính.
 
         Candidate phải đi qua :meth:`save_candidates` và :meth:`promote`.
         """
@@ -72,7 +72,7 @@ class FactRepository:
         document_id: str | None = None,
         include_candidates: bool = False,
     ) -> list[ESGFact]:
-        """Truy vấn các sự thật ESG từ Fact Store và chuyển đổi về đối tượng ESGFact."""
+        """Truy vấn các fact ESG đã được chấp nhận và chuyển thành ESGFact."""
         rows = self.store.query_facts(
             company=company,
             metric=metric,
@@ -111,7 +111,7 @@ class FactRepository:
         return all_facts
 
     def detect_conflicts_in_store(self, company: str | None = None) -> list[EvidenceConflict]:
-        """Phát hiện mâu thuẫn số liệu công bố đa chiều trong Fact Store."""
+        """Phát hiện mâu thuẫn giữa các fact đã lưu."""
         facts = self.query_facts(company=company)
         return detect_conflicts(facts)
 

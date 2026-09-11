@@ -148,7 +148,7 @@ def main() -> None:
     if args.command == "compare":
         seed_demo(store)
         companies = [item.strip() for item in args.companies.split(",") if item.strip()]
-        comparison = pipeline.audit.run_comparison(companies, store)
+        comparison = pipeline.analysis.run_comparison(companies, store)
         print(f"\n=== CROSS-COMPANY DISCLOSURE COMPARISON ({', '.join(companies)}) ===")
         for finding in comparison.findings:
             print(f"• {finding}")

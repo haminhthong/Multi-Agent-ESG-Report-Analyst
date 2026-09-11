@@ -11,6 +11,7 @@ from app.answer import AnswerGenerator
 from app.config import settings
 from app.domain.evidence_completeness import EvidenceCompletenessGate
 from app.extraction.extractor import FactExtractor
+from app.extraction.fact_validator import detect_conflicts
 from app.grounding import AnswerValidator, CitationVerifier
 from app.llm import LLMClient
 from app.models import (
@@ -70,19 +71,15 @@ class ESGPipeline:
         store: Store,
         llm_client: LLMClient | None = None,
         retrieval_mode: str | None = None,
-        audit_service: ESGAnalysisService | None = None,
+        analysis_service: ESGAnalysisService | None = None,
     ) -> None:
         self.store = store
         self.llm = llm_client or LLMClient()
         self.retrieval = EvidenceRetriever(store, mode=retrieval_mode)
-        self.verifier = CitationVerifier()
-        self.answer_validator = AnswerValidator()
-        self.extractor = FactExtractor()
-        self.audit = audit_service or ESGAnalysisService(llm_client=self.llm)
+        self.analysis = analysis_service or ESGAnalysisService()
         self.answer_generator = AnswerGenerator(llm_client=self.llm)
         self.completeness_gate = EvidenceCompletenessGate()
         self.retrieval_mode = retrieval_mode or settings.retrieval_mode
-        self.last_response: AnalysisResponse | None = None
 
     def run(
         self,
@@ -154,7 +151,6 @@ class ESGPipeline:
             claims=state.claims,
             criterion_bundles=state.criterion_bundles,
         )
-        self.last_response = response
         return response
 
     @staticmethod
@@ -262,7 +258,7 @@ class ESGPipeline:
 
     def _verify(self, state: AnalysisState) -> None:
         started = time.perf_counter()
-        state.validated_citations = self.verifier.validate(state.raw_citations)
+        state.validated_citations = CitationVerifier.validate(state.raw_citations)
         self._trace(
             state,
             "Evidence",
@@ -278,8 +274,8 @@ class ESGPipeline:
 
     def _extract(self, state: AnalysisState) -> None:
         started = time.perf_counter()
-        state.extracted_facts = self.extractor.extract_facts(state.validated_citations)
-        state.conflicts = self.extractor.detect_conflicts(state.extracted_facts)
+        state.extracted_facts = FactExtractor.extract_facts(state.validated_citations)
+        state.conflicts = detect_conflicts(state.extracted_facts)
         _attach_facts_to_criterion_bundles(state)
 
         self._trace(
@@ -319,7 +315,7 @@ class ESGPipeline:
             document_scope=state.document_ids,
         )
         retry_citations = self.retrieval.run_plan(retry_plan, top_k=4)
-        validated_retry = self.verifier.validate(retry_citations)
+        validated_retry = CitationVerifier.validate(retry_citations)
 
         new_cites = [
             c
@@ -333,10 +329,10 @@ class ESGPipeline:
         ]
         if new_cites:
             state.validated_citations.extend(new_cites)
-            new_facts = self.extractor.extract_facts(new_cites)
+            new_facts = FactExtractor.extract_facts(new_cites)
             if new_facts:
                 state.extracted_facts.extend(new_facts)
-                state.conflicts = self.extractor.detect_conflicts(state.extracted_facts)
+                state.conflicts = detect_conflicts(state.extracted_facts)
 
             # Thẩm định lại completeness sau khi thu hồi thêm bằng chứng
             state.evidence_completeness = self.completeness_gate.check(
@@ -389,16 +385,18 @@ class ESGPipeline:
         focus_pillars: list[Literal["E", "S", "G"]] | None,
     ) -> None:
         started = time.perf_counter()
-        pillars, overall_coverage, _ = self.audit.run(
+        pillars, overall_coverage, _ = self.analysis.run(
             state.validated_citations,
             facts=state.extracted_facts,
             run_screening=state.mode == "audit",
         )
-        matrix = self.audit.build_scoped_evidence_matrix(
+        matrix = self.analysis.build_scoped_evidence_matrix(
             state.validated_citations, state.extracted_facts, state.criterion_bundles
         )
         screening = (
-            self.audit.screen_greenwashing_signals(state.validated_citations, state.extracted_facts)
+            self.analysis.screen_greenwashing_signals(
+                state.validated_citations, state.extracted_facts
+            )
             if state.mode == "audit"
             else None
         )
@@ -437,7 +435,7 @@ class ESGPipeline:
 
         if state.plan.intent == "temporal_trend":
             company = self._resolve_primary_company(state)
-            state.temporal_analysis = self.audit.run_temporal_analysis(
+            state.temporal_analysis = self.analysis.run_temporal_analysis(
                 company,
                 self.store,
                 metric=(state.plan.metrics[0] if state.plan.metrics else "scope_1_emissions"),
@@ -447,7 +445,7 @@ class ESGPipeline:
         elif state.plan.intent == "cross_document_compare":
             companies = self._resolve_companies(state.user_question, state.document_ids)
             if len(companies) >= 2:
-                state.comparison = self.audit.run_comparison(
+                state.comparison = self.analysis.run_comparison(
                     companies,
                     self.store,
                     criteria_ids=state.plan.criteria,
@@ -480,7 +478,7 @@ class ESGPipeline:
             }
             for claim in claims
         ]
-        state.verification_summary = self.verifier.audit_claims(
+        state.verification_summary = CitationVerifier.audit_claims(
             claims,
             state.validated_citations,
         )
@@ -527,13 +525,13 @@ class ESGPipeline:
 
     def _review_answer(self, state: AnalysisState) -> None:
         started = time.perf_counter()
-        review = self.answer_validator.review(state.answer, state.validated_citations)
+        review = AnswerValidator.review(state.answer, state.validated_citations)
         if not review["passed"]:
             state.warnings.append(
                 "[ANSWER_REVIEW] Answer was regenerated because it was not fully grounded: "
                 + ", ".join(review["issues"])
             )
-            state.answer = self.answer_generator._deterministic_answer(
+            state.answer = self.answer_generator.build_deterministic_answer(
                 state.mode,
                 state.pillars,
                 state.overall_coverage,
@@ -541,13 +539,13 @@ class ESGPipeline:
                 state.user_question,
                 state.screening_result,
             )
-            review = self.answer_validator.review(state.answer, state.validated_citations)
+            review = AnswerValidator.review(state.answer, state.validated_citations)
             if not review["passed"]:
                 state.answer = (
                     "The retrieved evidence was insufficient to produce a fully grounded answer. "
                     "No ESG conclusion is made."
                 )
-                review = self.answer_validator.review(state.answer, state.validated_citations)
+                review = AnswerValidator.review(state.answer, state.validated_citations)
 
         state.verification_summary["answer_review"] = review
         self._trace(

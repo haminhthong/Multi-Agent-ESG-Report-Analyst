@@ -121,7 +121,7 @@ Ví dụ dữ liệu rút gọn:
 }
 ~~~~
 
-Fact candidate chưa phải sự thật canonical. Chỉ fact đã được validator hoặc analyst chuyển sang ACCEPTED mới được dùng mặc định cho temporal và comparison.
+Fact candidate chưa phải dữ liệu đã xác nhận. Chỉ fact đã được validator hoặc analyst chuyển sang ACCEPTED mới được dùng mặc định cho temporal và comparison.
 
 ## Retrieval, grounding và evaluation
 
@@ -167,7 +167,7 @@ Multi-Agent-ESG-Report-Analyst/
 │  ├─ domain/                 rubric, completeness, temporal, screening
 │  ├─ extraction/             metric, unit, year và fact extraction
 │  ├─ facts/repository.py     candidate/accepted fact persistence
-│  ├─ services/               ESG rubric, matrix, temporal, comparison
+│  ├─ services/               bộ điều phối phân tích ESG
 │  ├─ llm.py                  optional synthesis/grounding client
 │  ├─ evaluation.py           retrieval/extraction metrics
 │  ├─ answer_eval.py          answer grounding metrics
@@ -180,7 +180,6 @@ Multi-Agent-ESG-Report-Analyst/
 ├─ reports/                  evaluation JSON sinh lại được
 ├─ scripts/                   tiện ích ingest/evaluation/report
 ├─ Dockerfile
-├─ docker-compose.yml
 ├─ pyproject.toml
 └─ README.md
 ~~~~
@@ -237,7 +236,6 @@ Mở http://localhost:8000. Endpoint chính:
 | POST | /api/compare | So sánh disclosure giữa công ty |
 | GET | /api/documents/{id}/metrics | Fact candidates của báo cáo |
 | PATCH | /api/v1/facts/{fact_id} | Review ACCEPTED/REJECTED/CONFLICT |
-| GET | /api/analysis/recent/trace | Trace tuần tự request gần nhất |
 
 CLI:
 
@@ -251,7 +249,12 @@ esg-analyst compare --companies "Boeing,NextEra Energy,Alcoa"
 Chạy bằng Docker:
 
 ~~~~powershell
-docker compose up --build
+docker build -t esg-report-analyst:local .
+docker run --rm -p 8000:8000 `
+  -e DATABASE_PATH=/app/data/esg.db `
+  -e RETRIEVAL_MODE=bm25 `
+  -e USE_LLM=false `
+  esg-report-analyst:local
 ~~~~
 
 ## Quality gate và CI

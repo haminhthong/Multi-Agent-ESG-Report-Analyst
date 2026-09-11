@@ -9,8 +9,7 @@ from __future__ import annotations
 import re
 from typing import Any
 
-from app.extraction.extractor import FactExtractor
-from app.models import Citation, ESGFact, EvidenceConflict
+from app.models import Citation
 from app.rubric import NEGATED_PERFORMANCE_PATTERN
 
 
@@ -189,10 +188,6 @@ class CitationVerifier:
                     refs.append(index)
                     break
         return refs
-
-    @staticmethod
-    def detect_conflicts(facts: list[ESGFact]) -> list[EvidenceConflict]:
-        return FactExtractor.detect_conflicts(facts)
 
 
 class AnswerValidator:
