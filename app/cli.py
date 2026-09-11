@@ -9,7 +9,7 @@ from app.config import settings
 from app.demo import seed_demo
 from app.document_service import DocumentIngestionService
 from app.evaluation import (
-    ExtractionEvalCase,
+    DEFAULT_EXTRACTION_CASES,
     evaluate_extraction,
     evaluate_retrieval,
     evaluate_retrieval_ablation,
@@ -80,36 +80,7 @@ def main() -> None:
 
     if args.command == "evaluate-extraction":
         seed_demo(store)
-        extraction_cases = [
-            ExtractionEvalCase(
-                id="boeing_suppliers_extracted",
-                question="How many suppliers were rated using social criteria?",
-                query_scope=["boeing-demo"],
-                expected_metric="supplier_assessment",
-                expected_value=724,
-                expected_unit="suppliers",
-                expected_year=2024,
-            ),
-            ExtractionEvalCase(
-                id="nextera_renewables_mw",
-                question="What is NextEra's total wind and solar generation capacity?",
-                query_scope=["nextera-demo"],
-                expected_metric="renewable_energy",
-                expected_value=34000,
-                expected_unit="megawatt",
-                expected_year=2024,
-            ),
-            ExtractionEvalCase(
-                id="alcoa_trir_safety",
-                question="What is Alcoa's Total Recordable Incident Rate?",
-                query_scope=["alcoa-demo"],
-                expected_metric="work_safety",
-                expected_value=1.12,
-                expected_unit=None,
-                expected_year=2024,
-            ),
-        ]
-        report = evaluate_extraction(pipeline, extraction_cases, top_k=args.top_k)
+        report = evaluate_extraction(pipeline, DEFAULT_EXTRACTION_CASES, top_k=args.top_k)
         print("\n=== STRUCTURED EXTRACTION EVALUATION ===")
         print(f"Exact match: {report.exact_match * 100:.1f}%")
         print(f"Numeric tolerance accuracy: {report.numeric_tolerance_acc * 100:.1f}%")

@@ -1,106 +1,141 @@
 {
   "cases": 10,
-  "faithfulness": 0.92,
-  "citation_correctness": 0.8033,
-  "completeness": 0.9,
-  "unsupported_claim_rate": 0.08,
+  "faithfulness": 0.0,
+  "citation_correctness": 0.5,
+  "completeness": 0.0,
+  "unsupported_claim_rate": 1.0,
+  "gold_citation_precision": 0.1567,
+  "gold_citation_recall": 0.6,
   "details": [
     {
       "id": "ans_boeing_suppliers",
-      "citation_correctness": 0.8,
-      "faithfulness": 1.0,
-      "completeness": 1.0,
-      "unsupported_claim_rate": 0.0,
-      "cited_count": 5,
-      "unsupported_claims": []
+      "citation_correctness": 0.5,
+      "faithfulness": 0.0,
+      "completeness": 0.0,
+      "unsupported_claim_rate": 1.0,
+      "cited_count": 0,
+      "unsupported_claims": [
+        "The retrieved evidence was insufficient to produce a fully grounded answer"
+      ],
+      "gold_citation_precision": 0.3333,
+      "gold_citation_recall": 1.0
     },
     {
       "id": "ans_boeing_netzero",
-      "citation_correctness": 0.8,
-      "faithfulness": 1.0,
-      "completeness": 1.0,
-      "unsupported_claim_rate": 0.0,
-      "cited_count": 5,
-      "unsupported_claims": []
+      "citation_correctness": 0.5,
+      "faithfulness": 0.0,
+      "completeness": 0.0,
+      "unsupported_claim_rate": 1.0,
+      "cited_count": 0,
+      "unsupported_claims": [
+        "The retrieved evidence was insufficient to produce a fully grounded answer"
+      ],
+      "gold_citation_precision": 0.3333,
+      "gold_citation_recall": 1.0
     },
     {
       "id": "ans_nextera_renewables",
-      "citation_correctness": 0.8,
-      "faithfulness": 1.0,
-      "completeness": 1.0,
-      "unsupported_claim_rate": 0.0,
-      "cited_count": 5,
-      "unsupported_claims": []
+      "citation_correctness": 0.5,
+      "faithfulness": 0.0,
+      "completeness": 0.0,
+      "unsupported_claim_rate": 1.0,
+      "cited_count": 0,
+      "unsupported_claims": [
+        "The retrieved evidence was insufficient to produce a fully grounded answer"
+      ],
+      "gold_citation_precision": 0.2,
+      "gold_citation_recall": 1.0
     },
     {
       "id": "ans_nextera_emissions_reduction",
-      "citation_correctness": 0.8,
-      "faithfulness": 0.8,
-      "completeness": 1.0,
-      "unsupported_claim_rate": 0.2,
-      "cited_count": 5,
+      "citation_correctness": 0.5,
+      "faithfulness": 0.0,
+      "completeness": 0.0,
+      "unsupported_claim_rate": 1.0,
+      "cited_count": 0,
       "unsupported_claims": [
-        "Key metrics include emissions intensity of 0"
-      ]
+        "The retrieved evidence was insufficient to produce a fully grounded answer"
+      ],
+      "gold_citation_precision": 0.25,
+      "gold_citation_recall": 1.0
     },
     {
       "id": "ans_nextera_assurance",
-      "citation_correctness": 0.8,
-      "faithfulness": 1.0,
-      "completeness": 0.6667,
-      "unsupported_claim_rate": 0.0,
-      "cited_count": 5,
-      "unsupported_claims": []
+      "citation_correctness": 0.5,
+      "faithfulness": 0.0,
+      "completeness": 0.0,
+      "unsupported_claim_rate": 1.0,
+      "cited_count": 0,
+      "unsupported_claims": [
+        "The retrieved evidence was insufficient to produce a fully grounded answer"
+      ],
+      "gold_citation_precision": 0.25,
+      "gold_citation_recall": 1.0
     },
     {
       "id": "ans_alcoa_safety",
-      "citation_correctness": 0.8,
-      "faithfulness": 1.0,
-      "completeness": 0.6667,
-      "unsupported_claim_rate": 0.0,
-      "cited_count": 5,
-      "unsupported_claims": []
+      "citation_correctness": 0.5,
+      "faithfulness": 0.0,
+      "completeness": 0.0,
+      "unsupported_claim_rate": 1.0,
+      "cited_count": 0,
+      "unsupported_claims": [
+        "The retrieved evidence was insufficient to produce a fully grounded answer"
+      ],
+      "gold_citation_precision": 0.0,
+      "gold_citation_recall": 0.0
     },
     {
       "id": "ans_alcoa_ecolum",
-      "citation_correctness": 0.8,
-      "faithfulness": 0.8,
-      "completeness": 0.6667,
-      "unsupported_claim_rate": 0.2,
-      "cited_count": 5,
+      "citation_correctness": 0.5,
+      "faithfulness": 0.0,
+      "completeness": 0.0,
+      "unsupported_claim_rate": 1.0,
+      "cited_count": 0,
       "unsupported_claims": [
-        "0 metric tons of CO2e per ton of aluminum produced"
-      ]
+        "The retrieved evidence was insufficient to produce a fully grounded answer"
+      ],
+      "gold_citation_precision": 0.0,
+      "gold_citation_recall": 0.0
     },
     {
       "id": "ans_alcoa_female_representation",
-      "citation_correctness": 0.8,
-      "faithfulness": 1.0,
-      "completeness": 1.0,
-      "unsupported_claim_rate": 0.0,
-      "cited_count": 5,
-      "unsupported_claims": []
+      "citation_correctness": 0.5,
+      "faithfulness": 0.0,
+      "completeness": 0.0,
+      "unsupported_claim_rate": 1.0,
+      "cited_count": 0,
+      "unsupported_claims": [
+        "The retrieved evidence was insufficient to produce a fully grounded answer"
+      ],
+      "gold_citation_precision": 0.0,
+      "gold_citation_recall": 0.0
     },
     {
       "id": "ans_alcoa_anti_corruption",
-      "citation_correctness": 0.8,
-      "faithfulness": 0.6,
-      "completeness": 1.0,
-      "unsupported_claim_rate": 0.4,
-      "cited_count": 5,
+      "citation_correctness": 0.5,
+      "faithfulness": 0.0,
+      "completeness": 0.0,
+      "unsupported_claim_rate": 1.0,
+      "cited_count": 0,
       "unsupported_claims": [
-        "During the reporting year, 99",
-        "4% of eligible salaried personnel completed comprehensive anti-corruption a"
-      ]
+        "The retrieved evidence was insufficient to produce a fully grounded answer"
+      ],
+      "gold_citation_precision": 0.0,
+      "gold_citation_recall": 0.0
     },
     {
       "id": "ans_boeing_board_governance",
-      "citation_correctness": 0.8333,
-      "faithfulness": 1.0,
-      "completeness": 1.0,
-      "unsupported_claim_rate": 0.0,
-      "cited_count": 6,
-      "unsupported_claims": []
+      "citation_correctness": 0.5,
+      "faithfulness": 0.0,
+      "completeness": 0.0,
+      "unsupported_claim_rate": 1.0,
+      "cited_count": 0,
+      "unsupported_claims": [
+        "The retrieved evidence was insufficient to produce a fully grounded answer"
+      ],
+      "gold_citation_precision": 0.2,
+      "gold_citation_recall": 1.0
     }
   ]
 }

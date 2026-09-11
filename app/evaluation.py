@@ -292,3 +292,43 @@ def _average(values: Iterable[float]) -> float:
     """Hàm phụ trợ tính giá trị trung bình an toàn."""
     items = list(values)
     return round(sum(items) / len(items), 4) if items else 0.0
+
+
+DEFAULT_EXTRACTION_CASES: list[ExtractionEvalCase] = [
+    ExtractionEvalCase(
+        id="boeing_suppliers_extracted",
+        question="How many suppliers were rated using social criteria?",
+        query_scope=["boeing-demo"],
+        expected_metric="supplier_assessment",
+        expected_value=724,
+        expected_unit="suppliers",
+        expected_year=2024,
+    ),
+    ExtractionEvalCase(
+        id="nextera_renewables_mw",
+        question="What is NextEra's total wind and solar generation capacity?",
+        query_scope=["nextera-demo"],
+        expected_metric="renewable_energy",
+        expected_value=34000,
+        expected_unit="megawatt",
+        expected_year=2024,
+    ),
+    ExtractionEvalCase(
+        id="alcoa_trir_safety",
+        question="What is Alcoa's Total Recordable Incident Rate?",
+        query_scope=["alcoa-demo"],
+        expected_metric="work_safety",
+        expected_value=1.12,
+        expected_unit=None,
+        expected_year=2024,
+    ),
+    ExtractionEvalCase(
+        id="alcoa_female_diversity",
+        question="What is female representation in professional roles at Alcoa?",
+        query_scope=["alcoa-demo"],
+        expected_metric="diversity_percentage",
+        expected_value=28.5,
+        expected_unit="%",
+        expected_year=2024,
+    ),
+]

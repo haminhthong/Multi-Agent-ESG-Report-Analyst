@@ -25,12 +25,14 @@ dependencies = [
 dev = ["pytest>=8,<10", "ruff>=0.6,<1"]
 ml = ["sentence-transformers>=3,<6"]
 
+
 [project.scripts]
 esg-analyst = "app.cli:main"
 
 [tool.pytest.ini_options]
 pythonpath = ["."]
 testpaths = ["tests"]
+addopts = ["-q", "--basetemp=.pytest_tmp"]
 
 [tool.setuptools.packages.find]
 include = ["app*"]
@@ -44,3 +46,6 @@ target-version = "py311"
 
 [tool.ruff.lint]
 extend-ignore = ["B008", "EXE002"]
+
+[tool.ruff.lint.per-file-ignores]
+"scripts/*" = ["E402"]

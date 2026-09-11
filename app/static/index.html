@@ -4,14 +4,15 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Evidence-Grounded ESG Intelligence & Audit System</title>
-    <meta name="description" content="Nền tảng phân tích ESG dựa trên bằng chứng trang PDF, hybrid retrieval và ma trận bằng chứng chuẩn mực.">
-    <!-- Nạp phông chữ Google -->
+    <meta name="description" content="Nền tảng phân tích ESG dựa trên bằng chứng trang PDF, hybrid retrieval và ma trận đối soát chuẩn mực quốc tế.">
+    <!-- Phông chữ Google cao cấp: Outfit, Plus Jakarta Sans & JetBrains Mono -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700&family=Outfit:wght@400;500;600;700;800&family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="/static/style.css">
 </head>
 <body>
+    <!-- Ánh sáng nền đa sắc mềm mại (Glow Orbs) -->
     <div class="app-background">
         <div class="glow-orb orb-1"></div>
         <div class="glow-orb orb-2"></div>
@@ -19,53 +20,60 @@
     </div>
 
     <div class="layout-wrapper">
-        <!-- Header chính -->
+        <!-- Header chính chuẩn Neo-Executive -->
         <header class="main-header">
             <div class="brand-container">
                 <div class="brand-icon">
-                    <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                         <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
                         <path d="m9 12 2 2 4-4"/>
                     </svg>
                 </div>
                 <div>
-                    <span class="badge-tag">EVIDENCE-FIRST · FOUR-ROLE WORKFLOW · ESG ANALYSIS</span>
+                    <span class="badge-tag">
+                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>
+                        EVIDENCE-FIRST · 4-ROLE PIPELINE · ESG AUDIT
+                    </span>
                     <h1 class="brand-title">ESG Intelligence & Audit System</h1>
                 </div>
             </div>
 
+            <!-- Thanh thống kê KPI kho dữ liệu -->
             <div class="corpus-quick-stats" id="corpus-stats-bar">
                 <div class="stat-pill">
                     <span class="stat-value" id="stat-docs">--</span>
-                    <span class="stat-label">Báo cáo ESG</span>
+                    <span class="stat-label">Báo cáo PDF</span>
                 </div>
                 <div class="stat-pill">
                     <span class="stat-value" id="stat-chunks">--</span>
-                    <span class="stat-label">Chunks (Hybrid)</span>
+                    <span class="stat-label">Chunks Lai</span>
                 </div>
                 <div class="stat-pill">
                     <span class="stat-value" id="stat-companies">--</span>
                     <span class="stat-label">Doanh nghiệp</span>
                 </div>
                 <div class="status-indicator">
-                    <span class="pulse-dot"></span> Pipeline Active
+                    <span class="pulse-dot"></span> Pipeline Sẵn Sàng
                 </div>
             </div>
         </header>
 
-        <!-- Bố cục Dashboard -->
+        <!-- Bố cục Dashboard chính -->
         <main class="dashboard-grid">
             <!-- Cột trái: Quản lý và nạp PDF -->
             <aside class="panel-card ingestion-panel">
                 <div class="panel-header">
-                    <h2>1. Ingestion & Document Intel</h2>
-                    <span class="panel-subtitle">Phân loại trang & trích xuất văn bản / bảng biểu</span>
+                    <h2>
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z"/><polyline points="14 2 14 8 20 8"/></svg>
+                        1. Ingestion & Intel
+                    </h2>
+                    <span class="panel-subtitle">Phân loại trang & trích xuất bảng biểu / văn bản tự động</span>
                 </div>
 
                 <!-- Form tải PDF -->
                 <form id="upload-form" class="upload-zone">
                     <div class="drop-area" id="drop-area">
-                        <svg class="upload-icon" width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+                        <svg class="upload-icon" width="38" height="38" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
                             <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
                             <polyline points="17 8 12 3 7 8"/>
                             <line x1="12" y1="3" x2="12" y2="15"/>
@@ -76,7 +84,7 @@
                     </div>
 
                     <div class="form-inputs-row">
-                        <input type="text" name="company" placeholder="Tên doanh nghiệp (VD: Boeing)" class="input-control">
+                        <input type="text" name="company" placeholder="Doanh nghiệp (VD: Boeing)" class="input-control">
                         <input type="number" name="year" placeholder="Năm (VD: 2024)" class="input-control">
                     </div>
 
@@ -90,7 +98,7 @@
                 <div class="doc-list-section">
                     <div class="doc-list-header">
                         <h3>Danh mục Báo cáo đã index</h3>
-                        <button id="refresh-docs-btn" class="btn-icon" title="Làm mới"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M23 4v6h-6"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg></button>
+                        <button id="refresh-docs-btn" class="btn-icon" title="Làm mới"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M23 4v6h-6"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg></button>
                     </div>
                     <div id="document-list-container" class="doc-cards-wrapper">
                         <div class="doc-skeleton">Đang nạp danh sách báo cáo...</div>
@@ -109,13 +117,13 @@
                         <span>📊 Evidence Matrix (Audit Rubric)</span>
                     </button>
                     <button type="button" class="tab-btn" data-tab="tab-greenwash">
-                        <span>🛡️ Greenwashing Screening Radar</span>
+                        <span>🛡️ Greenwashing Radar</span>
                     </button>
                     <button type="button" class="tab-btn" data-tab="tab-analytics">
                         <span>📈 So sánh & Xu hướng (YoY)</span>
                     </button>
                     <button type="button" class="tab-btn" data-tab="tab-trace">
-                        <span>⚡ Trace Waterfall & Observability</span>
+                        <span>⚡ Trace & Observability</span>
                     </button>
                 </div>
 
@@ -127,7 +135,7 @@
                             <span class="chips-title">Chế độ hoạt động:</span>
                             <label class="mode-radio-label">
                                 <input type="radio" name="analysis_mode" value="qa" checked>
-                                <span>1. Evidence Q&A (Fact Lookup & Trích dẫn trang)</span>
+                                <span>1. Evidence Q&A (Tra cứu Fact & Trích dẫn nguồn)</span>
                             </label>
                             <label class="mode-radio-label">
                                 <input type="radio" name="analysis_mode" value="audit" style="margin-left: 14px;">
@@ -135,9 +143,9 @@
                             </label>
                         </div>
 
-                        <!-- Các câu hỏi mẫu -->
+                        <!-- Các câu hỏi mẫu (Preset Chips) -->
                         <div class="preset-chips-bar">
-                            <span class="chips-title">Mẫu truy vấn nhanh:</span>
+                            <span class="chips-title">Truy vấn nhanh:</span>
                             <button type="button" class="preset-chip" data-query="What are the Scope 1, Scope 2, and Scope 3 greenhouse gas emissions reported?">
                                 🌱 GHG Scope 1/2/3
                             </button>
@@ -145,7 +153,7 @@
                                 🎯 Net-Zero & Baseline
                             </button>
                             <button type="button" class="preset-chip" data-query="Assess employee safety metrics, injury rate, TRIR, and training hours.">
-                                🛡️ Safety & TRIR
+                                👥 Safety & TRIR
                             </button>
                             <button type="button" class="preset-chip" data-query="Check board oversight, business ethics, and third-party independent assurance.">
                                 🏛️ Board & Assurance
@@ -162,7 +170,7 @@
                                 <input type="number" id="top-k-input" value="6" min="1" max="15" class="input-control input-sm">
                             </div>
                             <button type="submit" id="analyze-btn" class="btn btn-primary">
-                                <svg class="btn-sparkle" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m12 3-1.912 5.813a2 2 0 0 1-1.275 1.275L3 12l5.813 1.912a2 2 0 0 1 1.275 1.275L12 21l1.912-5.813a2 2 0 0 1 1.275-1.275L21 12l-5.813-1.912a2 2 0 0 1-1.275-1.275L12 3z"/></svg>
+                                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m12 3-1.912 5.813a2 2 0 0 1-1.275 1.275L3 12l5.813 1.912a2 2 0 0 1 1.275 1.275L12 21l1.912-5.813a2 2 0 0 1 1.275-1.275L21 12l-5.813-1.912a2 2 0 0 1-1.275-1.275L12 3z"/></svg>
                                 Chạy Planner → Evidence → Analysis → Answer
                             </button>
                         </div>
@@ -172,26 +180,33 @@
                     <div id="pipeline-trace-box" class="pipeline-trace-card hidden">
                         <div class="trace-header">
                             <div class="spinner"></div>
-                        <h3>Pipeline đang xử lý...</h3>
+                            <h3>Pipeline 4-Role đang xử lý...</h3>
                         </div>
                         <div class="pipeline-stepper" id="pipeline-stepper-steps">
-                            <div class="step-item" id="step-plan"><span class="step-num">1</span> <span class="step-label">Plan</span></div>
-                            <div class="step-item" id="step-evidence"><span class="step-num">2</span> <span class="step-label">Evidence</span></div>
-                            <div class="step-item" id="step-analysis"><span class="step-num">3</span> <span class="step-label">Analysis</span></div>
-                            <div class="step-item" id="step-answer"><span class="step-num">4</span> <span class="step-label">Answer</span></div>
+                            <div class="step-item" id="step-plan"><span class="step-num">1</span> <span class="step-label">Query Planner</span></div>
+                            <div class="step-item" id="step-evidence"><span class="step-num">2</span> <span class="step-label">Evidence Retriever</span></div>
+                            <div class="step-item" id="step-analysis"><span class="step-num">3</span> <span class="step-label">ESG Analyst</span></div>
+                            <div class="step-item" id="step-answer"><span class="step-num">4</span> <span class="step-label">Answer Generator</span></div>
                         </div>
                     </div>
 
                     <!-- Khu vực kết quả Q&A -->
                     <div id="results-display-area" class="results-area hidden">
-                        <!-- Tổng hợp câu trả lời -->
+                        <!-- Tổng hợp câu trả lời (Executive Summary) -->
                         <div class="result-summary-card">
                             <div class="summary-top">
-                                <span class="card-badge">EVIDENCE-GROUNDED SYNTHESIS</span>
+                                <span class="card-badge">
+                                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M12 2v4"/><path d="m4.93 4.93 2.83 2.83"/><path d="M2 12h4"/><path d="m4.93 19.07 2.83-2.83"/><path d="M12 18v4"/><path d="m19.07 19.07-2.83-2.83"/><path d="M18 12h4"/><path d="m19.07 4.93-2.83 2.83"/></svg>
+                                    EVIDENCE-GROUNDED SYNTHESIS
+                                </span>
                                 <div class="badges-row">
                                     <div id="coverage-badge" class="risk-badge risk-low">COVERAGE: --%</div>
                                     <div id="confidence-badge" class="risk-badge risk-low">CONFIDENCE: --</div>
                                     <div id="engine-badge" class="badge-tag">DETERMINISTIC ($0)</div>
+                                    <button type="button" id="copy-answer-btn" class="copy-btn" title="Sao chép vào clipboard">
+                                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect width="14" height="14" x="8" y="8" rx="2" ry="2"/><path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"/></svg>
+                                        Sao chép
+                                    </button>
                                 </div>
                             </div>
                             <p id="analysis-answer-text" class="answer-text">--</p>
@@ -205,7 +220,7 @@
                                     <span class="pillar-icon">🌱</span>
                                     <div class="pillar-title-group">
                                         <h4>Environment (E)</h4>
-                                        <span class="pillar-sub">Môi trường & Khí hậu</span>
+                                        <span class="pillar-sub">Môi trường & Biến đổi Khí hậu</span>
                                     </div>
                                     <div class="pillar-score-badge" id="score-val-E">--%</div>
                                 </div>
@@ -232,7 +247,7 @@
                                     <span class="pillar-icon">👥</span>
                                     <div class="pillar-title-group">
                                         <h4>Social (S)</h4>
-                                        <span class="pillar-sub">Xã hội & Lao động</span>
+                                        <span class="pillar-sub">Xã hội & An toàn Lao động</span>
                                     </div>
                                     <div class="pillar-score-badge" id="score-val-S">--%</div>
                                 </div>
@@ -259,7 +274,7 @@
                                     <span class="pillar-icon">🏛️</span>
                                     <div class="pillar-title-group">
                                         <h4>Governance (G)</h4>
-                                        <span class="pillar-sub">Quản trị doanh nghiệp</span>
+                                        <span class="pillar-sub">Quản trị Doanh nghiệp & Đạo đức</span>
                                     </div>
                                     <div class="pillar-score-badge" id="score-val-G">--%</div>
                                 </div>
@@ -284,7 +299,10 @@
                         <!-- Trích dẫn nguồn theo trang -->
                         <div class="citations-section">
                             <div class="section-title-row">
-                                <h3>📌 Bằng chứng Nguồn có Kiểm chứng (Page Provenance)</h3>
+                                <h3>
+                                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/><rect x="8" y="2" width="8" height="4" rx="1" ry="1"/></svg>
+                                    Bằng chứng Nguồn có Kiểm chứng (Page Provenance)
+                                </h3>
                                 <span class="citations-count-badge" id="citations-count-text">0 citations</span>
                             </div>
                             <div id="citations-grid-container" class="citations-grid"></div>
@@ -300,13 +318,13 @@
                             <p class="panel-subtitle">Đối soát từng tiêu chí chuẩn mực GRI / SASB với số liệu trích xuất và số trang nguồn.</p>
                         </div>
                         <div class="filter-controls-row">
-                            <select id="matrix-pillar-filter" class="input-control select-control">
+                            <select id="matrix-pillar-filter" class="select-control">
                                 <option value="all">Tất cả Trụ cột (E, S, G)</option>
                                 <option value="E">Environment (E)</option>
                                 <option value="S">Social (S)</option>
                                 <option value="G">Governance (G)</option>
                             </select>
-                            <select id="matrix-status-filter" class="input-control select-control">
+                            <select id="matrix-status-filter" class="select-control">
                                 <option value="all">Tất cả Trạng thái</option>
                                 <option value="found">✓ Đã công bố (Found)</option>
                                 <option value="missing">⚠ Còn thiếu (Missing)</option>
@@ -348,7 +366,7 @@
                         <div id="gw-overall-risk-badge" class="risk-badge risk-low">RISK LEVEL: LOW</div>
                     </div>
 
-                <!-- Tuyên bố giới hạn -->
+                    <!-- Tuyên bố giới hạn -->
                     <div class="disclaimer-alert">
                         <strong>Lưu ý Kiểm toán:</strong> Chỉ số sàng lọc rủi ro (Screening Risk) là công cụ khuyến nghị định hướng chuyên gia đối soát chuyên sâu, không phải kết luận pháp lý hay phán quyết hành vi gian lận của doanh nghiệp.
                     </div>
@@ -357,7 +375,7 @@
                         <!-- Cột 1: Target Credibility -->
                         <div class="signal-card-box">
                             <div class="signal-card-header">
-                                <span class="signal-header-icon">🎯</span>
+                                <span style="font-size:20px;">🎯</span>
                                 <h4>1. Target Credibility</h4>
                             </div>
                             <p class="signal-card-desc">Đối soát năm cơ sở (Baseline Year), cam kết Net-Zero và mốc trung hạn 2030.</p>
@@ -369,7 +387,7 @@
                         <!-- Cột 2: Evidence Quality -->
                         <div class="signal-card-box">
                             <div class="signal-card-header">
-                                <span class="signal-header-icon">📊</span>
+                                <span style="font-size:20px;">📊</span>
                                 <h4>2. Evidence Quality</h4>
                             </div>
                             <p class="signal-card-desc">Mật độ số liệu đo lường, phạm vi bảo đảm độc lập (Assurance) và dấu hiệu phát thải tăng.</p>
@@ -381,7 +399,7 @@
                         <!-- Cột 3: Narrative Risk -->
                         <div class="signal-card-box">
                             <div class="signal-card-header">
-                                <span class="signal-header-icon">📝</span>
+                                <span style="font-size:20px;">📝</span>
                                 <h4>3. Narrative Risk</h4>
                             </div>
                             <p class="signal-card-desc">Tỷ lệ từ ngữ định hướng tham vọng (vague words) so với số liệu chứng minh thực tế.</p>
@@ -436,7 +454,7 @@
 
                             <form id="temporal-form" class="inline-tool-form">
                                 <input type="text" id="temporal-company-input" class="input-control" placeholder="Tên công ty (VD: Boeing)" value="Boeing">
-                                <select id="temporal-metric-input" class="input-control select-control">
+                                <select id="temporal-metric-input" class="select-control">
                                     <option value="scope_1_emissions">Scope 1 GHG Emissions</option>
                                     <option value="scope_2_emissions">Scope 2 GHG Emissions</option>
                                     <option value="scope_3_emissions">Scope 3 GHG Emissions</option>
@@ -460,11 +478,11 @@
                     <div class="tab-inner-header">
                         <div>
                             <h3>Trace: Các bước thực thi pipeline</h3>
-                            <p class="panel-subtitle">Đo lường thời gian xử lý thực tế (ms) của bốn role và service bên dưới.</p>
+                            <p class="panel-subtitle">Đo lường các bước xử lý thực tế của bốn role và service bên dưới.</p>
                         </div>
                         <div class="stat-pill" style="flex-direction:row; gap:8px;">
-                            <span class="stat-label">Tổng độ trễ:</span>
-                            <span class="stat-value" id="total-trace-latency">0 ms</span>
+                            <span class="stat-label">Tổng bước:</span>
+                            <span class="stat-value" id="total-trace-latency">0 bước</span>
                         </div>
                     </div>
 
@@ -476,7 +494,7 @@
                     <!-- Logs chi tiết -->
                     <div class="audit-details-accordion" style="margin-top: 24px;">
                         <details open>
-                            <summary>🔍 Nhật ký các bước xử lý</summary>
+                            <summary>🔍 Nhật ký các bước xử lý (Pipeline Logs)</summary>
                             <div class="accordion-content">
                                 <ul id="trace-logs-list" class="trace-list"></ul>
                             </div>
@@ -497,9 +515,12 @@
         </main>
 
         <footer class="main-footer">
-            <p>© 2026 Evidence-Grounded ESG Intelligence · Offline-first deterministic pipeline · Optional local LLM</p>
+            <p>© 2026 Evidence-Grounded ESG Intelligence Platform · Offline-first Deterministic Core · Audit-Grade Verification</p>
         </footer>
     </div>
+
+    <!-- Toast Container -->
+    <div id="toast-container" class="toast-container"></div>
 
     <script src="/static/app.js"></script>
 </body>

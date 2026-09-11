@@ -7,6 +7,7 @@ from app.extraction.metric_detector import FACT_PATTERNS
 from app.extraction.unit_normalizer import UnitNormalizer
 from app.extraction.value_parser import parse_numeric_value
 from app.extraction.year_resolver import (
+    extract_baseline_year,
     extract_methodology,
     extract_year_for_span,
     resolve_target_year,
@@ -39,14 +40,7 @@ class FactExtractor:
                 doc_year = int(year_match.group(0)) if year_match else None
 
             # 1. Tìm năm cơ sở toàn văn bản
-            baseline_match = re.search(
-                r"(?:\b(?:baseline|base year|from)\s*(20[12]\d)\b|\b(20[12]\d)\s*(?:baseline|base year)\b)",
-                text,
-                re.IGNORECASE,
-            )
-            global_baseline = (
-                int(baseline_match.group(1) or baseline_match.group(2)) if baseline_match else None
-            )
+            global_baseline = extract_baseline_year(text)
 
             # 2. Quét các mẫu metric định lượng
             for metric_key, pattern in FACT_PATTERNS.items():

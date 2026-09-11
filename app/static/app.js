@@ -49,6 +49,7 @@ document.addEventListener('DOMContentLoaded', () => {
     setupDropArea();
     setupMatrixFilters();
     setupAnalyticsForms();
+    setupCopyButton();
     refreshDashboard();
 });
 
@@ -100,16 +101,23 @@ async function loadDocumentList() {
             return;
         }
 
-        docListContainer.innerHTML = docs.map(doc => `
+        docListContainer.innerHTML = docs.map(doc => {
+            const companyName = doc.company || 'Doanh nghiệp';
+            const initial = companyName.charAt(0).toUpperCase();
+            return `
             <div class="doc-item-card">
-                <div class="doc-name">${escapeHtml(doc.name)}</div>
+                <div style="display:flex; align-items:center; gap:9px;">
+                    <div style="width:28px; height:28px; border-radius:6px; background:rgba(16, 185, 129, 0.15); border:1px solid rgba(16, 185, 129, 0.3); color:var(--emerald-400); font-weight:700; font-size:12px; display:flex; align-items:center; justify-content:center; font-family:var(--font-mono); flex-shrink:0;">${initial}</div>
+                    <div class="doc-name">${escapeHtml(doc.name)}</div>
+                </div>
                 <div class="doc-meta">
-                    <span class="doc-badge">${escapeHtml(doc.company || 'Doanh nghiệp')}</span>
+                    <span class="doc-badge">${escapeHtml(companyName)}</span>
                     <span>${doc.year || '----'}</span>
                     <span>${doc.page_count || 0} trang (${Math.round((doc.extraction_quality || 0) * 100)}% text)</span>
                 </div>
             </div>
-        `).join('');
+            `;
+        }).join('');
     } catch (err) {
         docListContainer.innerHTML = '<p class="upload-note">Không thể kết nối máy chủ.</p>';
     }
@@ -355,7 +363,7 @@ function renderAnalysisResults(data) {
                     <span class="cite-doc-name">${escapeHtml(c.document_name)}</span>
                     <span class="cite-page-tag">TRANG ${c.page}</span>
                 </div>
-                ${c.section ? `<div style="font-size:11px; color:#34d399; margin-bottom:4px;">📁 ${escapeHtml(c.section)}</div>` : ''}
+                ${c.section ? `<div style="font-size:11.5px; color:var(--emerald-400); font-weight:600; display:flex; align-items:center; gap:5px;"><span>📁</span> ${escapeHtml(c.section)}</div>` : ''}
                 <div class="cite-excerpt">"${escapeHtml(c.excerpt)}"</div>
             </div>
         `).join('');
@@ -640,6 +648,54 @@ function renderTraceWaterfall(logs, limitations) {
     if (limitationsList) {
         limitationsList.innerHTML = (limitations || []).map(l => `<li>${escapeHtml(l)}</li>`).join('');
     }
+}
+
+// Sao chép câu trả lời và thông báo Toast
+function setupCopyButton() {
+    const copyBtn = document.querySelector('#copy-answer-btn');
+    if (!copyBtn) return;
+    copyBtn.addEventListener('click', () => {
+        const text = analysisAnswerText ? analysisAnswerText.textContent : '';
+        if (!text || text === '--') {
+            showToast('Chưa có câu trả lời để sao chép.');
+            return;
+        }
+        if (navigator.clipboard && navigator.clipboard.writeText) {
+            navigator.clipboard.writeText(text).then(() => {
+                showToast('✓ Đã sao chép câu trả lời vào clipboard!');
+            }).catch(() => {
+                fallbackCopyText(text);
+            });
+        } else {
+            fallbackCopyText(text);
+        }
+    });
+}
+
+function fallbackCopyText(text) {
+    try {
+        const ta = document.createElement('textarea');
+        ta.value = text;
+        document.body.appendChild(ta);
+        ta.select();
+        document.execCommand('copy');
+        document.body.removeChild(ta);
+        showToast('✓ Đã sao chép câu trả lời vào clipboard!');
+    } catch (e) {
+        showToast('Không thể sao chép văn bản.');
+    }
+}
+
+function showToast(msg) {
+    const container = document.getElementById('toast-container');
+    if (!container) return;
+    const toast = document.createElement('div');
+    toast.className = 'toast-message';
+    toast.innerHTML = `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M20 6 9 17l-5-5"/></svg> <span>${escapeHtml(msg)}</span>`;
+    container.appendChild(toast);
+    setTimeout(() => {
+        if (toast.parentNode) toast.parentNode.removeChild(toast);
+    }, 3200);
 }
 
 // Mã hóa HTML ngăn chèn mã độc

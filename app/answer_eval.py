@@ -1,11 +1,11 @@
 import json
 import re
-from collections.abc import Iterable
 from pathlib import Path
 from typing import Any
 
 from pydantic import BaseModel, Field
 
+from app.evaluation import _average
 from app.grounding import CitationVerifier
 
 
@@ -184,8 +184,3 @@ def _evaluate_single_answer(response: Any, case: AnswerEvalCase) -> CaseAnswerMe
         gold_citation_precision=gold_precision,
         gold_citation_recall=gold_recall,
     )
-
-
-def _average(values: Iterable[float]) -> float:
-    items = list(values)
-    return round(sum(items) / len(items), 4) if items else 0.0

@@ -26,9 +26,9 @@
     {
       "system": "Hybrid + Reranker",
       "recall_at_k": 1.0,
-      "mrr": 0.9524,
+      "mrr": 0.9206,
       "precision_at_k": 0.2333,
-      "ndcg_at_k": 0.9648
+      "ndcg_at_k": 0.9372
     }
   ]
 }

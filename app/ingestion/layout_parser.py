@@ -71,14 +71,6 @@ class LayoutParser:
                     except Exception:  # noqa: BLE001 - table extractor is optional
                         tab_df_markdown = ""
 
-                    if not tab_df_markdown:
-                        tab_df_markdown = tab.extract() if hasattr(tab, "extract") else ""
-                        if isinstance(tab_df_markdown, list):
-                            tab_df_markdown = "\n".join(
-                                "| " + " | ".join(str(c or "") for c in r) + " |"
-                                for r in tab_df_markdown
-                            )
-
                     if tab_df_markdown and str(tab_df_markdown).strip():
                         blocks.append(
                             LayoutBlock(
@@ -96,8 +88,8 @@ class LayoutParser:
             except Exception as exc:  # noqa: BLE001 - optional table extraction boundary
                 logger.debug("Table detection error on page %d: %s", page_no, exc)
 
-                # 2. Trích xuất block text cùng bounding box thật.
-                # get_text("blocks") trả về x0, y0, x1, y1, text, block_no, block_type.
+            # 2. Trích xuất block text cùng bounding box thật.
+            # get_text("blocks") trả về x0, y0, x1, y1, text, block_no, block_type.
             page_blocks = page.get_text("blocks")
             for b_idx, block in enumerate(page_blocks, start=1):
                 if len(block) < 5:

@@ -2,6 +2,8 @@ import hashlib
 import json
 import sqlite3
 import uuid
+from collections.abc import Iterator
+from contextlib import contextmanager
 from pathlib import Path
 from typing import Any, Protocol, runtime_checkable
 
@@ -291,12 +293,21 @@ class Store:
             if name not in existing:
                 db.execute(f"ALTER TABLE chunks ADD COLUMN {name} {definition}")
 
-    def connect(self) -> sqlite3.Connection:
-        """Tạo kết nối ngắn hạn tới cơ sở dữ liệu SQLite với cấu hình Row Factory."""
+    @contextmanager
+    def connect(self) -> Iterator[sqlite3.Connection]:
+        """Tạo kết nối ngắn hạn tới cơ sở dữ liệu SQLite với cấu hình Row Factory và tự động đóng."""
         db = sqlite3.connect(self.path)
         db.row_factory = sqlite3.Row
         db.execute("PRAGMA foreign_keys = ON")
-        return db
+        try:
+            with db:
+                yield db
+        finally:
+            db.close()
+
+    def close(self) -> None:
+        """Đóng tài nguyên kho dữ liệu nếu có."""
+        pass
 
     def add_document(
         self,

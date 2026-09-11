@@ -7,6 +7,22 @@ from datetime import UTC, datetime
 _MAX_REPORTING_YEAR = datetime.now(UTC).year + 1
 
 
+BASELINE_YEAR_PATTERN = re.compile(
+    r"(?:\b(?:baseline|base year|from)\s*(20[12]\d)\b|\b(20[12]\d)\s*(?:baseline|base year)\b)",
+    re.IGNORECASE,
+)
+
+
+def extract_baseline_year(text: str, default: int | None = None) -> int | None:
+    """Trích xuất năm cơ sở (baseline year) từ văn bản."""
+    match = BASELINE_YEAR_PATTERN.search(text)
+    if match:
+        val = match.group(1) or match.group(2)
+        if val:
+            return int(val)
+    return default
+
+
 def extract_year_for_span(
     text: str, span_start: int, span_end: int, global_baseline: int | None = None
 ) -> tuple[int | None, int | None]:
@@ -19,16 +35,7 @@ def extract_year_for_span(
     window = text[window_start:window_end]
 
     # Kiểm tra năm cơ sở cục bộ hoặc toàn cục
-    baseline_match = re.search(
-        r"(?:\b(?:baseline|base year|from)\s*(20[12]\d)\b|\b(20[12]\d)\s*(?:baseline|base year)\b)",
-        window,
-        re.IGNORECASE,
-    )
-    baseline_year = (
-        int(baseline_match.group(1) or baseline_match.group(2))
-        if baseline_match
-        else global_baseline
-    )
+    baseline_year = extract_baseline_year(window, default=global_baseline)
 
     # Tìm tất cả năm 4 chữ số trong cửa sổ cục bộ
     all_years = [int(m.group(0)) for m in re.finditer(r"\b20[1234]\d\b", window)]

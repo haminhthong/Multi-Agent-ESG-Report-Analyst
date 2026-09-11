@@ -6,18 +6,18 @@ import sys
 from datetime import UTC, datetime
 from pathlib import Path
 
-if hasattr(sys.stdout, "reconfigure"):
-    sys.stdout.reconfigure(encoding="utf-8")
-
 REPO_ROOT = Path(__file__).resolve().parents[1]
 if str(REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(REPO_ROOT))
+
+if hasattr(sys.stdout, "reconfigure"):
+    sys.stdout.reconfigure(encoding="utf-8")
 
 from app.answer_eval import evaluate_answer_quality, load_answer_eval_cases
 from app.demo import seed_demo
 from app.embeddings import embedding_engine
 from app.evaluation import (
-    ExtractionEvalCase,
+    DEFAULT_EXTRACTION_CASES,
     evaluate_extraction,
     evaluate_retrieval_ablation,
     load_evaluation_cases,
@@ -53,9 +53,22 @@ def main():
     reports_dir.mkdir(parents=True, exist_ok=True)
 
     db_path = REPO_ROOT / "scratch" / "benchmark_run.db"
+    db_path.parent.mkdir(parents=True, exist_ok=True)
     if db_path.exists():
-        db_path.unlink()
-    atexit.register(db_path.unlink, missing_ok=True)
+        try:
+            db_path.unlink()
+        except OSError:
+            pass
+
+    def cleanup_db():
+        try:
+            if db_path.exists():
+                db_path.unlink()
+        except OSError:
+            pass
+
+    atexit.register(cleanup_db)
+
     store = Store(db_path)
     seed_demo(store)
 
@@ -78,45 +91,7 @@ def main():
 
     print("2. Running Structured Fact Extraction Benchmark...")
     pipeline = ESGPipeline(store)
-    extraction_cases = [
-        ExtractionEvalCase(
-            id="boeing_suppliers_extracted",
-            question="How many suppliers were rated using social criteria?",
-            query_scope=["boeing-demo"],
-            expected_metric="supplier_assessment",
-            expected_value=724,
-            expected_unit="suppliers",
-            expected_year=2024,
-        ),
-        ExtractionEvalCase(
-            id="nextera_renewables_mw",
-            question="What is NextEra's total wind and solar generation capacity?",
-            query_scope=["nextera-demo"],
-            expected_metric="renewable_energy",
-            expected_value=34000,
-            expected_unit="megawatt",
-            expected_year=2024,
-        ),
-        ExtractionEvalCase(
-            id="alcoa_trir_safety",
-            question="What is Alcoa's Total Recordable Incident Rate?",
-            query_scope=["alcoa-demo"],
-            expected_metric="work_safety",
-            expected_value=1.12,
-            expected_unit=None,
-            expected_year=2024,
-        ),
-        ExtractionEvalCase(
-            id="alcoa_female_diversity",
-            question="What is female representation in professional roles at Alcoa?",
-            query_scope=["alcoa-demo"],
-            expected_metric="diversity_percentage",
-            expected_value=28.5,
-            expected_unit="%",
-            expected_year=2024,
-        ),
-    ]
-    ext_report = evaluate_extraction(pipeline, extraction_cases)
+    ext_report = evaluate_extraction(pipeline, DEFAULT_EXTRACTION_CASES)
     ext_json = ext_report.model_dump_json(indent=2)
     (reports_dir / "extraction_eval.json").write_text(ext_json, encoding="utf-8")
     print("   -> Saved reports/extraction_eval.json")
@@ -167,9 +142,10 @@ def main():
             },
             "extraction": {
                 "cases_count": ext_report.cases,
-                "precision": ext_report.precision,
-                "recall": ext_report.recall,
-                "f1_score": ext_report.f1_score,
+                "exact_match": ext_report.exact_match,
+                "numeric_tolerance_acc": ext_report.numeric_tolerance_acc,
+                "unit_acc": ext_report.unit_acc,
+                "year_acc": ext_report.year_acc,
             },
             "answer_faithfulness": {
                 "cases_count": ans_report.cases,
@@ -184,6 +160,8 @@ def main():
         json.dumps(manifest, indent=2, ensure_ascii=False), encoding="utf-8"
     )
     print("4. -> Saved reports/benchmark_manifest.json")
+    store.close()
+    cleanup_db()
     print("DONE!")
 
 
